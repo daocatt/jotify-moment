@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3460;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="stars" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e2e2e2;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <circle cx="200" cy="120" r="2" fill="url(#stars)"/>
+  <circle cx="400" cy="80" r="1.5" fill="url(#stars)"/>
+  <circle cx="600" cy="200" r="2" fill="url(#stars)"/>
+  <circle cx="800" cy="100" r="1" fill="url(#stars)"/>
+  <circle cx="1000" cy="150" r="2.5" fill="url(#stars)"/>
+  <circle cx="150" cy="300" r="1.5" fill="url(#stars)"/>
+  <circle cx="350" cy="250" r="2" fill="url(#stars)"/>
+  <circle cx="550" cy="350" r="1" fill="url(#stars)"/>
+  <circle cx="950" cy="280" r="2" fill="url(#stars)"/>
+  <circle cx="1100" cy="320" r="1.5" fill="url(#stars)"/>
+  <circle cx="250" cy="400" r="1" fill="url(#stars)"/>
+  <circle cx="450" cy="380" r="2.5" fill="url(#stars)"/>
+  <circle cx="750" cy="420" r="1.5" fill="url(#stars)"/>
+  <circle cx="900" cy="450" r="2" fill="url(#stars)"/>
+  <circle cx="500" cy="500" r="1" fill="url(#stars)"/>
+  <ellipse cx="600" cy="300" rx="180" ry="100" fill="#533483" opacity="0.15"/>
+  <text x="600" y="310" font-family="sans-serif" font-size="28" fill="#ffffff" opacity="0.4" text-anchor="middle">Jotify Moment</text>
+</svg>

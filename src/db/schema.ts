@@ -1,0 +1,127 @@
+import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
+export const roleEnum = pgEnum("user_role", ["super_admin", "admin", "user"]);
+export const statusEnum = pgEnum("user_status", ["active", "suspended"]);
+export const postStatusEnum = pgEnum("post_status", ["approved", "pending"]);
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  avatar: text("avatar"),
+  bio: text("bio"),
+  coverImage: text("cover_image"),
+  role: roleEnum("role").default("user").notNull(),
+  status: statusEnum("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const posts = pgTable("posts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  // mediaUrls is a JSON array: Array<{ type: 'image' | 'video' | 'audio', url: string, name: string, duration?: number }>
+  mediaUrls: jsonb("media_urls").default("[]").notNull(),
+  ytVideoId: text("yt_video_id"),
+  status: postStatusEnum("status").default("approved").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("posts_user_id_idx").on(table.userId),
+  index("posts_status_idx").on(table.status),
+]);
+
+export const comments = pgTable("comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("comments_post_id_idx").on(table.postId),
+  index("comments_user_id_idx").on(table.userId),
+]);
+
+export const reactions = pgTable("reactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("reactions_post_id_idx").on(table.postId),
+  index("reactions_user_id_idx").on(table.userId),
+  uniqueIndex("reactions_post_user_emoji_idx").on(table.postId, table.userId, table.emoji),
+]);
+
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export const verificationCodes = pgTable("verification_codes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull(),
+  code: text("code").notNull(),
+  type: text("type").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("verification_codes_email_idx").on(table.email),
+  index("verification_codes_lookup_idx").on(table.email, table.code, table.type),
+]);
+
+// Relations
+
+export const usersRelations = relations(users, ({ many }) => ({
+  posts: many(posts),
+  comments: many(comments),
+  reactions: many(reactions),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  author: one(users, {
+    fields: [posts.userId],
+    references: [users.id],
+    relationName: "postAuthor",
+  }),
+  comments: many(comments),
+  reactions: many(reactions),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  post: one(posts, {
+    fields: [comments.postId],
+    references: [posts.id],
+    relationName: "postComments",
+  }),
+  author: one(users, {
+    fields: [comments.userId],
+    references: [users.id],
+    relationName: "commentAuthor",
+  }),
+}));
+
+export const reactionsRelations = relations(reactions, ({ one }) => ({
+  post: one(posts, {
+    fields: [reactions.postId],
+    references: [posts.id],
+    relationName: "postReactions",
+  }),
+  author: one(users, {
+    fields: [reactions.userId],
+    references: [users.id],
+    relationName: "reactionAuthor",
+  }),
+}));

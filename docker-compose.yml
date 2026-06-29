@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: jotify-moment-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: jotify_moment
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jotify-moment-migrate
+    command: ["node", "-e", "const { drizzle } = require('drizzle-orm/postgres-js'); const postgres = require('postgres'); const { migrate } = require('drizzle-orm/postgres-js/migrator'); const client = postgres(process.env.DATABASE_URL); const db = drizzle(client); migrate(db, { migrationsFolder: './src/db/migrations' }).then(() => { console.log('Migration complete'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); });"]
+    environment:
+      - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jotify-moment-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
+      - JWT_SECRET=change-this-to-a-secure-secret-key-in-production
+      - RESEND_API_KEY=your-resend-api-key
+      - EMAIL_FROM=onboarding@resend.dev
+      - TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+      - TELEGRAM_ALLOWED_USER_IDS=your-tg-user-id-1,your-tg-user-id-2
+      - TELEGRAM_WEBHOOK_SECRET=your-webhook-secret-token
+      - TELEGRAM_BOT_AUTHOR_ID=
+      - S3_ACCESS_KEY_ID=
+      - S3_SECRET_ACCESS_KEY=
+      - S3_BUCKET_NAME=
+      - S3_ENDPOINT=
+      - S3_REGION=
+      - S3_PUBLIC_URL=
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+volumes:
+  postgres_data:
