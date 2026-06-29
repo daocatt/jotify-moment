@@ -1,0 +1,57 @@
+name: CI/CD Build and Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate Drizzle migrations
+      run: npm run db:generate
+
+    - name: Build application
+      run: npm run build
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/jotify_moment
+        JWT_SECRET: dummy-secret-for-ci-build
+
+    - name: Run lint
+      run: npm run lint
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-laptop
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        script: |
+          cd ${{ secrets.DEPLOY_PATH }}
+          git pull origin main
+          docker compose build --no-cache web
+          docker compose up -d migrate
+          docker compose up -d web
+          docker compose logs --tail=20 web
