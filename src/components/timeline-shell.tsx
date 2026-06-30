@@ -123,7 +123,7 @@ export function TimelineShell({
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
-  const [sysSettings, setSysSettings] = useState<Record<string, string>>({});
+  const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -148,9 +148,7 @@ export function TimelineShell({
 
   const fetchSettings = useCallback(async () => {
     const res = await getSettingsAction();
-    if (res.settings) {
-      setSysSettings(res.settings);
-    }
+    setSysSettings(res.settings || {});
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -349,7 +347,7 @@ export function TimelineShell({
                 <span>录</span>
               </span>
             </Button>
-            {sysSettings.allow_registration !== "false" && (
+            {sysSettings && sysSettings.allow_registration !== "false" && (
               <Button
                 variant="outline"
                 onClick={() => {
