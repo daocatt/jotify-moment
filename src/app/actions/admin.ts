@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { users, posts, settings, verificationCodes } from "@/db/schema";
-import { eq, desc, lt } from "drizzle-orm";
-import { getSessionUser } from "@/lib/auth";
+import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
+import { eq, desc, lt, and } from "drizzle-orm";
+import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user"] as const;
@@ -84,6 +84,7 @@ export async function getUsersAction() {
         id: true,
         email: true,
         name: true,
+        slug: true,
         avatar: true,
         bio: true,
         role: true,
@@ -210,6 +211,7 @@ export async function approvePostAction(postId: string) {
 
 export async function updateProfileAction(data: {
   name: string;
+  slug: string;
   bio: string;
   avatar: string;
   coverImage: string;
@@ -222,12 +224,20 @@ export async function updateProfileAction(data: {
   if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };
   if (data.coverImage && !isValidUrl(data.coverImage)) return { error: "Invalid cover image URL" };
 
+  const slug = data.slug.trim();
+  if (slug.length > 32) return { error: "主页路径不能超过 32 位" };
+  if (slug) {
+    const existing = await db.query.users.findFirst({ where: eq(users.slug, slug) });
+    if (existing && existing.id !== user.id) return { error: "该主页路径已被占用" };
+  }
+
   try {
     await db
       .update(users)
       .set({
         name: data.name,
-        bio: data.bio,
+        slug: slug || null,
+        bio: data.bio || null,
         avatar: data.avatar || null,
         coverImage: data.coverImage || null,
       })
@@ -237,6 +247,117 @@ export async function updateProfileAction(data: {
     return { success: true };
   } catch (error) {
     console.error("updateProfileAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+export async function updateUserEmailAction(targetUserId: string, email: string) {
+  const user = await getSessionUser();
+  if (!user || user.role !== "super_admin") {
+    return { error: "Only Super Admin can modify emails" };
+  }
+
+  const trimmed = email.trim();
+  if (!trimmed) return { error: "Email cannot be empty" };
+  if (!EMAIL_REGEX.test(trimmed)) return { error: "邮箱格式不正确" };
+
+  try {
+    const target = await db.query.users.findFirst({ where: eq(users.id, targetUserId) });
+    if (!target) return { error: "User not found" };
+
+    const dupe = await db.query.users.findFirst({ where: eq(users.email, trimmed) });
+    if (dupe && dupe.id !== targetUserId) return { error: "该邮箱已被其他用户使用" };
+
+    await db.update(users).set({ email: trimmed }).where(eq(users.id, targetUserId));
+    await db
+      .update(accounts)
+      .set({ accountId: trimmed })
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserEmailAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function adminChangePasswordAction(targetUserId: string, newPassword: string) {
+  const user = await getSessionUser();
+  if (!user || user.role !== "super_admin") {
+    return { error: "Only Super Admin can modify passwords" };
+  }
+
+  if (!newPassword) return { error: "Password cannot be empty" };
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return { error: `密码长度至少为 ${MIN_PASSWORD_LENGTH} 位` };
+  }
+
+  try {
+    const target = await db.query.users.findFirst({ where: eq(users.id, targetUserId) });
+    if (!target) return { error: "User not found" };
+
+    const passwordHash = await hashPassword(newPassword);
+    await db
+      .update(accounts)
+      .set({ password: passwordHash })
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminChangePasswordAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function changePasswordAction(data: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+  if (user.status === "suspended") return { error: "Your account is suspended" };
+
+  const { currentPassword, newPassword } = data;
+
+  if (!currentPassword || !newPassword) {
+    return { error: "请填写当前密码和新密码" };
+  }
+
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return { error: `新密码长度至少为 ${MIN_PASSWORD_LENGTH} 位` };
+  }
+
+  if (currentPassword === newPassword) {
+    return { error: "新密码不能与当前密码相同" };
+  }
+
+  try {
+    const account = await db.query.accounts.findFirst({
+      where: and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")),
+    });
+
+    if (!account || !account.password) {
+      return { error: "当前账户不支持密码修改" };
+    }
+
+    const valid = await verifyPassword(currentPassword, account.password);
+    if (!valid) {
+      return { error: "当前密码不正确" };
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await db
+      .update(accounts)
+      .set({ password: passwordHash })
+      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")));
+
+    return { success: true };
+  } catch (error) {
+    console.error("changePasswordAction error:", error);
     return { error: "Internal server error" };
   }
 }

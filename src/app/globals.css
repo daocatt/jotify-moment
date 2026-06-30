@@ -49,7 +49,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.92 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -72,7 +72,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -123,8 +123,53 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Noto Sans SC first for CJK, Geist for Latin */
+    font-family: 'Noto Sans SC', var(--font-geist-sans), system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  /* ── Dialog / Popover: deeper shadow ── */
+  [data-slot="dialog-content"] {
+    box-shadow:
+      0 20px 60px -8px oklch(0 0 0 / 22%),
+      0 4px 16px -4px oklch(0 0 0 / 12%),
+      0 1px 3px oklch(0 0 0 / 8%);
+  }
+
+  /* ── Button: taller + subtle shadow ── */
+  button[data-slot="button"] {
+    min-height: 2.4rem;
+    box-shadow:
+      0 1px 4px oklch(0 0 0 / 10%),
+      0 0.5px 1px oklch(0 0 0 / 14%);
+    letter-spacing: 0.015em;
+  }
+
+  /* ── Dialog title: prominent ── */
+  [data-slot="dialog-title"] {
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+  }
+
+  /* ── Dialog description: small + muted ── */
+  [data-slot="dialog-description"] {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    margin-top: 0.15rem;
+  }
+
+  /* ── Input: slightly taller to match button ── */
+  input[data-slot="input"] {
+    min-height: 2.4rem;
+    font-size: 0.9rem;
   }
 }

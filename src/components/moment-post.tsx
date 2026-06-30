@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle } from "lucide-react";
-import { toggleReactionAction, addCommentAction, deleteCommentAction, deletePostAction } from "@/app/actions/posts";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2 } from "lucide-react";
+import { toggleReactionAction, addCommentAction, deleteCommentAction, deletePostAction, pinPostAction, unpinPostAction } from "@/app/actions/posts";
 import { approvePostAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ interface MomentPostProps {
     mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
     ytVideoId: string | null;
     status: "approved" | "pending";
+    pinnedAt: Date | null;
     createdAt: Date;
     user: {
       id: string;
@@ -27,6 +29,7 @@ interface MomentPostProps {
       email: string;
       avatar: string | null;
       role: string;
+      slug: string | null;
     };
     comments: Array<{
       id: string;
@@ -59,10 +62,12 @@ interface MomentPostProps {
 const REACTIONS_LIST = ["❤️", "👍", "😂", "😮", "😢", "🎉", "🙏"];
 
 export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: MomentPostProps) {
+  const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -165,6 +170,22 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
     }
   };
 
+  const handleTogglePin = async () => {
+    setPinLoading(true);
+    const res = post.pinnedAt ? await unpinPostAction(post.id) : await pinPostAction(post.id);
+    setPinLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(post.pinnedAt ? "已取消置顶" : "已置顶");
+      onRefresh();
+    }
+  };
+
+  const goToUserHome = () => {
+    if (post.user.slug) router.push(`/${post.user.slug}`);
+  };
+
   // Group reactions by emoji
   const groupedReactions: Record<string, string[]> = {};
   post.reactions.forEach((r) => {
@@ -176,23 +197,39 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
 
   return (
     <div className="flex gap-4 p-4 border-b border-border bg-card">
-      <Avatar className="size-10 sm:size-11 rounded-md shrink-0 border border-border">
+      <button
+        type="button"
+        onClick={goToUserHome}
+        className="size-10 sm:size-11 rounded bg-muted overflow-hidden shrink-0 cursor-pointer"
+        disabled={!post.user.slug}
+      >
         {post.user.avatar ? (
-          <AvatarImage src={post.user.avatar} className="object-cover" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" />
         ) : (
-          <AvatarFallback className="font-semibold text-sm">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground font-semibold text-sm">
             {post.user.name.charAt(0)}
-          </AvatarFallback>
+          </div>
         )}
-      </Avatar>
+      </button>
 
       <div className="flex-1 min-w-0 space-y-2">
         {/* Name and relative time */}
         <div className="flex items-baseline justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#576B95] dark:text-blue-400 text-sm sm:text-base cursor-pointer hover:underline">
+            <button
+              type="button"
+              onClick={goToUserHome}
+              disabled={!post.user.slug}
+              className="font-semibold text-[#576B95] dark:text-blue-400 text-sm sm:text-base cursor-pointer hover:underline disabled:cursor-default disabled:hover:no-underline"
+            >
               {post.user.name}
-            </span>
+            </button>
+            {post.pinnedAt && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                <Pin className="size-3" /> 置顶
+              </span>
+            )}
             {post.status === "pending" && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-500">
                 <AlertCircle className="size-3" /> 待审核
@@ -329,6 +366,20 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
               className="h-7 text-xs border-green-500/30 text-green-600 hover:bg-green-500/10"
             >
               <CheckCircle className="mr-1 size-3.5" /> 审核通过
+            </Button>
+          )}
+
+          {/* Pin/Unpin for admin */}
+          {isAdmin && post.status === "approved" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleTogglePin}
+              disabled={pinLoading}
+              className="size-7 text-muted-foreground hover:text-primary rounded-full"
+              title={post.pinnedAt ? "取消置顶" : "置顶"}
+            >
+              {pinLoading ? <Loader2 className="size-4 animate-spin" /> : post.pinnedAt ? <PinOff size={16} /> : <Pin size={16} />}
             </Button>
           )}
 
