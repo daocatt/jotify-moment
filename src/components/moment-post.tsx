@@ -358,10 +358,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
         <div className="flex items-center gap-4 pt-2 text-xs">
           {/* Reaction Button */}
           <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
+            <button
+              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
               onClick={() => {
                 if (!currentUser) {
                   toast.error("请先登录账户");
@@ -372,7 +370,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               }}
             >
               <Smile size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
-            </Button>
+            </button>
             {showEmojiPicker && (
               <div className="absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full animate-in slide-in-from-bottom-2 duration-150">
                 {REACTIONS_LIST.map((emoji) => (
@@ -388,10 +386,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
             )}
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
+          <button
+            className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
             onClick={() => {
               if (!currentUser) {
                 toast.error("请先登录账户");
@@ -402,18 +398,16 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
             }}
           >
             <MessageSquare size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-green-500 group-hover:fill-green-100 dark:group-hover:fill-green-950/40" />
-          </Button>
+          </button>
 
 
 
           {/* Pin/Unpin for admin */}
           {isAdmin && post.status === "approved" && (
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={handleTogglePin}
               disabled={pinLoading}
-              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
+              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
               title={post.pinnedAt ? "取消置顶" : "置顶"}
             >
               {pinLoading ? (
@@ -423,19 +417,17 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               ) : (
                 <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" />
               )}
-            </Button>
+            </button>
           )}
 
           {/* Delete Button */}
           {(isOwner || isAdmin) && (
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={handleDeletePost}
-              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
+              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
             >
               <Trash2 size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
-            </Button>
+            </button>
           )}
 
           {!isDetailsView && (
