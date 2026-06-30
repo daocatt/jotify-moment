@@ -586,3 +586,87 @@ export async function deleteResendConfigAction() {
     return { error: "删除 Resend 配置失败" };
   }
 }
+
+export async function getStorageConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    for (const s of allSettings) {
+      if (s.key.startsWith("storage_")) {
+        config[s.key] = s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getStorageConfigAction error:", error);
+    return { error: "Failed to load storage configuration" };
+  }
+}
+
+export async function saveStorageConfigAction(data: {
+  mode: string;
+  maxFileSizeMB: string;
+  allowedExtensions: string;
+  s3AccessKeyId: string;
+  s3SecretAccessKey: string;
+  s3BucketName: string;
+  s3Endpoint: string;
+  s3Region: string;
+  s3PublicUrl: string;
+}) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!data.mode || (data.mode !== "local" && data.mode !== "s3")) {
+    return { error: "Invalid storage mode" };
+  }
+
+  if (data.mode === "s3") {
+    if (!data.s3AccessKeyId.trim() || !data.s3SecretAccessKey.trim() || !data.s3BucketName.trim()) {
+      return { error: "S3 模式需要填写 Access Key ID、Secret Access Key 和 Bucket Name" };
+    }
+  }
+
+  const mb = parseInt(data.maxFileSizeMB, 10);
+  if (isNaN(mb) || mb < 1 || mb > 500) {
+    return { error: "文件大小限制必须在 1-500 MB 之间" };
+  }
+
+  if (!data.allowedExtensions.trim()) {
+    return { error: "请至少配置一个允许的文件后缀" };
+  }
+
+  try {
+    const upserts: Record<string, string> = {
+      storage_mode: data.mode,
+      storage_max_file_size_mb: String(mb),
+      storage_allowed_extensions: data.allowedExtensions.trim(),
+      storage_s3_access_key_id: data.s3AccessKeyId.trim(),
+      storage_s3_secret_access_key: data.s3SecretAccessKey.trim(),
+      storage_s3_bucket_name: data.s3BucketName.trim(),
+      storage_s3_endpoint: data.s3Endpoint.trim(),
+      storage_s3_region: data.s3Region.trim() || "auto",
+      storage_s3_public_url: data.s3PublicUrl.trim(),
+    };
+
+    for (const [key, value] of Object.entries(upserts)) {
+      await db.insert(settings).values({ key, value }).onConflictDoUpdate({
+        target: settings.key,
+        set: { value },
+      });
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("saveStorageConfigAction error:", error);
+    return { error: "保存上传配置失败" };
+  }
+}

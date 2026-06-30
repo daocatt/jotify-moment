@@ -23,6 +23,8 @@ import {
   getResendConfigAction,
   saveResendConfigAction,
   deleteResendConfigAction,
+  getStorageConfigAction,
+  saveStorageConfigAction,
 } from "@/app/actions/admin";
 import {
   Shield,
@@ -41,6 +43,9 @@ import {
   RefreshCw,
   Trash2,
   ArrowLeft,
+  Upload,
+  Cloud,
+  HardDrive,
 } from "lucide-react";
 
 interface AdminConsoleClientProps {
@@ -86,6 +91,18 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [resendConfig, setResendConfig] = useState<Record<string, string>>({});
   const [resendActionLoading, setResendActionLoading] = useState(false);
 
+  // Storage states
+  const [storageMode, setStorageMode] = useState<"local" | "s3">("local");
+  const [storageMaxSize, setStorageMaxSize] = useState("50");
+  const [storageExtensions, setStorageExtensions] = useState("jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a");
+  const [s3AccessKeyId, setS3AccessKeyId] = useState("");
+  const [s3SecretAccessKey, setS3SecretAccessKey] = useState("");
+  const [s3BucketName, setS3BucketName] = useState("");
+  const [s3Endpoint, setS3Endpoint] = useState("");
+  const [s3Region, setS3Region] = useState("auto");
+  const [s3PublicUrl, setS3PublicUrl] = useState("");
+  const [storageActionLoading, setStorageActionLoading] = useState(false);
+
   const isSuperAdmin = currentUser.role === "super_admin";
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -97,12 +114,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, settingsRes, pendingRes, tgRes, resendRes] = await Promise.all([
+      const [usersRes, settingsRes, pendingRes, tgRes, resendRes, storageRes] = await Promise.all([
         getUsersAction(),
         getSettingsAction(),
         getPendingPostsAction(),
         getTelegramConfigAction(),
         getResendConfigAction(),
+        getStorageConfigAction(),
       ]);
 
       if (usersRes.users) setUsersList(usersRes.users);
@@ -128,6 +146,18 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         } else {
           setResendFromEmailPrefix("");
         }
+      }
+
+      if (storageRes.config) {
+        setStorageMode((storageRes.config.storage_mode as "local" | "s3") || "local");
+        setStorageMaxSize(storageRes.config.storage_max_file_size_mb || "50");
+        setStorageExtensions(storageRes.config.storage_allowed_extensions || "jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a");
+        setS3AccessKeyId(storageRes.config.storage_s3_access_key_id || "");
+        setS3SecretAccessKey(storageRes.config.storage_s3_secret_access_key || "");
+        setS3BucketName(storageRes.config.storage_s3_bucket_name || "");
+        setS3Endpoint(storageRes.config.storage_s3_endpoint || "");
+        setS3Region(storageRes.config.storage_s3_region || "auto");
+        setS3PublicUrl(storageRes.config.storage_s3_public_url || "");
       }
     } catch {
       toast.error("加载数据失败");
@@ -310,6 +340,46 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const isTgIntegrated = !!tgConfig.telegram_bot_token;
   const isResendIntegrated = !!resendConfig.resend_api_key;
 
+  const handleStorageSave = async () => {
+    if (storageMode === "s3") {
+      if (!s3AccessKeyId.trim() || !s3SecretAccessKey.trim() || !s3BucketName.trim()) {
+        toast.error("S3 模式需要填写 Access Key ID、Secret Access Key 和 Bucket Name");
+        return;
+      }
+    }
+
+    const mb = parseInt(storageMaxSize, 10);
+    if (isNaN(mb) || mb < 1 || mb > 500) {
+      toast.error("文件大小限制必须在 1-500 MB 之间");
+      return;
+    }
+
+    if (!storageExtensions.trim()) {
+      toast.error("请至少配置一个允许的文件后缀");
+      return;
+    }
+
+    setStorageActionLoading(true);
+    const res = await saveStorageConfigAction({
+      mode: storageMode,
+      maxFileSizeMB: storageMaxSize,
+      allowedExtensions: storageExtensions,
+      s3AccessKeyId,
+      s3SecretAccessKey,
+      s3BucketName,
+      s3Endpoint,
+      s3Region,
+      s3PublicUrl,
+    });
+    setStorageActionLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("上传配置保存成功");
+      loadData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-zinc-900 border border-border rounded-2xl shadow-sm">
@@ -363,6 +433,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
             >
               <Mail size={13} />
               <span>Resend 集成</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="storage"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <Upload size={13} />
+              <span>上传配置</span>
             </TabsTrigger>
             <TabsTrigger
               value="posts"
@@ -575,6 +652,182 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       清除邮件配置
                     </Button>
                   )}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Storage/Upload Config Tab */}
+          <TabsContent value="storage" className="space-y-6 mt-0">
+            <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold">上传存储配置</h3>
+                <p className="text-xs text-muted-foreground">配置文件上传的存储方式、大小限制和允许的文件类型</p>
+              </div>
+
+              <div className="grid gap-4 border-t border-border pt-4">
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">存储模式</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setStorageMode("local")}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                        storageMode === "local"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      <HardDrive size={14} />
+                      本地上传
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStorageMode("s3")}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                        storageMode === "s3"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      <Cloud size={14} />
+                      云上传 (S3/R2)
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {storageMode === "local" ? "文件将保存到服务器本地 public/uploads/ 目录" : "文件将上传到 S3 兼容的对象存储服务（如 Cloudflare R2、AWS S3 等）"}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">文件大小限制 (MB)</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={storageMaxSize}
+                      onChange={(e) => setStorageMaxSize(e.target.value)}
+                      placeholder="50"
+                    />
+                    <p className="text-[10px] text-muted-foreground">范围 1-500 MB</p>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">允许的文件后缀</label>
+                    <Input
+                      value={storageExtensions}
+                      onChange={(e) => setStorageExtensions(e.target.value)}
+                      placeholder="jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a"
+                    />
+                    <p className="text-[10px] text-muted-foreground">多个后缀用英文逗号分隔，不含点号</p>
+                  </div>
+                </div>
+
+                {storageMode === "s3" && (
+                  <div className="space-y-4 border-t border-border pt-4">
+                    <div className="flex items-center gap-2">
+                      <Cloud size={14} className="text-muted-foreground" />
+                      <span className="text-xs font-semibold text-muted-foreground">S3 / R2 连接配置</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Access Key ID</label>
+                        <Input
+                          type="password"
+                          placeholder="S3_ACCESS_KEY_ID"
+                          value={s3AccessKeyId}
+                          onChange={(e) => setS3AccessKeyId(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Secret Access Key</label>
+                        <Input
+                          type="password"
+                          placeholder="S3_SECRET_ACCESS_KEY"
+                          value={s3SecretAccessKey}
+                          onChange={(e) => setS3SecretAccessKey(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Bucket Name</label>
+                      <Input
+                        placeholder="S3_BUCKET_NAME"
+                        value={s3BucketName}
+                        onChange={(e) => setS3BucketName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Endpoint</label>
+                        <Input
+                          placeholder="https://xxx.r2.cloudflarestorage.com"
+                          value={s3Endpoint}
+                          onChange={(e) => setS3Endpoint(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Region</label>
+                        <Input
+                          placeholder="auto"
+                          value={s3Region}
+                          onChange={(e) => setS3Region(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Public URL</label>
+                      <Input
+                        placeholder="https://cdn.example.com"
+                        value={s3PublicUrl}
+                        onChange={(e) => setS3PublicUrl(e.target.value)}
+                      />
+                      <p className="text-[10px] text-muted-foreground">文件的公开访问基础 URL，用于生成可访问的文件链接</p>
+                    </div>
+                  </div>
+                )}
+
+                {storageMode === "s3" && s3AccessKeyId && s3BucketName && (
+                  <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-green-600">● 云存储已配置</span>
+                      <span className="text-[10px] text-muted-foreground">配置实时生效</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground space-y-1">
+                      <p>Bucket: {s3BucketName}</p>
+                      <p>Endpoint: {s3Endpoint || "(未配置)"}</p>
+                      <p>Public URL: {s3PublicUrl || "(未配置，将使用 Endpoint/Bucket 拼接)"}</p>
+                      <p>Region: {s3Region || "auto"}</p>
+                    </div>
+                  </div>
+                )}
+
+                {storageMode === "local" && (
+                  <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-blue-600">● 本地存储模式</span>
+                      <span className="text-[10px] text-muted-foreground">文件保存到服务器</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground space-y-1">
+                      <p>存储路径: public/uploads/YYYYMM/</p>
+                      <p>文件名: 32位随机加密哈希.后缀</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-2">
+                  <Button
+                    onClick={handleStorageSave}
+                    disabled={storageActionLoading}
+                    className="text-xs"
+                  >
+                    {storageActionLoading ? <Loader2 className="size-4 animate-spin mr-1" /> : <Upload className="size-3.5 mr-1" />}
+                    保存上传配置
+                  </Button>
                 </div>
               </div>
             </div>
