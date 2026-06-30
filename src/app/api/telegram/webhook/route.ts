@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { posts, users } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq, desc } from "drizzle-orm";
+import { generateUniquePostId } from "@/app/actions/posts";
 
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -191,7 +192,9 @@ export async function POST(req: Request) {
     const postStatus = requireApproval ? "pending" : "approved";
 
     if (content || mediaUrls.length > 0) {
+      const postId = await generateUniquePostId();
       await db.insert(posts).values({
+        id: postId,
         userId: authorUser.id,
         content: content || "Published via Telegram Bot",
         mediaUrls,
