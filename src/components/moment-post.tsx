@@ -374,7 +374,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               <Smile size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
             </Button>
             {showEmojiPicker && (
-              <div className="absolute left-0 bottom-8 z-30 flex items-center gap-1.5 p-1.5 bg-popover border border-border rounded-full shadow-lg animate-in slide-in-from-bottom-2 duration-150">
+              <div className="absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full animate-in slide-in-from-bottom-2 duration-150">
                 {REACTIONS_LIST.map((emoji) => (
                   <button
                     key={emoji}
