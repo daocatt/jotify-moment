@@ -333,7 +333,7 @@ export async function resetPasswordAction(data: {
       and(eq(verificationCodes.email, email), lt(verificationCodes.expiresAt, new Date()))
     );
 
-    return { success: true, email };
+    return { success: true };
   } catch (error) {
     console.error("resetPasswordAction error:", error);
     return { error: "Internal server error" };
