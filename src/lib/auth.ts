@@ -14,6 +14,8 @@ export interface SessionUser {
   coverImage: string | null;
   wechat: string | null;
   telegram: string | null;
+  telegramChatId: string | null;
+  telegramBindToken: string | null;
   github: string | null;
   x: string | null;
   otherLink: string | null;
@@ -98,10 +100,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       coverImage: dbUser.coverImage,
       wechat: dbUser.wechat,
       telegram: dbUser.telegram,
+      telegramChatId: dbUser.telegramChatId,
+      telegramBindToken: dbUser.telegramBindToken,
       github: dbUser.github,
       x: dbUser.x,
       otherLink: dbUser.otherLink,
-      role: (dbUser.role as "super_admin" | "admin" | "user") || "user",
+      role: (dbUser.role as "super_admin" | "admin" | "user" | "guest") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
     };
   } catch (error) {

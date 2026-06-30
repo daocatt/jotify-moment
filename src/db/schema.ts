@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   coverImage: text("cover_image"),
   wechat: text("wechat"),
   telegram: text("telegram"),
+  telegramChatId: text("telegram_chat_id"),
+  telegramBindToken: text("telegram_bind_token"),
   github: text("github"),
   x: text("x"),
   otherLink: text("other_link"),
