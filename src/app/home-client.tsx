@@ -102,7 +102,7 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
       <button
         type="button"
         onClick={() => router.push("/pinned")}
-        className="inline-flex items-center gap-2.5 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-2 text-left max-w-[280px] w-full"
+        className="inline-flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors p-2 text-left max-w-[280px] w-full"
       >
         {/* Images first */}
         {pinnedImages.length > 0 ? (
@@ -119,8 +119,8 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
             ))}
           </div>
         ) : (
-          <div className="flex items-center shrink-0 text-primary">
-            <Pin size={14} className="fill-primary" />
+          <div className="flex items-center shrink-0 text-primary/60">
+            <Pin size={14} className="fill-primary/40" />
           </div>
         )}
         {/* Text after */}
@@ -129,8 +129,8 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
             {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
           </p>
           <p className="text-[10px] text-muted-foreground font-normal">
-            <Pin size={9} className="inline fill-primary mr-0.5" />
-            共 {pinned.posts.length} 条置顶
+            <Pin size={9} className="inline fill-primary/50 mr-0.5" />
+            共 {pinned.posts.length} 条
           </p>
         </div>
       </button>
