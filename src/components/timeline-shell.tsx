@@ -130,6 +130,7 @@ export function TimelineShell({
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const coverRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
 
   const fetchSession = useCallback(async () => {
@@ -180,6 +181,20 @@ export function TimelineShell({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!hasMore || !sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loadingMore) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
 
   const openLightbox = (images: string[], index: number) => {
     setLightboxImages(images);
@@ -567,11 +582,22 @@ export function TimelineShell({
               />
             ))}
             {hasMore && (
-              <div className="flex justify-center py-4">
-                <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loadingMore}>
-                  {loadingMore ? <Loader2 className="animate-spin mr-2 size-4" /> : null}
-                  {loadingMore ? "加载中..." : "加载更多"}
-                </Button>
+              <div>
+                {loadingMore && (
+                  <div className="divide-y divide-border/60">
+                    {[...Array(2)].map((_, i) => (
+                      <div key={`sk-${i}`} className="flex gap-4 p-4 animate-pulse">
+                        <div className="size-10 rounded bg-border/50 shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 bg-border/50 rounded w-24" />
+                          <div className="h-3 bg-border/50 rounded w-full" />
+                          <div className="h-3 bg-border/50 rounded w-3/4" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div ref={sentinelRef} className="h-1" />
               </div>
             )}
           </>

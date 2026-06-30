@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     template: "%s · Jotify Moment",
   },
   description: "记录生活，分享此刻。",
+  icons: {
+    icon: "/api/favicon",
+    shortcut: "/api/favicon",
+    apple: "/api/favicon",
+  },
 };
 
 export default function RootLayout({
