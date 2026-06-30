@@ -101,7 +101,7 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
     <button
       type="button"
       onClick={() => router.push("/pinned")}
-      className="mx-4 my-3 flex items-center gap-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-3 text-left w-[calc(100%-2rem)]"
+      className="mx-4 my-3 inline-flex items-center gap-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-2.5 text-left max-w-[320px] w-full"
     >
       <div className="flex items-center gap-1.5 text-primary shrink-0">
         <Pin size={16} className="fill-primary" />
