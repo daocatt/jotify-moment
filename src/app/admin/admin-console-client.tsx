@@ -277,24 +277,38 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="w-full grid grid-cols-4 h-11 rounded-none p-0 gap-0 border-b border-border/60 bg-zinc-50/50 dark:bg-zinc-950/20">
-          <TabsTrigger value="settings" className="gap-1.5 rounded-none py-3">
-            <Settings size={14} />
-            <span className="text-xs">常规设置</span>
-          </TabsTrigger>
-          <TabsTrigger value="telegram" className="gap-1.5 rounded-none py-3">
-            <Send size={14} />
-            <span className="text-xs">Telegram 集成</span>
-          </TabsTrigger>
-          <TabsTrigger value="posts" className="gap-1.5 rounded-none py-3">
-            <FileText size={14} />
-            <span className="text-xs">发帖审核 ({pendingPosts.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5 rounded-none py-3">
-            <ShieldAlert size={14} />
-            <span className="text-xs">用户管理</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="px-6 pt-4">
+          <TabsList className="inline-flex h-9 items-center justify-start rounded-lg bg-zinc-100/80 dark:bg-zinc-800/80 p-1 text-muted-foreground gap-1">
+            <TabsTrigger
+              value="settings"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <Settings size={13} />
+              <span>常规设置</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="telegram"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <Send size={13} />
+              <span>Telegram 集成</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="posts"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <FileText size={13} />
+              <span>发帖审核 ({pendingPosts.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="users"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <ShieldAlert size={13} />
+              <span>用户管理</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <div className="p-6 flex-1 min-h-[400px]">
           {/* Settings Tab */}
