@@ -145,17 +145,18 @@ export async function registerAction(data: {
 
     let slugCandidate: string | null = null;
     if (userRole !== "guest") {
-      // 5. Set default homepage slug = nickname (handle collisions by appending short id)
-      const baseSlug = name;
-      slugCandidate = baseSlug;
-      let attempt = 0;
-      while (attempt < 10) {
-        const conflict = await db.query.users.findFirst({ where: eq(users.slug, slugCandidate) });
-        if (!conflict || conflict.id === signUpResult.user.id) break;
-        attempt++;
-        slugCandidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+      // 5. Set default homepage slug = unique 8-digit number
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const conflict = await db.query.users.findFirst({ where: eq(users.slug, candidate) });
+        if (!conflict || conflict.id === signUpResult.user.id) {
+          slugCandidate = candidate;
+          break;
+        }
       }
-      await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
+      if (slugCandidate) {
+        await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
+      }
     }
 
     // 6. Delete used code

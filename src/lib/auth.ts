@@ -29,20 +29,25 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-// Backfill a unique slug for a user when it is null. Default = nickname,
-// with a short random suffix on collision. Supports Chinese.
-export async function ensureUserSlug(userId: string, name: string): Promise<string> {
-  const baseSlug = name || userId.slice(0, 8);
-  let candidate = baseSlug;
-  for (let attempt = 0; attempt < 10; attempt++) {
+// Generate a unique 8-digit numeric slug for a user.
+async function generateUniqueUserSlug(userId: string): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const candidate = Math.floor(10000000 + Math.random() * 90000000).toString();
     const conflict = await db.query.users.findFirst({ where: eq(users.slug, candidate) });
-    if (!conflict || conflict.id === userId) {
-      await db.update(users).set({ slug: candidate }).where(eq(users.id, userId));
-      return candidate;
-    }
-    candidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    if (!conflict || conflict.id === userId) return candidate;
   }
-  return candidate;
+  throw new Error("Failed to generate unique user slug");
+}
+
+// Backfill a unique 8-digit numeric slug for a user when it is null.
+export async function ensureUserSlug(userId: string, _name: string): Promise<string> {
+  // If already has an 8-digit numeric slug, return it
+  const existing = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { slug: true } });
+  if (existing?.slug && /^\d{8}$/.test(existing.slug)) return existing.slug;
+
+  const slug = await generateUniqueUserSlug(userId);
+  await db.update(users).set({ slug }).where(eq(users.id, userId));
+  return slug;
 }
 
 // Keeping this as a stub since Better Auth manages its own tokens
