@@ -311,7 +311,7 @@ export function TimelineShell({
       <div className="fixed bottom-10 left-0 md:left-[calc(50%-320px)] md:bottom-16 z-40 flex flex-col gap-2">
         {currentUser ? (
           <>
-            {currentUser.role !== "super_admin" && currentUser.slug && (
+            {currentUser.role !== "super_admin" && (currentUser.slug ? (
               <Button
                 variant="outline"
                 onClick={() => router.push(`/u/${currentUser.slug}`)}
@@ -323,7 +323,19 @@ export function TimelineShell({
                   <span>的</span>
                 </span>
               </Button>
-            )}
+            ) : currentUser.role === "guest" ? (
+              <Button
+                variant="outline"
+                onClick={() => router.push("/guest-profile")}
+                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
+              >
+                <CircleUserRound size={13} className="shrink-0" />
+                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
+                  <span>我</span>
+                  <span>的</span>
+                </span>
+              </Button>
+            ) : null)}
             {renderEditor && (
               <Button
                 variant={editorOpen ? "default" : "outline"}

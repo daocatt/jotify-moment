@@ -236,9 +236,15 @@ export async function updateProfileAction(data: {
   if (user.status === "suspended") return { error: "Your account is suspended" };
 
   if (user.role === "guest") {
-    if (!data.name.trim()) return { error: "Name cannot be empty" };
+    if (!data.name.trim()) return { error: "用户名不能为空" };
+    if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
+    const trimmedName = data.name.trim();
+    const existingName = await db.query.users.findFirst({
+      where: eq(users.name, trimmedName),
+    });
+    if (existingName && existingName.id !== user.id) return { error: "该用户名已被使用" };
     try {
-      await db.update(users).set({ name: data.name }).where(eq(users.id, user.id));
+      await db.update(users).set({ name: trimmedName }).where(eq(users.id, user.id));
       revalidatePath("/");
       return { success: true };
     } catch (error) {
@@ -247,7 +253,8 @@ export async function updateProfileAction(data: {
     }
   }
 
-  if (!data.name.trim()) return { error: "Name cannot be empty" };
+  if (!data.name.trim()) return { error: "用户名不能为空" };
+  if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
   if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };
   if (data.coverImage && !isValidUrl(data.coverImage)) return { error: "Invalid cover image URL" };
 
