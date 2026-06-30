@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
   deleteResendConfigAction,
   getStorageConfigAction,
   saveStorageConfigAction,
+  updateFaviconAction,
 } from "@/app/actions/admin";
 import {
   Shield,
@@ -46,6 +47,7 @@ import {
   Upload,
   Cloud,
   HardDrive,
+  ImagePlus,
 } from "lucide-react";
 
 interface AdminConsoleClientProps {
@@ -71,7 +73,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [activeTab, setActiveTab] = useState("settings");
   const [loading, setLoading] = useState(true);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersHasMore, setUsersHasMore] = useState(false);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
+  const usersCursorRef = useRef<string | null>(null);
+  const usersSentinelRef = useRef<HTMLDivElement | null>(null);
   const [pendingPosts, setPendingPosts] = useState<PendingPost[]>([]);
+  const [faviconUrl, setFaviconUrl] = useState("");
+  const [faviconUploading, setFaviconUploading] = useState(false);
   const [sysSettings, setSysSettings] = useState<Record<string, string>>({
     allow_registration: "true",
     require_approval: "false",
@@ -123,8 +131,15 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         getStorageConfigAction(),
       ]);
 
-      if (usersRes.users) setUsersList(usersRes.users);
-      if (settingsRes.settings) setSysSettings(settingsRes.settings);
+      if (usersRes.users) {
+        setUsersList(usersRes.users);
+        usersCursorRef.current = usersRes.nextCursor ?? null;
+        setUsersHasMore(usersRes.hasMore ?? false);
+      }
+      if (settingsRes.settings) {
+        setSysSettings(settingsRes.settings);
+        setFaviconUrl(settingsRes.settings.site_favicon || "");
+      }
       if (pendingRes.posts) setPendingPosts(pendingRes.posts as PendingPost[]);
       
       if (tgRes.config) {
@@ -166,9 +181,65 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   }, []);
 
+  const loadMoreUsers = useCallback(async () => {
+    if (usersLoadingMore || !usersHasMore) return;
+    setUsersLoadingMore(true);
+    const res = await getUsersAction(usersCursorRef.current ?? undefined);
+    setUsersLoadingMore(false);
+    if (res.users) {
+      setUsersList((prev) => [...prev, ...res.users]);
+      usersCursorRef.current = res.nextCursor ?? null;
+      setUsersHasMore(res.hasMore ?? false);
+    }
+  }, [usersLoadingMore, usersHasMore]);
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("只能上传图片文件");
+      return;
+    }
+    setFaviconUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        const saveRes = await updateFaviconAction(data.url);
+        if (saveRes.error) {
+          toast.error(saveRes.error);
+        } else {
+          setFaviconUrl(data.url);
+          toast.success("图标已更新，刷新页面即可生效");
+        }
+      }
+    } catch {
+      toast.error("图标上传失败");
+    } finally {
+      setFaviconUploading(false);
+      e.target.value = "";
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!usersSentinelRef.current || !usersHasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMoreUsers();
+      },
+      { threshold: 0 }
+    );
+    observer.observe(usersSentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadMoreUsers, usersHasMore]);
 
   const handleToggleSetting = async (key: string, currentValue: string) => {
     const newValue = currentValue === "true" ? "false" : "true";
@@ -482,6 +553,29 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   checked={sysSettings.require_approval === "true"}
                   onCheckedChange={() => handleToggleSetting("require_approval", sysSettings.require_approval)}
                 />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">站点图标 (Favicon)</h3>
+                  <p className="text-xs text-muted-foreground">建议上传正方形图片，用于浏览器标签页图标</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {faviconUrl && (
+                    <img src={faviconUrl} alt="favicon" className="size-8 rounded border border-border object-cover" />
+                  )}
+                  <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium cursor-pointer transition-colors ${faviconUploading ? "opacity-50 pointer-events-none" : "hover:bg-muted/50"}`}>
+                    {faviconUploading ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus size={13} />}
+                    <span>{faviconUrl ? "更换图标" : "上传图标"}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleFaviconUpload}
+                      disabled={faviconUploading}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -1016,6 +1110,20 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   )}
                 </div>
               ))}
+              {usersLoadingMore && (
+                <>
+                  {[...Array(3)].map((_, i) => (
+                    <div key={`skeleton-${i}`} className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/10 animate-pulse">
+                      <div className="size-8 rounded-full bg-border/50 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-border/50 rounded w-24" />
+                        <div className="h-3 bg-border/50 rounded w-40" />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              <div ref={usersSentinelRef} className="h-1" />
             </div>
           </TabsContent>
         </div>

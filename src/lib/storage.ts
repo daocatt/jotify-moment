@@ -80,12 +80,12 @@ async function getStorageConfig(): Promise<{
     mode,
     maxFileSizeMB,
     allowedExtensions,
-    s3AccessKeyId: map.storage_s3_access_key_id || process.env.S3_ACCESS_KEY_ID || "",
-    s3SecretAccessKey: map.storage_s3_secret_access_key || process.env.S3_SECRET_ACCESS_KEY || "",
-    s3BucketName: map.storage_s3_bucket_name || process.env.S3_BUCKET_NAME || "",
-    s3Endpoint: map.storage_s3_endpoint || process.env.S3_ENDPOINT || "",
-    s3Region: map.storage_s3_region || process.env.S3_REGION || "auto",
-    s3PublicUrl: map.storage_s3_public_url || process.env.S3_PUBLIC_URL || "",
+    s3AccessKeyId: map.storage_s3_access_key_id || "",
+    s3SecretAccessKey: map.storage_s3_secret_access_key || "",
+    s3BucketName: map.storage_s3_bucket_name || "",
+    s3Endpoint: map.storage_s3_endpoint || "",
+    s3Region: map.storage_s3_region || "auto",
+    s3PublicUrl: map.storage_s3_public_url || "",
   };
 }
 

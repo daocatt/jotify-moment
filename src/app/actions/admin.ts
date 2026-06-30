@@ -14,8 +14,6 @@ const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "telegram_
 function isValidUrl(url: string): boolean {
   if (!url) return true;
   if (url.startsWith("/uploads/")) return true;
-  const s3PublicUrl = process.env.S3_PUBLIC_URL;
-  if (s3PublicUrl && url.startsWith(s3PublicUrl)) return true;
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" || parsed.protocol === "http:";
@@ -72,7 +70,9 @@ export async function updateSettingAction(key: string, value: string) {
   }
 }
 
-export async function getUsersAction() {
+const ADMIN_USERS_PAGE_SIZE = 20;
+
+export async function getUsersAction(cursor?: string) {
   const user = await getSessionUser();
   if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
     return { error: "Unauthorized" };
@@ -80,7 +80,9 @@ export async function getUsersAction() {
 
   try {
     const allUsers = await db.query.users.findMany({
-      orderBy: [users.createdAt],
+      where: cursor ? lt(users.createdAt, new Date(cursor)) : undefined,
+      orderBy: [desc(users.createdAt)],
+      limit: ADMIN_USERS_PAGE_SIZE + 1,
       columns: {
         id: true,
         email: true,
@@ -93,7 +95,14 @@ export async function getUsersAction() {
         createdAt: true,
       },
     });
-    return { success: true, users: allUsers };
+
+    const hasMore = allUsers.length > ADMIN_USERS_PAGE_SIZE;
+    const items = hasMore ? allUsers.slice(0, ADMIN_USERS_PAGE_SIZE) : allUsers;
+    const nextCursor = hasMore && items.length > 0
+      ? items[items.length - 1].createdAt.toISOString()
+      : null;
+
+    return { success: true, users: items, nextCursor, hasMore };
   } catch (error) {
     console.error("getUsersAction error:", error);
     return { error: "Failed to fetch users" };
@@ -668,5 +677,25 @@ export async function saveStorageConfigAction(data: {
   } catch (error) {
     console.error("saveStorageConfigAction error:", error);
     return { error: "保存上传配置失败" };
+  }
+}
+
+export async function updateFaviconAction(faviconUrl: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await db.insert(settings).values({ key: "site_favicon", value: faviconUrl }).onConflictDoUpdate({
+      target: settings.key,
+      set: { value: faviconUrl },
+    });
+    revalidatePath("/");
+    revalidatePath("/api/favicon");
+    return { success: true };
+  } catch (error) {
+    console.error("updateFaviconAction error:", error);
+    return { error: "更新图标失败" };
   }
 }
