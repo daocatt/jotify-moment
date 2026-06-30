@@ -8,7 +8,6 @@ import { PostEditor } from "@/components/post-editor";
 import { MomentPost } from "@/components/moment-post";
 import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
-import { AdminPanel } from "@/components/admin-panel";
 import { getSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, MessageCircle, Send, Link, Code2, CircleUserRound } from "lucide-react";
@@ -26,6 +25,8 @@ export interface CurrentUser {
   coverImage: string | null;
   wechat: string | null;
   telegram: string | null;
+  telegramChatId: string | null;
+  telegramBindToken: string | null;
   github: string | null;
   x: string | null;
   otherLink: string | null;
@@ -322,7 +323,7 @@ export function TimelineShell({
             {(currentUser.role === "super_admin" || currentUser.role === "admin") && (
               <Button
                 variant="outline"
-                onClick={() => setAdminModalOpen(true)}
+                onClick={() => window.open("/admin", "_blank")}
                 className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
               >
                 <Shield size={13} className="shrink-0" />
@@ -602,18 +603,7 @@ export function TimelineShell({
         />
       )}
 
-      {adminModalOpen && currentUser && (
-        <AdminPanel
-          isOpen={adminModalOpen}
-          currentUser={currentUser}
-          onClose={() => setAdminModalOpen(false)}
-          onRefresh={() => {
-            fetchSession();
-            onRefresh();
-            fetchSettings();
-          }}
-        />
-      )}
+
 
       {lightboxOpen && (
         <Lightbox

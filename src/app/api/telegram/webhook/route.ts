@@ -1,59 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { posts, users } from "@/db/schema";
+import { posts, users, settings } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq, desc } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 
-const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TG_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
-const ALLOWED_IDS = process.env.TELEGRAM_ALLOWED_USER_IDS
-  ? process.env.TELEGRAM_ALLOWED_USER_IDS.split(",").map(id => id.trim())
-  : [];
-
-interface TelegramUpdate {
-  message?: {
-    message_id: number;
-    from: {
-      id: number;
-      is_bot: boolean;
-      first_name: string;
-      username?: string;
-    };
-    chat: {
-      id: number;
-      type: string;
-    };
-    text?: string;
-    caption?: string;
-    photo?: Array<{
-      file_id: string;
-      file_unique_id: string;
-      file_size: number;
-      width: number;
-      height: number;
-    }>;
-    voice?: {
-      file_id: string;
-      file_unique_id: string;
-      duration: number;
-      mime_type: string;
-      file_size: number;
-    };
-    video?: {
-      file_id: string;
-      file_unique_id: string;
-      duration: number;
-      mime_type: string;
-      file_size: number;
-    };
-  };
-}
-
-async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; name: string; mimeType: string }> {
-  if (!TG_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN is not configured");
-
-  const fileInfoResponse = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getFile?file_id=${fileId}`);
+async function downloadTelegramFile(botToken: string, fileId: string): Promise<{ buffer: Buffer; name: string; mimeType: string }> {
+  const fileInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
   const fileInfo = await fileInfoResponse.json();
 
   if (!fileInfo.ok || !fileInfo.result?.file_path) {
@@ -61,7 +14,7 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; n
   }
 
   const filePath = fileInfo.result.file_path;
-  const fileUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`;
+  const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
 
   const fileResponse = await fetch(fileUrl);
   const arrayBuffer = await fileResponse.arrayBuffer();
@@ -87,18 +40,25 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; n
 
 export async function POST(req: Request) {
   try {
-    if (!TG_TOKEN) {
-      return NextResponse.json({ error: "Telegram Bot Token is not configured" }, { status: 500 });
+    // 1. Fetch config settings from the database
+    const botTokenSetting = await db.query.settings.findFirst({ where: eq(settings.key, "telegram_bot_token") });
+    const webhookSecretSetting = await db.query.settings.findFirst({ where: eq(settings.key, "telegram_webhook_secret") });
+
+    if (!botTokenSetting?.value) {
+      return NextResponse.json({ error: "Telegram Bot is not configured in settings" }, { status: 500 });
     }
 
-    if (TG_SECRET) {
+    const botToken = botTokenSetting.value;
+
+    // 2. Validate webhook secret token if it is set in db settings
+    if (webhookSecretSetting?.value) {
       const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-      if (secretHeader !== TG_SECRET) {
+      if (secretHeader !== webhookSecretSetting.value) {
         return NextResponse.json({ error: "Invalid secret token" }, { status: 403 });
       }
     }
 
-    const body = (await req.json()) as TelegramUpdate;
+    const body = await req.json();
     const message = body.message;
 
     if (!message) {
@@ -109,43 +69,83 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Bot messages are not allowed" });
     }
 
-    const userId = message.from.id.toString();
+    const chatId = message.chat.id.toString();
 
-    if (ALLOWED_IDS.length > 0 && !ALLOWED_IDS.includes(userId)) {
-      console.warn(`Unauthorized Telegram access attempt from ID: ${userId}`);
-      return NextResponse.json({ error: "Unauthorized user" }, { status: 403 });
+    // 3. Handle Start parameter binding command
+    if (message.text && message.text.startsWith("/start ")) {
+      const token = message.text.split(" ")[1]?.trim();
+      if (token) {
+        const targetUser = await db.query.users.findFirst({
+          where: eq(users.telegramBindToken, token),
+        });
+
+        if (targetUser) {
+          // Bind the user
+          await db.update(users).set({
+            telegramChatId: chatId,
+            telegram: message.from.username || message.from.first_name,
+            telegramBindToken: null,
+          }).where(eq(users.id, targetUser.id));
+
+          // Reply binding success via Telegram sendMessage API
+          const replyUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+          await fetch(replyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: message.chat.id,
+              text: `🎉 绑定成功！\n现在你可以向我发送文字、图片、语音或视频，它们将自动发布到你的 Moment 朋友圈中。`
+            })
+          }).catch(e => console.error("Reply binding error:", e));
+
+          return NextResponse.json({ ok: true });
+        } else {
+          // Reply token invalid
+          const replyUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+          await fetch(replyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: message.chat.id,
+              text: `❌ 绑定失败：未找到该绑定 Token，或该 Token 已失效。`
+            })
+          }).catch(e => console.error("Reply invalid token error:", e));
+
+          return NextResponse.json({ ok: true });
+        }
+      }
     }
 
-    const botAuthorId = process.env.TELEGRAM_BOT_AUTHOR_ID;
-    let authorUser: { id: string } | null | undefined = null;
-
-    if (botAuthorId) {
-      authorUser = await db.query.users.findFirst({
-        where: eq(users.id, botAuthorId),
-        columns: { id: true },
-      });
-    }
+    // 4. Check if the sender is bound
+    const authorUser = await db.query.users.findFirst({
+      where: eq(users.telegramChatId, chatId),
+      columns: { id: true, role: true },
+    });
 
     if (!authorUser) {
-      authorUser = await db.query.users.findFirst({
-        where: (u, { eq, or }) => or(eq(u.role, "super_admin"), eq(u.role, "admin")),
-        orderBy: [desc(users.createdAt)],
-        columns: { id: true },
-      });
+      // Send message instructing user to bind
+      const replyUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      await fetch(replyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: message.chat.id,
+          text: `⚠️ 你还没有绑定 Moment 账户。\n请去 Moment 个人主页，在资料编辑面板的 “Telegram” 菜单中进行一键绑定。`
+        })
+      }).catch(e => console.error("Reply bind instruction error:", e));
+
+      return NextResponse.json({ error: "Sender not bound" }, { status: 403 });
     }
 
-    if (!authorUser) {
-      return NextResponse.json({ error: "No admin user found to assign the post" }, { status: 500 });
-    }
-
+    // 5. Download media and compile moment content
     const content = message.text || message.caption || "";
     const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }> = [];
 
     if (message.photo && message.photo.length > 0) {
-      const largestPhoto = message.photo.reduce((prev, current) => {
+      const largestPhoto = message.photo.reduce((prev: any, current: any) => {
         return prev.file_size > current.file_size ? prev : current;
       });
-      const { buffer, name, mimeType } = await downloadTelegramFile(largestPhoto.file_id);
+      const { buffer, name, mimeType } = await downloadTelegramFile(botToken, largestPhoto.file_id);
       const uploadRes = await uploadFile(buffer, name, mimeType);
       mediaUrls.push({
         type: "image",
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
     }
 
     if (message.voice) {
-      const { buffer, name, mimeType } = await downloadTelegramFile(message.voice.file_id);
+      const { buffer, name, mimeType } = await downloadTelegramFile(botToken, message.voice.file_id);
       const audioMimeType = mimeType.startsWith("audio/") ? mimeType : "audio/webm";
       const uploadRes = await uploadFile(buffer, name, audioMimeType);
       mediaUrls.push({
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
     }
 
     if (message.video) {
-      const { buffer, name, mimeType } = await downloadTelegramFile(message.video.file_id);
+      const { buffer, name, mimeType } = await downloadTelegramFile(botToken, message.video.file_id);
       const videoMimeType = mimeType.startsWith("video/") ? mimeType : "video/mp4";
       const uploadRes = await uploadFile(buffer, name, videoMimeType);
       mediaUrls.push({
@@ -189,7 +189,10 @@ export async function POST(req: Request) {
       where: (s, { eq }) => eq(s.key, "require_approval"),
     });
     const requireApproval = requireApprovalRow?.value === "true";
-    const postStatus = requireApproval ? "pending" : "approved";
+    
+    // Non-admin users are subjected to require_approval checks
+    const isAdminUser = authorUser.role === "super_admin" || authorUser.role === "admin";
+    const postStatus = (requireApproval && !isAdminUser) ? "pending" : "approved";
 
     if (content || mediaUrls.length > 0) {
       const postId = await generateUniquePostId();

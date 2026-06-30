@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,12 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { updateProfileAction, changePasswordAction } from "@/app/actions/admin";
-import { Camera, Loader2, Eye, EyeOff } from "lucide-react";
+import { updateProfileAction, changePasswordAction, getTelegramBotNameAction, generateTelegramBindTokenAction, unbindUserTelegramAction } from "@/app/actions/admin";
+import { Camera, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { ImageCropModal } from "@/components/image-crop-modal";
 
 interface ProfileEditModalProps {
   user: {
+    id?: string;
     name: string;
     slug: string | null;
     bio: string | null;
@@ -26,6 +27,8 @@ interface ProfileEditModalProps {
     coverImage: string | null;
     wechat: string | null;
     telegram: string | null;
+    telegramChatId?: string | null;
+    telegramBindToken?: string | null;
     github: string | null;
     x: string | null;
     otherLink: string | null;
@@ -47,6 +50,68 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [github, setGithub] = useState(user.github || "");
   const [x, setX] = useState(user.x || "");
   const [otherLink, setOtherLink] = useState(user.otherLink || "");
+
+  const [tgBotName, setTgBotName] = useState<string | null>(null);
+  const [tgChatId, setTgChatId] = useState(user.telegramChatId || null);
+  const [tgBindToken, setTgBindToken] = useState(user.telegramBindToken || null);
+  const [tgLoading, setTgLoading] = useState(false);
+
+  useEffect(() => {
+    getTelegramBotNameAction().then((res) => {
+      if (res.success && res.botName) {
+        setTgBotName(res.botName);
+      }
+    });
+  }, []);
+
+  const handleGenerateBindToken = async () => {
+    setTgLoading(true);
+    const res = await generateTelegramBindTokenAction();
+    setTgLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else if (res.bindToken) {
+      setTgBindToken(res.bindToken);
+      toast.success("Token 生成成功");
+    }
+  };
+
+  const handleUnbindUserTelegram = async () => {
+    if (!confirm("确认解绑 Telegram 吗？")) return;
+    setTgLoading(true);
+    const res = await unbindUserTelegramAction();
+    setTgLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("解绑成功");
+      setTgChatId(null);
+      setTelegram("");
+      onSuccess();
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    setTgLoading(true);
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user?.telegramChatId) {
+          setTgChatId(data.user.telegramChatId);
+          setTelegram(data.user.telegram || "");
+          toast.success("绑定成功！已检测到 Telegram 连接。");
+          onSuccess();
+        } else {
+          toast.error("未检测到绑定，请确认已在 Telegram 发送 /start。");
+        }
+      }
+    } catch {
+      toast.error("检测失败，请稍后重试");
+    } finally {
+      setTgLoading(false);
+    }
+  };
 
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -196,8 +261,9 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className="grid grid-cols-2 w-full">
+            <TabsList className={`grid ${tgBotName ? "grid-cols-3" : "grid-cols-2"} w-full`}>
               <TabsTrigger value="profile">基础资料</TabsTrigger>
+              {tgBotName && <TabsTrigger value="telegram">启用 Telegram</TabsTrigger>}
               <TabsTrigger value="password">修改密码</TabsTrigger>
             </TabsList>
 
@@ -365,6 +431,90 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                 </DialogFooter>
               </form>
             </TabsContent>
+
+            {tgBotName && (
+              <TabsContent value="telegram" className="space-y-4 py-2">
+                <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold">启用 Telegram 发帖</h3>
+                    <p className="text-xs text-muted-foreground">
+                      绑定 Telegram 后，你可以直接通过向机器人发送消息、图片、语音或视频来进行发帖同步。
+                    </p>
+                  </div>
+
+                  {tgChatId ? (
+                    <div className="space-y-3 pt-2">
+                      <div className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                        <CheckCircle size={14} /> 已绑定成功
+                      </div>
+                      <div className="bg-zinc-50 dark:bg-zinc-950 border border-border p-3 rounded text-xs font-mono space-y-1">
+                        <p>账号: @{telegram || "已绑定"}</p>
+                        <p>Chat ID: {tgChatId}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleUnbindUserTelegram}
+                        disabled={tgLoading}
+                        className="text-xs text-red-600 border-red-500/20 hover:bg-red-50"
+                      >
+                        解除绑定
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pt-2">
+                      <div className="text-xs text-amber-600 font-semibold">
+                        ● 未绑定
+                      </div>
+
+                      {tgBindToken ? (
+                        <div className="space-y-3">
+                          <div className="bg-zinc-50 dark:bg-zinc-950 border border-border p-3 rounded text-xs space-y-2">
+                            <p className="font-semibold">绑定方式 1 (推荐)：</p>
+                            <a
+                              href={`https://t.me/${tgBotName}?start=${tgBindToken}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/80 font-medium"
+                            >
+                              🚀 一键打开 Telegram 绑定
+                            </a>
+                            
+                            <p className="font-semibold pt-2">绑定方式 2 (手动)：</p>
+                            <p className="text-muted-foreground text-[11px] leading-relaxed">
+                              在 Telegram 搜索机器人 <span className="font-mono font-semibold text-foreground">@{tgBotName}</span>，然后向其发送：
+                            </p>
+                            <div className="bg-muted p-2 rounded text-[11px] font-mono break-all text-foreground select-all">
+                              /start {tgBindToken}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={handleRefreshStatus}
+                              disabled={tgLoading}
+                              className="text-xs"
+                            >
+                              {tgLoading ? <Loader2 className="animate-spin size-3.5 mr-1" /> : null}
+                              刷新绑定状态
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={handleGenerateBindToken}
+                          disabled={tgLoading}
+                          className="text-xs"
+                        >
+                          {tgLoading ? <Loader2 className="animate-spin size-3.5 mr-1" /> : null}
+                          生成绑定链接与指令
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
 
             <TabsContent value="password">
               <form onSubmit={handlePasswordSubmit} className="space-y-4 py-1">

@@ -3,12 +3,13 @@
 import { db } from "@/db";
 import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
+import crypto from "crypto";
 import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -393,5 +394,134 @@ export async function cleanupExpiredCodesAction() {
   } catch (error) {
     console.error("cleanupExpiredCodesAction error:", error);
     return { error: "Failed to cleanup expired codes" };
+  }
+}
+
+export async function getTelegramConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    for (const s of allSettings) {
+      if (s.key.startsWith("telegram_")) {
+        config[s.key] = s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getTelegramConfigAction error:", error);
+    return { error: "Failed to load telegram configuration" };
+  }
+}
+
+export async function integrateTelegramAction(botName: string, botToken: string, origin: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!botName.trim() || !botToken.trim() || !origin.trim()) {
+    return { error: "参数不完整" };
+  }
+
+  const webhookSecret = crypto.randomUUID().replace(/-/g, "");
+
+  try {
+    // 1. Call setWebhook via fetch
+    const webhookUrl = `${origin}/api/telegram/webhook`;
+    const tgUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${webhookSecret}`;
+    const res = await fetch(tgUrl);
+    const data = await res.json();
+
+    if (!data.ok) {
+      return { error: `Telegram Webhook 注册失败: ${data.description || "未知原因"}` };
+    }
+
+    // 2. Save to settings table
+    await db.insert(settings).values({ key: "telegram_bot_name", value: botName }).onConflictDoUpdate({ target: settings.key, set: { value: botName } });
+    await db.insert(settings).values({ key: "telegram_bot_token", value: botToken }).onConflictDoUpdate({ target: settings.key, set: { value: botToken } });
+    await db.insert(settings).values({ key: "telegram_webhook_secret", value: webhookSecret }).onConflictDoUpdate({ target: settings.key, set: { value: webhookSecret } });
+
+    return { success: true };
+  } catch (error) {
+    console.error("integrateTelegramAction error:", error);
+    return { error: "集成过程中发生网络错误" };
+  }
+}
+
+export async function unbindTelegramAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const botTokenSetting = await db.query.settings.findFirst({
+      where: eq(settings.key, "telegram_bot_token"),
+    });
+
+    if (botTokenSetting?.value) {
+      // Unregister webhook from telegram
+      const tgUrl = `https://api.telegram.org/bot${botTokenSetting.value}/deleteWebhook`;
+      await fetch(tgUrl).catch((e) => console.error("deleteWebhook error:", e));
+    }
+
+    // Delete keys
+    await db.delete(settings).where(eq(settings.key, "telegram_bot_name"));
+    await db.delete(settings).where(eq(settings.key, "telegram_bot_token"));
+    await db.delete(settings).where(eq(settings.key, "telegram_webhook_secret"));
+
+    return { success: true };
+  } catch (error) {
+    console.error("unbindTelegramAction error:", error);
+    return { error: "解绑过程中发生错误" };
+  }
+}
+
+export async function generateTelegramBindTokenAction() {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const bindToken = crypto.randomUUID().replace(/-/g, "");
+
+  try {
+    await db.update(users).set({ telegramBindToken: bindToken }).where(eq(users.id, user.id));
+    return { success: true, bindToken };
+  } catch (error) {
+    console.error("generateTelegramBindTokenAction error:", error);
+    return { error: "生成绑定 Token 失败" };
+  }
+}
+
+export async function unbindUserTelegramAction() {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+
+  try {
+    await db.update(users).set({
+      telegram: null,
+      telegramChatId: null,
+      telegramBindToken: null,
+    }).where(eq(users.id, user.id));
+    return { success: true };
+  } catch (error) {
+    console.error("unbindUserTelegramAction error:", error);
+    return { error: "解绑 Telegram 失败" };
+  }
+}
+
+export async function getTelegramBotNameAction() {
+  try {
+    const setting = await db.query.settings.findFirst({
+      where: eq(settings.key, "telegram_bot_name"),
+    });
+    return { success: true, botName: setting?.value || null };
+  } catch (error) {
+    console.error("getTelegramBotNameAction error:", error);
+    return { success: true, botName: null };
   }
 }
