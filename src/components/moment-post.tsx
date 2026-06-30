@@ -253,7 +253,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                     size="sm"
                     variant="outline"
                     onClick={handleApprovePost}
-                    className="h-[14px] py-0 px-1 text-[8.5px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm leading-none flex items-center"
+                    className="min-h-0 h-[18px] py-0 px-1.5 text-[9px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm leading-none flex items-center"
                   >
                     <CheckCircle className="mr-0.5 size-2.5" /> 审核通过
                   </Button>
@@ -361,7 +361,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
+              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
               onClick={() => {
                 if (!currentUser) {
                   toast.error("请先登录账户");
@@ -371,7 +371,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                 setShowEmojiPicker((prev) => !prev);
               }}
             >
-              <Smile size={18} />
+              <Smile size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
             </Button>
             {showEmojiPicker && (
               <div className="absolute left-0 bottom-8 z-30 flex items-center gap-1.5 p-1.5 bg-popover border border-border rounded-full shadow-lg animate-in slide-in-from-bottom-2 duration-150">
@@ -391,7 +391,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
+            className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
             onClick={() => {
               if (!currentUser) {
                 toast.error("请先登录账户");
@@ -401,7 +401,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               setShowCommentInput((prev) => !prev);
             }}
           >
-            <MessageSquare size={18} />
+            <MessageSquare size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-green-500 group-hover:fill-green-100 dark:group-hover:fill-green-950/40" />
           </Button>
 
 
@@ -413,10 +413,16 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               size="icon"
               onClick={handleTogglePin}
               disabled={pinLoading}
-              className="size-7 min-h-0 text-muted-foreground hover:text-primary rounded-full"
+              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
               title={post.pinnedAt ? "取消置顶" : "置顶"}
             >
-              {pinLoading ? <Loader2 className="size-4 animate-spin" /> : post.pinnedAt ? <PinOff size={16} /> : <Pin size={16} />}
+              {pinLoading ? (
+                <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+              ) : post.pinnedAt ? (
+                <PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" />
+              ) : (
+                <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" />
+              )}
             </Button>
           )}
 
@@ -426,9 +432,9 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               variant="ghost"
               size="icon"
               onClick={handleDeletePost}
-              className="size-7 min-h-0 text-muted-foreground hover:text-destructive rounded-full"
+              className="group size-7 flex items-center justify-center bg-transparent border-none hover:bg-transparent p-0 cursor-pointer min-h-0 rounded-none text-muted-foreground"
             >
-              <Trash2 size={18} />
+              <Trash2 size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
             </Button>
           )}
 
