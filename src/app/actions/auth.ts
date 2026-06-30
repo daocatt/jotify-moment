@@ -135,7 +135,7 @@ export async function registerAction(data: {
       return { error: "Failed to sign up user" };
     }
 
-    const userRole = isFirstUser ? "super_admin" : (role === "guest" ? "guest" : "user");
+    const userRole = isFirstUser ? "super_admin" : (role === "user" ? "user" : "guest");
 
     // 4. Update additional compatibility fields in the database
     await db.update(users).set({
