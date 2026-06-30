@@ -117,7 +117,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           <DialogDescription>
             {mode === "login" && "登录以发布日志或进行互动"}
             {mode === "register" && "创建一个新账户加入 Moment"}
-            {mode === "forgot" && "通过邮箱验证码找回您的密码"}
+            {mode === "forgot" && "通过邮箱重置链接找回您的密码"}
           </DialogDescription>
         </DialogHeader>
 
