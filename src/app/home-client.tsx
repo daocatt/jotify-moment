@@ -125,10 +125,10 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
         )}
         {/* Text after */}
         <div className="flex-1 min-w-0">
-          <p className="text-[16px] text-foreground truncate font-normal leading-snug">
+          <p className="text-[13px] text-foreground truncate font-normal leading-snug">
             {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
           </p>
-          <p className="text-[14px] text-muted-foreground font-normal mt-0.5">
+          <p className="text-[11px] text-muted-foreground font-normal mt-0.5">
             <Pin size={13} className="inline fill-primary/50 mr-0.5" />
             共 {pinned.posts.length} 条
           </p>
