@@ -58,11 +58,12 @@ interface MomentPostProps {
   } | null;
   onOpenLightbox: (images: string[], index: number) => void;
   onRefresh: () => void;
+  onRequireLogin?: () => void;
 }
 
 const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
 
-export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: MomentPostProps) {
+export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin }: MomentPostProps) {
   const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -347,7 +348,14 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
               variant="ghost"
               size="icon"
               className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
-              onClick={() => setShowEmojiPicker((prev) => !prev)}
+              onClick={() => {
+                if (!currentUser) {
+                  toast.error("请先登录账户");
+                  onRequireLogin?.();
+                  return;
+                }
+                setShowEmojiPicker((prev) => !prev);
+              }}
             >
               <Smile size={18} />
             </Button>
@@ -366,12 +374,18 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
             )}
           </div>
 
-          {/* Comment Button */}
           <Button
             variant="ghost"
             size="icon"
             className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
-            onClick={() => setShowCommentInput((prev) => !prev)}
+            onClick={() => {
+              if (!currentUser) {
+                toast.error("请先登录账户");
+                onRequireLogin?.();
+                return;
+              }
+              setShowCommentInput((prev) => !prev);
+            }}
           >
             <MessageSquare size={18} />
           </Button>
