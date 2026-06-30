@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { users, verificationCodes, settings } from "@/db/schema";
+import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie } from "@/lib/auth";
 import { sendVerificationCode } from "@/lib/mail";
@@ -116,34 +116,61 @@ export async function registerAction(data: {
       }
     }
 
-    const passwordHash = await hashPassword(password);
+    const { headers } = await import("next/headers");
+    const { auth } = await import("@/lib/auth-better");
+
+    // 3. Register user via Better Auth
+    const signUpResult = await auth.api.signUpEmail({
+      body: {
+        email,
+        password,
+        name,
+        bio: "",
+        coverImage: "",
+      },
+      headers: await headers(),
+    });
+
+    if (!signUpResult || !signUpResult.user) {
+      return { error: "Failed to sign up user" };
+    }
+
     const role = isFirstUser ? "super_admin" : "user";
 
-    const [newUser] = await db.insert(users).values({
-      email,
-      name,
-      passwordHash,
+    // 4. Update additional compatibility fields in the database
+    await db.update(users).set({
       role,
-      status: "active",
-    }).returning();
+      emailVerified: true,
+    }).where(eq(users.id, signUpResult.user.id));
+
+    // 5. Set default homepage slug = nickname (handle collisions by appending short id)
+    const baseSlug = name;
+    let slugCandidate = baseSlug;
+    let attempt = 0;
+    while (attempt < 10) {
+      const conflict = await db.query.users.findFirst({ where: eq(users.slug, slugCandidate) });
+      if (!conflict || conflict.id === signUpResult.user.id) break;
+      attempt++;
+      slugCandidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
 
     // 6. Delete used code
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 
-    // 7. Auto login
-    const token = await generateToken({
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      role: newUser.role,
-      status: newUser.status,
-    });
-    await setSessionCookie(token);
-
-    return { success: true, user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role } };
-  } catch (error) {
+    return {
+      success: true,
+      user: {
+        id: signUpResult.user.id,
+        email: signUpResult.user.email,
+        name: signUpResult.user.name,
+        role,
+        slug: slugCandidate,
+      }
+    };
+  } catch (error: any) {
     console.error("registerAction error:", error);
-    return { error: "Internal server error" };
+    return { error: error.message || "Internal server error" };
   }
 }
 
@@ -171,32 +198,53 @@ export async function loginAction(data: { email: string; password?: string }) {
       return { error: "Your account has been suspended" };
     }
 
-    const matches = await verifyPassword(password, user.passwordHash);
-    if (!matches) {
+    const { headers } = await import("next/headers");
+    const { auth } = await import("@/lib/auth-better");
+
+    // Authenticate via Better Auth
+    const signInResult = await auth.api.signInEmail({
+      body: {
+        email,
+        password,
+      },
+      headers: await headers(),
+    });
+
+    if (!signInResult || !signInResult.user) {
       return { error: "Invalid email or password" };
     }
 
     LOGIN_RATE_LIMITS.delete(email);
 
-    const token = await generateToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      status: user.status,
-    });
-    await setSessionCookie(token);
-
-    return { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
-  } catch (error) {
+    return {
+      success: true,
+      user: {
+        id: signInResult.user.id,
+        email: signInResult.user.email,
+        name: signInResult.user.name,
+        role: user.role,
+      }
+    };
+  } catch (error: any) {
     console.error("loginAction error:", error);
-    return { error: "Internal server error" };
+    return { error: error.message || "Invalid email or password" };
   }
 }
 
 export async function logoutAction() {
-  await clearSessionCookie();
-  return { success: true };
+  try {
+    const { headers } = await import("next/headers");
+    const { auth } = await import("@/lib/auth-better");
+
+    await auth.api.signOut({
+      headers: await headers(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("logoutAction error:", error);
+    return { error: "Failed to logout" };
+  }
 }
 
 export async function resetPasswordAction(data: {
@@ -234,9 +282,11 @@ export async function resetPasswordAction(data: {
       return { error: "User not found" };
     }
 
-    // Update password
+    // Update password in Better Auth accounts table
     const passwordHash = await hashPassword(password);
-    await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+    await db.update(accounts)
+      .set({ password: passwordHash })
+      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")));
 
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 

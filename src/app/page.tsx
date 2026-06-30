@@ -1,98 +1,35 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AuthModals } from "@/components/auth-modals";
-import { PostEditor } from "@/components/post-editor";
-import { MomentPost } from "@/components/moment-post";
-import { Lightbox } from "@/components/lightbox";
-import { ProfileEditModal } from "@/components/profile-edit-modal";
-import { AdminPanel } from "@/components/admin-panel";
-import { getPostsAction } from "@/app/actions/posts";
-import { getSettingsAction } from "@/app/actions/admin";
+import { useRouter } from "next/navigation";
+import { TimelineShell, type PostData } from "@/components/timeline-shell";
+import { getPostsAction, getPinnedPostsAction, getSuperAdminProfileAction } from "@/app/actions/posts";
 import { toast } from "sonner";
-import { LogIn, LogOut, Shield, UserRoundPen, Moon, Sun, Loader2 } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Pin } from "lucide-react";
 
-interface CurrentUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  status: string;
-  avatar: string | null;
-  bio: string | null;
-  coverImage: string | null;
-}
-
-interface PostData {
-  id: string;
-  userId: string;
-  content: string;
-  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
-  ytVideoId: string | null;
-  status: "approved" | "pending";
-  createdAt: Date;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string | null;
-    role: string;
-  };
-  comments: Array<{
-    id: string;
-    content: string;
-    createdAt: Date;
-    userId: {
-      id: string;
-      name: string;
-      avatar: string | null;
-    };
-  }>;
-  reactions: Array<{
-    id: string;
-    emoji: string;
-    userId: {
-      id: string;
-      name: string;
-    };
-  }>;
+interface PinnedPreview {
+  posts: PostData[];
 }
 
 export default function Home() {
-  const { theme, setTheme } = useTheme();
+  const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [superAdmin, setSuperAdmin] = useState<{
+    id: string; name: string; slug: string | null;
+    avatar: string | null; bio: string | null; coverImage: string | null;
+  } | null>(null);
 
   const [posts, setPosts] = useState<PostData[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const cursorRef = useRef<string | null>(null);
-  const [sysSettings, setSysSettings] = useState<Record<string, string>>({});
 
-  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [pinned, setPinned] = useState<PinnedPreview | null>(null);
 
-  const fetchSession = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUser(data.user);
-      } else {
-        setCurrentUser(null);
-      }
-    } catch {
-      setCurrentUser(null);
-    }
+  const fetchSuperAdmin = useCallback(async () => {
+    const res = await getSuperAdminProfileAction();
+    if (res.user) setSuperAdmin(res.user as typeof superAdmin);
   }, []);
 
   const fetchPosts = useCallback(async (append = false) => {
@@ -119,239 +56,101 @@ export default function Home() {
     }
   }, []);
 
-  const fetchSettings = useCallback(async () => {
-    const res = await getSettingsAction();
-    if (res.settings) {
-      setSysSettings(res.settings);
+  const fetchPinned = useCallback(async () => {
+    const res = await getPinnedPostsAction();
+    if (res.posts) {
+      setPinned({ posts: res.posts as PostData[] });
     }
   }, []);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      setCurrentUser(null);
-      toast.success("已成功登出账户");
-      fetchPosts();
-    } catch {
-      toast.error("登出失败，请重试");
-    }
-  }, [fetchPosts]);
-
   const initData = useCallback(() => {
-    fetchSession();
+    fetchSuperAdmin();
     fetchPosts();
-    fetchSettings();
-  }, [fetchSession, fetchPosts, fetchSettings]);
+    fetchPinned();
+  }, [fetchSuperAdmin, fetchPosts, fetchPinned]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     initData();
   }, [initData]);
 
-  const openLightbox = (images: string[], index: number) => {
-    setLightboxImages(images);
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
+  const handleLoadMore = useCallback(() => {
+    fetchPosts(true);
+  }, [fetchPosts]);
+
+  const handleRefresh = useCallback(() => {
+    fetchPosts();
+    fetchPinned();
+  }, [fetchPosts, fetchPinned]);
+
+  // Pinned entry: collect first 3 images across pinned posts for stacked thumbnails
+  const pinnedImages: string[] = [];
+  if (pinned) {
+    for (const p of pinned.posts) {
+      for (const m of p.mediaUrls) {
+        if (m.type === "image" && pinnedImages.length < 3) {
+          pinnedImages.push(m.url);
+        }
+      }
+    }
+  }
+
+  const pinnedEntry = pinned && pinned.posts.length > 0 ? (
+    <button
+      type="button"
+      onClick={() => router.push("/pinned")}
+      className="mx-4 my-3 flex items-center gap-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-3 text-left w-[calc(100%-2rem)]"
+    >
+      <div className="flex items-center gap-1.5 text-primary shrink-0">
+        <Pin size={16} className="fill-primary" />
+        <span className="text-xs font-semibold">置顶</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-foreground truncate">
+          {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
+        </p>
+        <p className="text-[11px] text-muted-foreground">共 {pinned.posts.length} 条置顶</p>
+      </div>
+      {pinnedImages.length > 0 && (
+        <div className="relative h-10 w-24 shrink-0">
+          {pinnedImages.slice(0, 3).map((img, idx) => (
+            <div
+              key={idx}
+              className="absolute top-0 size-10 rounded overflow-hidden border-2 border-background"
+              style={{ left: idx * 22, zIndex: 3 - idx }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img} alt="" className="h-full w-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+    </button>
+  ) : null;
+
+  if (!superAdmin) {
+    return (
+      <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <div className="size-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+          <span className="text-xs">加载中...</span>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="flex-1 w-full max-w-xl mx-auto bg-background min-h-screen border-x border-border shadow-sm flex flex-col relative pb-10">
-
-      <header className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center bg-black/25 backdrop-blur-sm px-3 py-2 rounded-full border border-white/10 text-white">
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="size-8 rounded-full text-white hover:bg-white/20 hover:text-white"
-          >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {currentUser ? (
-            <>
-              {(currentUser.role === "super_admin" || currentUser.role === "admin") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAdminModalOpen(true)}
-                  className="h-8 text-xs font-medium text-white hover:bg-white/20 hover:text-white flex items-center gap-1"
-                >
-                  <Shield size={14} /> 控制台
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setProfileModalOpen(true)}
-                className="h-8 text-xs font-medium text-white hover:bg-white/20 hover:text-white flex items-center gap-1"
-              >
-                <UserRoundPen size={14} /> 资料
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="h-8 text-xs font-medium text-white hover:bg-white/20 hover:text-white flex items-center gap-1"
-              >
-                <LogOut size={14} /> 登出
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setAuthModalMode("login");
-                  setAuthModalOpen(true);
-                }}
-                className="h-8 text-xs font-medium text-white hover:bg-white/20 hover:text-white flex items-center gap-1"
-              >
-                <LogIn size={14} /> 登录
-              </Button>
-              {sysSettings.allow_registration !== "false" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setAuthModalMode("register");
-                    setAuthModalOpen(true);
-                  }}
-                  className="h-8 text-xs font-medium text-white hover:bg-white/20 hover:text-white"
-                >
-                  注册
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </header>
-
-      <div className="relative w-full h-[260px] sm:h-[300px] bg-neutral-900 overflow-hidden">
-        <img
-          src={currentUser?.coverImage || "/default-cover.jpg"}
-          alt="Timeline Cover"
-          className="w-full h-full object-cover opacity-85"
-        />
-
-        <div className="absolute right-4 bottom-[-30px] flex items-center gap-4 z-10">
-          <div className="text-right pb-4 text-white drop-shadow-md select-none">
-            <h2 className="font-bold text-lg sm:text-xl">
-              {currentUser ? currentUser.name : "Moment 访客"}
-            </h2>
-            <p className="text-xs text-white/70 max-w-[200px] truncate mt-1">
-              {currentUser?.bio || "记录生活，分享此刻"}
-            </p>
-          </div>
-
-          <div className="relative">
-            <Avatar className="size-16 sm:size-20 rounded-xl border-[3px] border-white dark:border-zinc-900 shadow-lg object-cover bg-background">
-              {currentUser?.avatar ? (
-                <img src={currentUser.avatar} alt="User Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <AvatarFallback className="font-bold text-lg sm:text-xl">
-                  {currentUser ? currentUser.name.charAt(0) : "G"}
-                </AvatarFallback>
-              )}
-            </Avatar>
-          </div>
-        </div>
-      </div>
-
-      <div className="h-10"></div>
-
-      {currentUser && (
-        <div className="px-4 py-3 border-b border-border/60">
-          <PostEditor onSuccess={() => { fetchPosts(); fetchSession(); }} />
-        </div>
-      )}
-
-      <div className="flex-1 divide-y divide-border/60">
-        {loadingPosts && posts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="animate-spin text-muted-foreground mb-2" />
-            <span className="text-sm text-muted-foreground">正在加载时间线日志...</span>
-          </div>
-        ) : posts.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground text-sm">
-            时间线上空空如也，发布第一条日志吧。
-          </div>
-        ) : (
-          <>
-            {posts.map((post) => (
-              <MomentPost
-                key={post.id}
-                post={post}
-                currentUser={currentUser}
-                onOpenLightbox={openLightbox}
-                onRefresh={() => { fetchPosts(); fetchSession(); }}
-              />
-            ))}
-            {hasMore && (
-              <div className="flex justify-center py-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fetchPosts(true)}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? <Loader2 className="animate-spin mr-2 size-4" /> : null}
-                  {loadingMore ? "加载中..." : "加载更多"}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {authModalOpen && (
-        <AuthModals
-          isOpen={authModalOpen}
-          initialMode={authModalMode}
-          onClose={() => setAuthModalOpen(false)}
-          onSuccess={() => {
-            fetchSession();
-            fetchPosts();
-          }}
-        />
-      )}
-
-      {profileModalOpen && currentUser && (
-        <ProfileEditModal
-          user={currentUser}
-          isOpen={profileModalOpen}
-          onClose={() => setProfileModalOpen(false)}
-          onSuccess={() => {
-            fetchSession();
-            fetchPosts();
-          }}
-        />
-      )}
-
-      {adminModalOpen && currentUser && (
-        <AdminPanel
-          isOpen={adminModalOpen}
-          currentUser={currentUser}
-          onClose={() => setAdminModalOpen(false)}
-          onRefresh={() => {
-            fetchSession();
-            fetchPosts();
-            fetchSettings();
-          }}
-        />
-      )}
-
-      {lightboxOpen && (
-        <Lightbox
-          images={lightboxImages}
-          activeIndex={lightboxIndex}
-          onChange={setLightboxIndex}
-          onClose={() => setLightboxOpen(false)}
-        />
-      )}
-    </main>
+    <TimelineShell
+      profileUser={superAdmin}
+      posts={posts}
+      loadingPosts={loadingPosts}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      showPostEditor="always"
+      pinnedEntry={pinnedEntry}
+      onAvatarClick={() => superAdmin.slug && router.push(`/${superAdmin.slug}`)}
+    />
   );
 }

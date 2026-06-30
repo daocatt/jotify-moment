@@ -14,6 +14,8 @@ const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const MAX_POST_LENGTH = 1000;
+
 interface PostEditorProps {
   onSuccess: () => void;
 }
@@ -169,6 +171,10 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       toast.error("发点什么吧...");
       return;
     }
+    if (content.length > MAX_POST_LENGTH) {
+      toast.error(`内容不能超过 ${MAX_POST_LENGTH} 字`);
+      return;
+    }
 
     setLoading(true);
     const res = await createPostAction({
@@ -196,12 +202,18 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-4">
-      <Textarea
-        placeholder="这一刻的想法... (支持 Markdown 语法)"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="min-h-[100px] border-none resize-none focus-visible:ring-0 p-0 shadow-none text-base bg-transparent"
-      />
+      <div className="relative">
+        <Textarea
+          placeholder="这一刻的想法... (支持 Markdown 语法)"
+          value={content}
+          maxLength={MAX_POST_LENGTH}
+          onChange={(e) => setContent(e.target.value)}
+          className="min-h-[100px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-base bg-transparent"
+        />
+        <span className={`absolute bottom-1 right-0 text-[10px] ${content.length > MAX_POST_LENGTH * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
+          {content.length}/{MAX_POST_LENGTH}
+        </span>
+      </div>
 
       {/* Media Attachments Preview */}
       {mediaFiles.length > 0 && (

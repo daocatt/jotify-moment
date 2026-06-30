@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { getUsersAction, getSettingsAction, getPendingPostsAction, updateSettingAction, updateUserStatusAction, updateUserRoleAction, approvePostAction } from "@/app/actions/admin";
-import { Shield, UserX, UserCheck, Settings, ShieldAlert, Loader2, CheckCircle, FileText } from "lucide-react";
+import { getUsersAction, getSettingsAction, getPendingPostsAction, updateSettingAction, updateUserStatusAction, updateUserRoleAction, approvePostAction, updateUserEmailAction, adminChangePasswordAction } from "@/app/actions/admin";
+import { Shield, UserX, UserCheck, Settings, ShieldAlert, Loader2, CheckCircle, FileText, Mail, Key, Eye, EyeOff } from "lucide-react";
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -41,6 +42,12 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
   });
 
   const isSuperAdmin = currentUser?.role === "super_admin";
+
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -120,6 +127,57 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
     }
   };
 
+  const openEditor = (user: Record<string, unknown>) => {
+    setEditingUserId(user.id as string);
+    setEditEmail(user.email as string);
+    setEditPassword("");
+    setShowEditPassword(false);
+  };
+
+  const closeEditor = () => {
+    setEditingUserId(null);
+    setEditEmail("");
+    setEditPassword("");
+    setShowEditPassword(false);
+  };
+
+  const handleUpdateEmail = async (targetUserId: string) => {
+    if (!editEmail.trim()) {
+      toast.error("邮箱不能为空");
+      return;
+    }
+    setEditLoading(true);
+    const res = await updateUserEmailAction(targetUserId, editEmail);
+    setEditLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("邮箱已更新");
+      loadData();
+    }
+  };
+
+  const handleAdminChangePassword = async (targetUserId: string) => {
+    if (!editPassword) {
+      toast.error("请输入新密码");
+      return;
+    }
+    if (editPassword.length < 8) {
+      toast.error("密码长度至少为 8 位");
+      return;
+    }
+    setEditLoading(true);
+    const res = await adminChangePasswordAction(targetUserId, editPassword);
+    setEditLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("密码已重置");
+      setEditPassword("");
+      setShowEditPassword(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[640px] max-h-[85vh] flex flex-col">
@@ -137,23 +195,23 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col mt-2">
-            <TabsList className="grid grid-cols-3">
-              <TabsTrigger value="settings" className="flex items-center gap-1">
+            <TabsList variant="line" className="w-full grid grid-cols-3 h-9 rounded-none p-0 gap-0 border-b border-border/60">
+              <TabsTrigger value="settings" className="gap-1.5 rounded-none py-0">
                 <Settings size={14} />
-                全局设置
+                <span className="text-xs">全局设置</span>
               </TabsTrigger>
-              <TabsTrigger value="posts" className="flex items-center gap-1">
+              <TabsTrigger value="posts" className="gap-1.5 rounded-none py-0">
                 <FileText size={14} />
-                审核队列
+                <span className="text-xs">审核队列</span>
                 {pendingPosts.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-amber-500 text-white font-bold">
+                  <span className="inline-flex items-center justify-center min-w-[15px] h-[15px] px-1 text-[10px] rounded-full bg-amber-500 text-white font-bold leading-none">
                     {pendingPosts.length}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-1">
+              <TabsTrigger value="users" className="gap-1.5 rounded-none py-0">
                 <ShieldAlert size={14} />
-                用户管理
+                <span className="text-xs">用户管理</span>
               </TabsTrigger>
             </TabsList>
 
@@ -238,8 +296,9 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
                 {usersList.map((user) => (
                   <div
                     key={user.id as string}
-                    className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/20 text-sm"
+                    className="flex flex-col p-3 border border-border rounded-lg bg-muted/20 text-sm"
                   >
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="size-8 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border border-border">
                         {user.avatar ? (
@@ -298,6 +357,81 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
                         </Button>
                       </div>
                     )}
+
+                    {isSuperAdmin && user.id !== currentUser?.id && (
+                      <div className="flex gap-2 ml-auto sm:ml-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => editingUserId === user.id ? closeEditor() : openEditor(user)}
+                        >
+                          {editingUserId === user.id ? "收起" : "编辑账号"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingUserId === user.id && (
+                    <div className="mt-3 pt-3 border-t border-border space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-normal text-muted-foreground">邮箱</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              type="email"
+                              value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)}
+                              className="h-8 text-xs pl-8"
+                              placeholder="新邮箱"
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs"
+                            disabled={editLoading}
+                            onClick={() => handleUpdateEmail(user.id as string)}
+                          >
+                            {editLoading ? <Loader2 className="size-3.5 animate-spin" /> : "保存邮箱"}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-normal text-muted-foreground">重置密码</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Key size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              type={showEditPassword ? "text" : "password"}
+                              value={editPassword}
+                              onChange={(e) => setEditPassword(e.target.value)}
+                              className="h-8 text-xs pl-8 pr-8"
+                              placeholder="新密码（至少 8 位）"
+                              minLength={8}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowEditPassword((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              tabIndex={-1}
+                            >
+                              {showEditPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            disabled={editLoading || !editPassword}
+                            onClick={() => handleAdminChangePassword(user.id as string)}
+                          >
+                            重置密码
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 ))}
               </div>
