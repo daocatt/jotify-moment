@@ -11,7 +11,7 @@ const PAGE_SIZE = 20;
 const MAX_POST_LENGTH = 1000;
 const MAX_PINNED = 5;
 
-async function generateUniquePostId(): Promise<string> {
+export async function generateUniquePostId(): Promise<string> {
   const maxAttempts = 15;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const id = Math.floor(1000000000 + Math.random() * 9000000000).toString();
