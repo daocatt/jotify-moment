@@ -10,8 +10,10 @@ import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { getSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, Link, CircleUserRound } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, Link, CircleUserRound, Info } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { APP_VERSION } from "@/lib/version";
 
 export interface CurrentUser {
   id: string;
@@ -124,6 +126,7 @@ export function TimelineShell({
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
   const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -251,6 +254,16 @@ export function TimelineShell({
         >
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
+        {!showBackButton && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setAboutOpen(true)}
+            className="size-8 min-h-0 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+          >
+            <Info size={16} />
+          </Button>
+        )}
       </div>
 
       {/* Sticky Top Bar */}
@@ -642,6 +655,29 @@ export function TimelineShell({
           onClose={() => setLightboxOpen(false)}
         />
       )}
+
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader className="items-center text-center">
+            <DialogTitle className="text-xl">Jotify Moment</DialogTitle>
+            <DialogDescription className="text-sm">轻日志 轻生活</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <span className="text-[11px] text-muted-foreground/60">v{APP_VERSION}</span>
+            <span className="text-[11px] text-muted-foreground/60">
+              powered by{" "}
+              <a
+                href="https://zwq.me"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                早晚圈
+              </a>
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
