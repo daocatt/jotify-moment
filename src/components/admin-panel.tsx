@@ -280,9 +280,9 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
                         size="sm"
                         variant="outline"
                         onClick={() => handleApprovePost(post.id)}
-                        className="h-7 text-xs border-green-500/30 text-green-600 hover:bg-green-500/10"
+                        className="h-6 text-[10px] px-2 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm"
                       >
-                        <CheckCircle className="mr-1 size-3.5" /> 审核通过
+                        <CheckCircle className="mr-1 size-3" /> 审核通过
                       </Button>
                     </div>
                   ))}
