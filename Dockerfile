@@ -14,6 +14,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV TZ=Asia/Shanghai
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/.next/standalone ./

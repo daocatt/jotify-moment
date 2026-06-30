@@ -102,7 +102,7 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
       <button
         type="button"
         onClick={() => router.push("/pinned")}
-        className="inline-flex items-center gap-4 rounded-xl border border-primary/30 bg-white hover:bg-yellow-50 transition-colors p-3 text-left max-w-[420px] w-full"
+        className="inline-flex items-center gap-4 rounded-xl border border-primary/30 bg-white dark:bg-primary/5 hover:bg-yellow-50 dark:hover:bg-primary/10 transition-colors p-3 text-left max-w-[420px] w-full"
       >
         {/* Images first */}
         {pinnedImages.length > 0 ? (

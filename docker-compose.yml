@@ -9,6 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: jotify_moment
+      TZ: Asia/Shanghai
     ports:
       - "5432:5432"
     volumes:
@@ -27,6 +28,7 @@ services:
     command: ["node", "-e", "const { drizzle } = require('drizzle-orm/postgres-js'); const postgres = require('postgres'); const { migrate } = require('drizzle-orm/postgres-js/migrator'); const client = postgres(process.env.DATABASE_URL); const db = drizzle(client); migrate(db, { migrationsFolder: './src/db/migrations' }).then(() => { console.log('Migration complete'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); });"]
     environment:
       - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
+      - TZ=Asia/Shanghai
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +43,7 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
+      - TZ=Asia/Shanghai
       - JWT_SECRET=change-this-to-a-secure-secret-key-in-production
       - RESEND_API_KEY=your-resend-api-key
       - EMAIL_FROM=onboarding@resend.dev
