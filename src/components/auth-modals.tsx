@@ -30,7 +30,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-  const [role, setRole] = useState<"user" | "guest">("user");
+  const [role, setRole] = useState<"user" | "guest">("guest");
 
   const startCountdown = () => {
     setCountdown(60);
