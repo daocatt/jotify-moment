@@ -11,6 +11,18 @@ const PAGE_SIZE = 20;
 const MAX_POST_LENGTH = 1000;
 const MAX_PINNED = 5;
 
+async function generateUniquePostId(): Promise<string> {
+  const maxAttempts = 15;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const id = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const existing = await db.query.posts.findFirst({
+      where: eq(posts.id, id),
+    });
+    if (!existing) return id;
+  }
+  throw new Error("Failed to generate unique 10-digit post ID");
+}
+
 export async function createPostAction(data: {
   content: string;
   mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
@@ -32,7 +44,10 @@ export async function createPostAction(data: {
     const requireApproval = requireApprovalRow?.value === "true";
     const status = (requireApproval && user.role === "user") ? "pending" : "approved";
 
+    const postId = await generateUniquePostId();
+
     await db.insert(posts).values({
+      id: postId,
       userId: user.id,
       content: data.content,
       mediaUrls: data.mediaUrls,
@@ -363,6 +378,7 @@ export async function addCommentAction(postId: string, content: string) {
     });
 
     revalidatePath("/");
+    revalidatePath(`/mo/${postId}`);
     return { success: true };
   } catch (error) {
     console.error("addCommentAction error:", error);
@@ -431,5 +447,50 @@ export async function toggleReactionAction(postId: string, emoji: string) {
   } catch (error) {
     console.error("toggleReactionAction error:", error);
     return { error: "Internal server error" };
+  }
+}
+
+export async function getPostByIdAction(postId: string) {
+  const currentUser = await getSessionUser();
+  const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
+
+  try {
+    const post = await db.query.posts.findFirst({
+      where: eq(posts.id, postId),
+      with: {
+        author: {
+          columns: { id: true, name: true, email: true, avatar: true, role: true, slug: true },
+        },
+        comments: {
+          orderBy: [asc(comments.createdAt)],
+          with: { author: { columns: { id: true, name: true, avatar: true } } },
+        },
+        reactions: {
+          with: { author: { columns: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (!post) return { error: "Post not found" };
+
+    // Guard: pending posts are only visible to author and admin
+    if (post.status !== "approved") {
+      const isOwner = currentUser && post.userId === currentUser.id;
+      if (!isOwner && !isAdmin) {
+        return { error: "Unauthorized" };
+      }
+    }
+
+    const mapped = {
+      ...post,
+      user: post.author,
+      comments: post.comments.map((c) => ({ ...c, userId: c.author })),
+      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
+    };
+
+    return { success: true, post: mapped };
+  } catch (error) {
+    console.error("getPostByIdAction error:", error);
+    return { error: "Failed to fetch post details" };
   }
 }
