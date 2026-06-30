@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const roleEnum = pgEnum("user_role", ["super_admin", "admin", "user"]);
@@ -8,14 +8,57 @@ export const postStatusEnum = pgEnum("post_status", ["approved", "pending"]);
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
+  slug: text("slug").unique(),
   avatar: text("avatar"),
   bio: text("bio"),
   coverImage: text("cover_image"),
   role: roleEnum("role").default("user").notNull(),
   status: statusEnum("status").default("active").notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expires_at").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+});
+
+export const accounts = pgTable("accounts", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const verifications = pgTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const posts = pgTable("posts", {
@@ -28,6 +71,7 @@ export const posts = pgTable("posts", {
   mediaUrls: jsonb("media_urls").default("[]").notNull(),
   ytVideoId: text("yt_video_id"),
   status: postStatusEnum("status").default("approved").notNull(),
+  pinnedAt: timestamp("pinned_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("posts_user_id_idx").on(table.userId),

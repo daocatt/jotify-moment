@@ -1,20 +1,17 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET && process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
-  throw new Error("JWT_SECRET environment variable is required in production");
-}
-const FALLBACK_SECRET = "jotify-moment-dev-only-secret-key";
 
 export interface SessionUser {
   id: string;
   email: string;
   name: string;
+  slug: string | null;
+  avatar: string | null;
+  bio: string | null;
+  coverImage: string | null;
   role: "super_admin" | "admin" | "user";
   status: "active" | "suspended";
 }
@@ -27,48 +24,77 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
+// Backfill a unique slug for a user when it is null. Default = nickname,
+// with a short random suffix on collision. Supports Chinese.
+export async function ensureUserSlug(userId: string, name: string): Promise<string> {
+  const baseSlug = name || userId.slice(0, 8);
+  let candidate = baseSlug;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const conflict = await db.query.users.findFirst({ where: eq(users.slug, candidate) });
+    if (!conflict || conflict.id === userId) {
+      await db.update(users).set({ slug: candidate }).where(eq(users.id, userId));
+      return candidate;
+    }
+    candidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+  return candidate;
+}
+
+// Keeping this as a stub since Better Auth manages its own tokens
 export async function generateToken(user: SessionUser): Promise<string> {
-  return jwt.sign(user, JWT_SECRET || FALLBACK_SECRET, { expiresIn: "7d" });
+  return "";
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  if (!token) return null;
-
   try {
-    const decoded = jwt.verify(token, JWT_SECRET || FALLBACK_SECRET) as SessionUser;
-    // Verify user still exists and is active in DB
-    const dbUser = await db.query.users.findFirst({
-      where: eq(users.id, decoded.id),
+    const cookieStore = await cookies();
+    const token = cookieStore.get("better-auth.session_token")?.value;
+    
+    if (!token) {
+      return null;
+    }
+
+    // Direct local query to DB sessions table to find active token, 
+    // completely avoiding localhost HTTP fetch loopbacks in Server Actions.
+    const sessionRow = await db.query.sessions.findFirst({
+      where: eq(sessions.token, token),
     });
+
+    if (!sessionRow || new Date() > sessionRow.expiresAt) {
+      return null;
+    }
+
+    // Find the associated user in users table
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, sessionRow.userId),
+    });
+
     if (!dbUser || dbUser.status === "suspended") {
       return null;
     }
+
+    let slug = dbUser.slug;
+    if (!slug) {
+      slug = await ensureUserSlug(dbUser.id, dbUser.name);
+    }
+
     return {
       id: dbUser.id,
       email: dbUser.email,
       name: dbUser.name,
-      role: dbUser.role,
-      status: dbUser.status,
+      slug,
+      avatar: dbUser.avatar,
+      bio: dbUser.bio,
+      coverImage: dbUser.coverImage,
+      role: (dbUser.role as "super_admin" | "admin" | "user") || "user",
+      status: (dbUser.status as "active" | "suspended") || "active",
     };
-  } catch {
+  } catch (error) {
+    console.error("getSessionUser error:", error);
     return null;
   }
 }
 
-export async function setSessionCookie(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: "/",
-  });
-}
-
-export async function clearSessionCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete("token");
-}
+// Stubs to avoid breaking compilation elsewhere
+export async function setSessionCookie(token: string) {}
+export async function clearSessionCookie() {}

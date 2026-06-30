@@ -11,13 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { updateProfileAction } from "@/app/actions/admin";
-import { Camera, Loader2 } from "lucide-react";
+import { updateProfileAction, changePasswordAction } from "@/app/actions/admin";
+import { Camera, Loader2, Eye, EyeOff } from "lucide-react";
 
 interface ProfileEditModalProps {
   user: {
     name: string;
+    slug: string | null;
     bio: string | null;
     avatar: string | null;
     coverImage: string | null;
@@ -29,19 +31,29 @@ interface ProfileEditModalProps {
 
 export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEditModalProps) {
   const [name, setName] = useState(user.name);
+  const [slug, setSlug] = useState(user.slug || "");
   const [bio, setBio] = useState(user.bio || "");
   const [avatar, setAvatar] = useState(user.avatar || "");
   const [coverImage, setCoverImage] = useState(user.coverImage || "");
-  
+
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+
+  const [activeTab, setActiveTab] = useState("profile");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: "avatar" | "cover") => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Strict validation
     if (!file.type.startsWith("image/")) {
       toast.error("只能上传图片文件");
       return;
@@ -77,7 +89,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("名字不能为空");
@@ -87,6 +99,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
     setLoading(true);
     const res = await updateProfileAction({
       name,
+      slug,
       bio,
       avatar,
       coverImage,
@@ -102,6 +115,41 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
     }
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("请填写完整表单项");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("新密码长度至少为 8 位");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("两次输入的新密码不一致");
+      return;
+    }
+
+    setPasswordLoading(true);
+    const res = await changePasswordAction({ currentPassword, newPassword });
+    setPasswordLoading(false);
+
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("密码已成功修改");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowCurrent(false);
+      setShowNew(false);
+      setShowConfirm(false);
+      setActiveTab("profile");
+      onSuccess();
+      onClose();
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[480px]">
@@ -109,92 +157,201 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           <DialogTitle>编辑个人资料</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          {/* Cover image editor */}
-          <div className="relative h-32 w-full bg-muted rounded overflow-hidden group">
-            {coverImage ? (
-              <img src={coverImage} alt="Cover" className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
-                无封面背景图
-              </div>
-            )}
-            <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-              {uploadingCover ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <div className="flex flex-col items-center gap-1">
-                  <Camera size={20} />
-                  <span className="text-xs">更换背景</span>
-                </div>
-              )}
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={(e) => handleFileUpload(e, "cover")}
-                disabled={uploadingCover}
-              />
-            </label>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="profile">基础资料</TabsTrigger>
+            <TabsTrigger value="password">修改密码</TabsTrigger>
+          </TabsList>
 
-          {/* Avatar editor */}
-          <div className="flex items-center gap-4">
-            <div className="relative h-16 w-16 rounded-full overflow-hidden bg-muted group border border-border">
-              {avatar ? (
-                <img src={avatar} alt="Avatar" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-muted-foreground font-bold">
-                  {name.charAt(0)}
-                </div>
-              )}
-              <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-                {uploadingAvatar ? (
-                  <Loader2 className="animate-spin size-4" />
+          <TabsContent value="profile">
+            <form onSubmit={handleProfileSubmit} className="space-y-4 py-1">
+              {/* Cover image editor */}
+              <div className="relative h-32 w-full bg-muted rounded overflow-hidden group">
+                {coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={coverImage} alt="Cover" className="h-full w-full object-cover" />
                 ) : (
-                  <Camera size={14} />
+                  <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
+                    无封面背景图
+                  </div>
                 )}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e, "avatar")}
-                  disabled={uploadingAvatar}
-                />
-              </label>
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">名字</label>
-              <Input
-                type="text"
-                placeholder="您的展示名字"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+                <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                  {uploadingCover ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <Camera size={20} />
+                      <span className="text-xs">更换背景</span>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e, "cover")}
+                    disabled={uploadingCover}
+                  />
+                </label>
+              </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">个性签名 / 简介</label>
-            <Textarea
-              placeholder="介绍一下你自己..."
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
-            />
-          </div>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="relative h-16 w-16 rounded-none overflow-hidden bg-muted group border border-border shrink-0">
+                    {avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatar} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-muted-foreground font-medium text-lg">
+                        {name.charAt(0)}
+                      </div>
+                    )}
+                    <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                      {uploadingAvatar ? (
+                        <Loader2 className="animate-spin size-4" />
+                      ) : (
+                        <Camera size={14} />
+                      )}
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, "avatar")}
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs font-normal text-muted-foreground">名字</label>
+                    <Input
+                      type="text"
+                      placeholder="您的展示名字"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
 
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              取消
-            </Button>
-            <Button type="submit" disabled={loading || uploadingAvatar || uploadingCover}>
-              {loading && <Loader2 className="mr-2 animate-spin size-4" />}
-              保存
-            </Button>
-          </DialogFooter>
-        </form>
+                <div className="space-y-1">
+                  <label className="text-xs font-normal text-muted-foreground">个人简介</label>
+                  <Textarea
+                    placeholder="介绍一下你自己..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-normal text-muted-foreground">主页路径</label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground shrink-0">/</span>
+                    <Input
+                      type="text"
+                      placeholder="昵称或自定义路径，支持中文"
+                      value={slug}
+                      maxLength={32}
+                      onChange={(e) => setSlug(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">最大 32 位，留空则使用默认。修改后主页地址将变为 /你的路径</p>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={loading || uploadingAvatar || uploadingCover}>
+                  {loading && <Loader2 className="mr-2 animate-spin size-4" />}
+                  保存
+                </Button>
+              </DialogFooter>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="password">
+            <form onSubmit={handlePasswordSubmit} className="space-y-4 py-1">
+              <div className="space-y-1">
+                <label className="text-xs font-normal text-muted-foreground">当前密码</label>
+                <div className="relative">
+                  <Input
+                    type={showCurrent ? "text" : "password"}
+                    placeholder="请输入当前密码"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                    tabIndex={-1}
+                  >
+                    {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-normal text-muted-foreground">新密码</label>
+                <div className="relative">
+                  <Input
+                    type={showNew ? "text" : "password"}
+                    placeholder="至少 8 位"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                    tabIndex={-1}
+                  >
+                    {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-normal text-muted-foreground">确认新密码</label>
+                <div className="relative">
+                  <Input
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="再次输入新密码"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                    tabIndex={-1}
+                  >
+                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={onClose} disabled={passwordLoading}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={passwordLoading}>
+                  {passwordLoading && <Loader2 className="mr-2 animate-spin size-4" />}
+                  修改密码
+                </Button>
+              </DialogFooter>
+            </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
