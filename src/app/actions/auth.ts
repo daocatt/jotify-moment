@@ -80,9 +80,8 @@ export async function registerAction(data: {
   name: string;
   code: string;
   password?: string;
-  role?: "user" | "guest";
 }) {
-  const { email, name, code, password, role } = data;
+  const { email, name, code, password } = data;
 
   if (!email || !name || !code || !password) {
     return { error: "All fields are required" };
@@ -153,7 +152,7 @@ export async function registerAction(data: {
       return { error: "Failed to sign up user" };
     }
 
-    const userRole = isFirstUser ? "super_admin" : (role === "user" ? "user" : "guest");
+    const userRole = isFirstUser ? "super_admin" : "guest";
 
     // 4. Update additional compatibility fields in the database
     await db.update(users).set({
@@ -191,7 +190,7 @@ export async function registerAction(data: {
         id: signUpResult.user.id,
         email: signUpResult.user.email,
         name: signUpResult.user.name,
-        role,
+        role: userRole,
         slug: slugCandidate,
       }
     };
