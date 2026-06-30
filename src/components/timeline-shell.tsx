@@ -46,7 +46,6 @@ export interface PostData {
   user: {
     id: string;
     name: string;
-    email: string;
     avatar: string | null;
     role: string;
     slug: string | null;

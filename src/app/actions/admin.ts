@@ -23,6 +23,11 @@ function isValidUrl(url: string): boolean {
 }
 
 export async function getSettingsAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
   try {
     const allSettings = await db.query.settings.findMany();
     const settingsMap: Record<string, string> = {};
@@ -402,6 +407,11 @@ export async function changePasswordAction(data: {
 }
 
 export async function cleanupExpiredCodesAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
   try {
     await db.delete(verificationCodes).where(
       lt(verificationCodes.expiresAt, new Date())
@@ -422,9 +432,12 @@ export async function getTelegramConfigAction() {
   try {
     const allSettings = await db.query.settings.findMany();
     const config: Record<string, string> = {};
+    const SECRET_KEYS = new Set(["telegram_bot_token", "telegram_webhook_secret"]);
     for (const s of allSettings) {
       if (s.key.startsWith("telegram_")) {
-        config[s.key] = s.value;
+        config[s.key] = SECRET_KEYS.has(s.key) && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
       }
     }
     return { success: true, config };
@@ -553,7 +566,9 @@ export async function getResendConfigAction() {
     const config: Record<string, string> = {};
     for (const s of allSettings) {
       if (s.key.startsWith("resend_")) {
-        config[s.key] = s.value;
+        config[s.key] = s.key === "resend_api_key" && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
       }
     }
     return { success: true, config };
@@ -614,7 +629,9 @@ export async function getStorageConfigAction() {
     const config: Record<string, string> = {};
     for (const s of allSettings) {
       if (s.key.startsWith("storage_")) {
-        config[s.key] = s.value;
+        config[s.key] = s.key === "storage_s3_secret_access_key" && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
       }
     }
     return { success: true, config };

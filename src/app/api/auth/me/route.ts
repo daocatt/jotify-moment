@@ -7,7 +7,25 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
-    return NextResponse.json({ user });
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        slug: user.slug,
+        avatar: user.avatar,
+        role: user.role,
+        status: user.status,
+        bio: user.bio,
+        coverImage: user.coverImage,
+        wechat: user.wechat,
+        telegram: user.telegram,
+        github: user.github,
+        x: user.x,
+        otherLink: user.otherLink,
+        telegramChatId: user.telegramChatId,
+      },
+    });
   } catch {
     return NextResponse.json({ user: null }, { status: 500 });
   }
