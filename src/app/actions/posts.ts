@@ -19,6 +19,7 @@ export async function createPostAction(data: {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
   if (user.status === "suspended") return { error: "Your account is suspended" };
+  if (user.role === "guest") return { error: "访客用户不能发布 Moment" };
 
   if (data.content.length > MAX_POST_LENGTH) {
     return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
@@ -253,6 +254,7 @@ export async function getUserBySlugAction(slug: string) {
       },
     });
     if (!target) return { error: "用户不存在" };
+    if (target.role === "guest") return { error: "该用户为访客用户，无个人主页" };
     return { success: true, user: target };
   } catch (error) {
     console.error("getUserBySlugAction error:", error);

@@ -6,7 +6,7 @@ import { eq, desc, lt, and } from "drizzle-orm";
 import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-const VALID_ROLES = ["super_admin", "admin", "user"] as const;
+const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
 const VALID_SETTING_KEYS = ["allow_registration", "require_approval"];
 
@@ -224,6 +224,18 @@ export async function updateProfileAction(data: {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
   if (user.status === "suspended") return { error: "Your account is suspended" };
+
+  if (user.role === "guest") {
+    if (!data.name.trim()) return { error: "Name cannot be empty" };
+    try {
+      await db.update(users).set({ name: data.name }).where(eq(users.id, user.id));
+      revalidatePath("/");
+      return { success: true };
+    } catch (error) {
+      console.error("updateProfileAction guest error:", error);
+      return { error: "Internal server error" };
+    }
+  }
 
   if (!data.name.trim()) return { error: "Name cannot be empty" };
   if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };

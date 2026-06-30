@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const roleEnum = pgEnum("user_role", ["super_admin", "admin", "user"]);
+export const roleEnum = pgEnum("user_role", ["super_admin", "admin", "user", "guest"]);
 export const statusEnum = pgEnum("user_status", ["active", "suspended"]);
 export const postStatusEnum = pgEnum("post_status", ["approved", "pending"]);
 
