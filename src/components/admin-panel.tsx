@@ -102,10 +102,9 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
     }
   };
 
-  const handleChangeUserRole = async (userId: string, currentRole: string) => {
+  const handleChangeUserRole = async (userId: string, newRole: string) => {
     if (!isSuperAdmin) return;
 
-    const newRole = currentRole === "admin" ? "user" : "admin";
     const res = await updateUserRoleAction(userId, newRole);
 
     if (res.error) {
@@ -315,11 +314,14 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
                               ? "bg-red-500/10 text-red-500"
                               : user.role === "admin"
                               ? "bg-blue-500/10 text-blue-500"
+                              : user.role === "guest"
+                              ? "bg-amber-500/10 text-amber-500"
                               : "bg-neutral-500/10 text-neutral-500"
                           }`}>
                             {user.role === "super_admin" && "超级管理员"}
                             {user.role === "admin" && "管理员"}
                             {user.role === "user" && "普通用户"}
+                            {user.role === "guest" && "访客"}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email as string}</p>
@@ -327,16 +329,17 @@ export function AdminPanel({ isOpen, onClose, currentUser, onRefresh }: AdminPan
                     </div>
 
                     {user.role !== "super_admin" && user.id !== currentUser?.id && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         {isSuperAdmin && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => handleChangeUserRole(user.id as string, user.role as string)}
+                          <select
+                            value={user.role as string}
+                            onChange={(e) => handleChangeUserRole(user.id as string, e.target.value)}
+                            className="h-8 text-xs px-2 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
                           >
-                            设为{user.role === "admin" ? "普通" : "管理"}
-                          </Button>
+                            <option value="user">普通用户</option>
+                            <option value="guest">访客</option>
+                            <option value="admin">管理员</option>
+                          </select>
                         )}
 
                         <Button
