@@ -24,8 +24,8 @@ export const users = pgTable("users", {
   status: statusEnum("status").default("active").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("users_telegram_chat_id_idx").on(table.telegramChatId),
   index("users_telegram_bind_token_idx").on(table.telegramBindToken),
@@ -33,10 +33,10 @@ export const users = pgTable("users", {
 
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId: uuid("user_id")
@@ -56,12 +56,12 @@ export const accounts = pgTable("accounts", {
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("accounts_user_provider_idx").on(table.userId, table.providerId),
 ]);
@@ -70,9 +70,9 @@ export const verifications = pgTable("verifications", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const posts = pgTable("posts", {
@@ -85,8 +85,8 @@ export const posts = pgTable("posts", {
   mediaUrls: jsonb("media_urls").default("[]").notNull(),
   ytVideoId: text("yt_video_id"),
   status: postStatusEnum("status").default("approved").notNull(),
-  pinnedAt: timestamp("pinned_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  pinnedAt: timestamp("pinned_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("posts_user_id_idx").on(table.userId),
   index("posts_status_created_at_idx").on(table.status, table.createdAt),
@@ -102,7 +102,7 @@ export const comments = pgTable("comments", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("comments_post_id_idx").on(table.postId),
   index("comments_user_id_idx").on(table.userId),
@@ -117,7 +117,7 @@ export const reactions = pgTable("reactions", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   emoji: text("emoji").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("reactions_post_id_idx").on(table.postId),
   index("reactions_user_id_idx").on(table.userId),
@@ -134,8 +134,8 @@ export const verificationCodes = pgTable("verification_codes", {
   email: text("email").notNull(),
   code: text("code").notNull(),
   type: text("type").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("verification_codes_email_idx").on(table.email),
   index("verification_codes_lookup_idx").on(table.email, table.code, table.type),
