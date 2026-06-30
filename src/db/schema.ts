@@ -26,7 +26,10 @@ export const users = pgTable("users", {
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("users_telegram_chat_id_idx").on(table.telegramChatId),
+  index("users_telegram_bind_token_idx").on(table.telegramBindToken),
+]);
 
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
@@ -39,7 +42,9 @@ export const sessions = pgTable("sessions", {
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
-});
+}, (table) => [
+  index("sessions_user_id_idx").on(table.userId),
+]);
 
 export const accounts = pgTable("accounts", {
   id: text("id").primaryKey(),
@@ -57,7 +62,9 @@ export const accounts = pgTable("accounts", {
   password: text("password"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("accounts_user_provider_idx").on(table.userId, table.providerId),
+]);
 
 export const verifications = pgTable("verifications", {
   id: text("id").primaryKey(),
@@ -82,7 +89,8 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("posts_user_id_idx").on(table.userId),
-  index("posts_status_idx").on(table.status),
+  index("posts_status_created_at_idx").on(table.status, table.createdAt),
+  index("posts_pinned_at_idx").on(table.pinnedAt),
 ]);
 
 export const comments = pgTable("comments", {

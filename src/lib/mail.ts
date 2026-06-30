@@ -75,7 +75,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
           <p style="font-size: 15px; color: #3f3f46; line-height: 24px;">你好，<strong>${name}</strong>！</p>
           <p style="font-size: 15px; color: #3f3f46; line-height: 24px; margin-top: 12px;">你的 Moment 账号已成功创建。现在你可以记录生活，珍藏瞬间，感受温暖。</p>
           <div style="text-align: center; margin-top: 28px;">
-            <a href="${process.env.BETTER_AUTH_URL || 'http://localhost:3000'}" style="background-color: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; display: inline-block;">进入主页</a>
+            <a href="${process.env.BETTER_AUTH_URL}" style="background-color: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; display: inline-block;">进入主页</a>
           </div>
           <p style="font-size: 12px; color: #a1a1aa; margin-top: 28px; text-align: center;">如果你未曾注册过此账户，请忽略这封邮件。</p>
         </div>
