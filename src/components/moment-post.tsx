@@ -244,9 +244,21 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               </span>
             )}
             {post.status === "pending" && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-500">
-                <AlertCircle className="size-3" /> 待审核
-              </span>
+              <div className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-500">
+                  <AlertCircle className="size-3" /> 待审核
+                </span>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleApprovePost}
+                    className="h-5 px-1.5 text-[9px] border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm"
+                  >
+                    <CheckCircle className="mr-0.5 size-2.5" /> 审核通过
+                  </Button>
+                )}
+              </div>
             )}
           </div>
           <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
@@ -392,17 +404,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
             <MessageSquare size={18} />
           </Button>
 
-          {/* Post approval for admin */}
-          {post.status === "pending" && isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleApprovePost}
-              className="h-7 text-xs border-green-500/30 text-green-600 hover:bg-green-500/10"
-            >
-              <CheckCircle className="mr-1 size-3.5" /> 审核通过
-            </Button>
-          )}
+
 
           {/* Pin/Unpin for admin */}
           {isAdmin && post.status === "approved" && (
