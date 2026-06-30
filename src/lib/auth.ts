@@ -86,7 +86,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     }
 
     let slug = dbUser.slug;
-    if (!slug) {
+    if (!slug && dbUser.role !== "guest") {
       slug = await ensureUserSlug(dbUser.id, dbUser.name);
     }
 
