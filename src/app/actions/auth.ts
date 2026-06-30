@@ -8,6 +8,10 @@ import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import crypto from "crypto";
 
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
 
@@ -272,22 +276,21 @@ export async function logoutAction() {
 }
 
 export async function resetPasswordAction(data: {
-  email: string;
   token: string;
   password?: string;
 }) {
-  const { email, token, password } = data;
+  const { token, password } = data;
 
-  if (!email || !token || !password) {
+  if (!token || !password) {
     return { error: "所有字段都是必填的" };
   }
 
   try {
-    // Verify token
+    const tokenHash = hashToken(token);
+
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
-        eq(verificationCodes.email, email),
-        eq(verificationCodes.code, token),
+        eq(verificationCodes.code, tokenHash),
         eq(verificationCodes.type, "reset_password"),
         gt(verificationCodes.expiresAt, new Date())
       ),
@@ -297,7 +300,8 @@ export async function resetPasswordAction(data: {
       return { error: "重置链接无效或已过期，请重新申请" };
     }
 
-    // Get user
+    const email = validCode.email;
+
     const user = await db.query.users.findFirst({
       where: eq(users.email, email),
     });
@@ -306,7 +310,6 @@ export async function resetPasswordAction(data: {
       return { error: "用户不存在" };
     }
 
-    // Update password in Better Auth accounts table
     const passwordHash = await hashPasswordBetter(password);
     await db.update(accounts)
       .set({ password: passwordHash })
@@ -318,7 +321,7 @@ export async function resetPasswordAction(data: {
       and(eq(verificationCodes.email, email), lt(verificationCodes.expiresAt, new Date()))
     );
 
-    return { success: true };
+    return { success: true, email };
   } catch (error) {
     console.error("resetPasswordAction error:", error);
     return { error: "Internal server error" };
@@ -334,7 +337,6 @@ export async function sendResetPasswordLinkAction(email: string, origin: string)
   }
 
   try {
-    // Check if user exists
     const user = await db.query.users.findFirst({
       where: eq(users.email, email),
     });
@@ -344,7 +346,8 @@ export async function sendResetPasswordLinkAction(email: string, origin: string)
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     await db.delete(verificationCodes).where(
       and(eq(verificationCodes.email, email), eq(verificationCodes.type, "reset_password"))
@@ -352,7 +355,7 @@ export async function sendResetPasswordLinkAction(email: string, origin: string)
 
     await db.insert(verificationCodes).values({
       email,
-      code: token,
+      code: tokenHash,
       type: "reset_password",
       expiresAt,
     });
@@ -366,5 +369,26 @@ export async function sendResetPasswordLinkAction(email: string, origin: string)
   } catch (error) {
     console.error("sendResetPasswordLinkAction error:", error);
     return { error: "Internal server error" };
+  }
+}
+
+export async function verifyResetTokenAction(token: string) {
+  if (!token) return { valid: false };
+
+  try {
+    const tokenHash = hashToken(token);
+    const validCode = await db.query.verificationCodes.findFirst({
+      where: and(
+        eq(verificationCodes.code, tokenHash),
+        eq(verificationCodes.type, "reset_password"),
+        gt(verificationCodes.expiresAt, new Date())
+      ),
+      columns: { id: true, email: true },
+    });
+
+    if (!validCode) return { valid: false };
+    return { valid: true, email: validCode.email };
+  } catch {
+    return { valid: false };
   }
 }

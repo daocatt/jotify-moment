@@ -298,7 +298,7 @@ export async function updateUserEmailAction(targetUserId: string, email: string)
     await db
       .update(accounts)
       .set({ accountId: trimmed })
-      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "credential")));
 
     revalidatePath("/");
     return { success: true };
@@ -327,7 +327,7 @@ export async function adminChangePasswordAction(targetUserId: string, newPasswor
     await db
       .update(accounts)
       .set({ password: passwordHash })
-      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "credential")));
 
     return { success: true };
   } catch (error) {
@@ -360,7 +360,7 @@ export async function changePasswordAction(data: {
 
   try {
     const account = await db.query.accounts.findFirst({
-      where: and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")),
+      where: and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")),
     });
 
     if (!account || !account.password) {
@@ -376,7 +376,7 @@ export async function changePasswordAction(data: {
     await db
       .update(accounts)
       .set({ password: passwordHash })
-      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
 
     return { success: true };
   } catch (error) {

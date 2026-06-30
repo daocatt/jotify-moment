@@ -87,7 +87,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
 }
 
 export async function sendResetPasswordLink(email: string, token: string, origin: string): Promise<{ sent: boolean; emailConfigured: boolean }> {
-  const resetLink = `${origin}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+  const resetLink = `${origin}/reset-password?token=${token}`;
   const subject = `[Jotify Moment] 重置您的账户密码`;
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px; max-width: 560px; margin: 0 auto; border: 1px solid #e4e4e7; border-radius: 12px; background-color: #ffffff;">
@@ -98,7 +98,7 @@ export async function sendResetPasswordLink(email: string, token: string, origin
         <a href="${resetLink}" style="background-color: #dc2626; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; display: inline-block;">重置密码</a>
       </div>
       <p style="font-size: 13px; color: #71717a; line-height: 20px; margin-top: 20px;">此链接在 2 小时内有效。如非本人操作，请忽略此邮件，您的账户依然是安全的。</p>
-      <div style="border-t: 1px solid #e4e4e7; margin-top: 28px; pt: 16px;">
+      <div style="border-top: 1px solid #e4e4e7; margin-top: 28px; padding-top: 16px;">
         <p style="font-size: 11px; color: #a1a1aa; word-break: break-all;">若上方按钮无法点击，请复制并访问以下链接：<br />${resetLink}</p>
       </div>
     </div>
