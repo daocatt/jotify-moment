@@ -91,7 +91,7 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
     for (const p of pinned.posts) {
       for (const m of p.mediaUrls) {
         if (m.type === "image" && pinnedImages.length < 3) {
-          pinnedImages.push(m.url);
+          pinnedImages.push(m.thumbnailUrl || m.url);
         }
       }
     }

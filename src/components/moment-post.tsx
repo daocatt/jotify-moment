@@ -20,7 +20,7 @@ interface MomentPostProps {
     id: string;
     userId: string;
     content: string;
-    mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
+    mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
     ytVideoId: string | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
@@ -78,8 +78,9 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const mediaFiles = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number }>;
-  const images = mediaFiles.filter((f) => f.type === "image").map((f) => f.url);
+  const mediaFiles = post.mediaUrls;
+  const images = mediaFiles.filter((f) => f.type === "image");
+  const imageUrls = images.map((f) => f.url);
   const voiceFile = mediaFiles.find((f) => f.type === "audio");
   const videoFile = mediaFiles.find((f) => f.type === "video");
 
@@ -341,13 +342,13 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               <div
                 key={idx}
                 className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border cursor-zoom-in"
-                onClick={() => onOpenLightbox(images, idx)}
-                onContextMenu={(e) => e.preventDefault()} // Disable Right Click to prevent downloading
+                onClick={() => onOpenLightbox(imageUrls, idx)}
+                onContextMenu={(e) => e.preventDefault()}
               >
                 <img
-                  src={img}
+                  src={img.thumbnailUrl || img.url}
                   alt={`Log file ${idx}`}
-                  className="w-full h-full object-cover pointer-events-none" // Disable dragging/saving
+                  className="w-full h-full object-cover pointer-events-none"
                 />
               </div>
             ))}
