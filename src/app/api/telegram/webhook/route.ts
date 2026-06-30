@@ -139,7 +139,7 @@ export async function POST(req: Request) {
 
     // 5. Download media and compile moment content
     const content = message.text || message.caption || "";
-    const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }> = [];
+    const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
 
     if (message.photo && message.photo.length > 0) {
       const largestPhoto = message.photo.reduce((prev: any, current: any) => {
@@ -151,6 +151,7 @@ export async function POST(req: Request) {
         type: "image",
         url: uploadRes.url,
         name: uploadRes.name,
+        thumbnailUrl: uploadRes.thumbnailUrl,
       });
     }
 

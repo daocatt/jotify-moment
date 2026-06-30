@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import sharp from "sharp";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
@@ -91,6 +92,7 @@ async function getStorageConfig(): Promise<{
 
 export interface UploadResult {
   url: string;
+  thumbnailUrl?: string;
   name: string;
   type: "image" | "video" | "audio";
 }
@@ -130,8 +132,25 @@ export async function uploadFile(
 
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const randomName = `${crypto.randomBytes(16).toString("hex")}.${extension}`;
-  const key = `${yearMonth}/${randomName}`;
+  const hash = crypto.randomBytes(16).toString("hex");
+  const fileName = `${hash}.${extension}`;
+  const thumbFileName = `${hash}_thumb.${extension}`;
+  const key = `${yearMonth}/${fileName}`;
+  const thumbKey = `${yearMonth}/${thumbFileName}`;
+
+  const isImage = type === "image";
+
+  let thumbnailBuffer: Buffer | null = null;
+  if (isImage) {
+    try {
+      thumbnailBuffer = await sharp(fileBuffer)
+        .resize(400, 400, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    } catch (err) {
+      console.error("Thumbnail generation failed:", err);
+    }
+  }
 
   if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
     const s3Client = new S3Client({
@@ -156,50 +175,79 @@ export async function uploadFile(
       ? `${config.s3PublicUrl}/${key}`
       : `${config.s3Endpoint}/${config.s3BucketName}/${key}`;
 
-    return { url: publicUrl, name: originalName, type };
+    let thumbnailUrl: string | undefined;
+    if (isImage && thumbnailBuffer) {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: config.s3BucketName,
+          Key: thumbKey,
+          Body: thumbnailBuffer,
+          ContentType: "image/jpeg",
+        })
+      );
+      thumbnailUrl = config.s3PublicUrl
+        ? `${config.s3PublicUrl}/${thumbKey}`
+        : `${config.s3Endpoint}/${config.s3BucketName}/${thumbKey}`;
+    }
+
+    return { url: publicUrl, thumbnailUrl, name: originalName, type };
   } else {
     const uploadDir = path.join(process.cwd(), "public", "uploads", yearMonth);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
-    fs.writeFileSync(path.join(uploadDir, randomName), fileBuffer);
+    fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
 
-    return { url: `/uploads/${yearMonth}/${randomName}`, name: originalName, type };
+    if (isImage && thumbnailBuffer) {
+      fs.writeFileSync(path.join(uploadDir, thumbFileName), thumbnailBuffer);
+    }
+
+    return {
+      url: `/uploads/${yearMonth}/${fileName}`,
+      thumbnailUrl: isImage ? `/uploads/${yearMonth}/${thumbFileName}` : undefined,
+      name: originalName,
+      type,
+    };
   }
 }
 
-export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>) {
+export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>) {
   const config = await getStorageConfig();
 
   for (const media of mediaUrls) {
-    try {
-      if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
-        const s3Client = new S3Client({
-          endpoint: config.s3Endpoint || undefined,
-          region: config.s3Region || "auto",
-          credentials: {
-            accessKeyId: config.s3AccessKeyId,
-            secretAccessKey: config.s3SecretAccessKey,
-          },
-        });
+    const urlsToDelete = [media.url];
+    if (media.thumbnailUrl) urlsToDelete.push(media.thumbnailUrl);
 
-        const publicUrl = config.s3PublicUrl
-          ? `${config.s3PublicUrl}`
-          : `${config.s3Endpoint}/${config.s3BucketName}`;
-        if (media.url.startsWith(publicUrl)) {
-          const key = media.url.slice(publicUrl.length + 1);
-          await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
-        }
-      } else {
-        if (media.url.startsWith("/uploads/")) {
-          const filePath = path.join(process.cwd(), "public", media.url);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+    for (const url of urlsToDelete) {
+      try {
+        if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
+          const s3Client = new S3Client({
+            endpoint: config.s3Endpoint || undefined,
+            region: config.s3Region || "auto",
+            credentials: {
+              accessKeyId: config.s3AccessKeyId,
+              secretAccessKey: config.s3SecretAccessKey,
+            },
+          });
+
+          const publicUrl = config.s3PublicUrl
+            ? `${config.s3PublicUrl}`
+            : `${config.s3Endpoint}/${config.s3BucketName}`;
+          if (url.startsWith(publicUrl)) {
+            const key = url.slice(publicUrl.length + 1);
+            await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
+          }
+        } else {
+          if (url.startsWith("/uploads/")) {
+            const filePath = path.join(process.cwd(), "public", url);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
           }
         }
+      } catch (error) {
+        console.error("Failed to delete media file:", url, error);
       }
-    } catch (error) {
-      console.error("Failed to delete media file:", media.url, error);
     }
   }
 }
