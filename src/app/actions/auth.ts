@@ -5,7 +5,8 @@ import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie } from "@/lib/auth";
 import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
-import { sendVerificationCode, sendWelcomeEmail } from "@/lib/mail";
+import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
+import crypto from "crypto";
 
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
@@ -272,28 +273,28 @@ export async function logoutAction() {
 
 export async function resetPasswordAction(data: {
   email: string;
-  code: string;
+  token: string;
   password?: string;
 }) {
-  const { email, code, password } = data;
+  const { email, token, password } = data;
 
-  if (!email || !code || !password) {
-    return { error: "All fields are required" };
+  if (!email || !token || !password) {
+    return { error: "所有字段都是必填的" };
   }
 
   try {
-    // Verify code
+    // Verify token
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
         eq(verificationCodes.email, email),
-        eq(verificationCodes.code, code),
-        eq(verificationCodes.type, "forgot_password"),
+        eq(verificationCodes.code, token),
+        eq(verificationCodes.type, "reset_password"),
         gt(verificationCodes.expiresAt, new Date())
       ),
     });
 
     if (!validCode) {
-      return { error: "Invalid or expired verification code" };
+      return { error: "重置链接无效或已过期，请重新申请" };
     }
 
     // Get user
@@ -302,7 +303,7 @@ export async function resetPasswordAction(data: {
     });
 
     if (!user) {
-      return { error: "User not found" };
+      return { error: "用户不存在" };
     }
 
     // Update password in Better Auth accounts table
@@ -320,6 +321,50 @@ export async function resetPasswordAction(data: {
     return { success: true };
   } catch (error) {
     console.error("resetPasswordAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function sendResetPasswordLinkAction(email: string, origin: string) {
+  if (!email) return { error: "邮箱不能为空" };
+
+  const rateLimitKey = `${email}:reset_password`;
+  if (!checkRateLimit(rateLimitKey)) {
+    return { error: "请稍后再试，重置邮件发送过于频繁" };
+  }
+
+  try {
+    // Check if user exists
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (!user) {
+      return { error: "该邮箱未注册账户" };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+
+    await db.delete(verificationCodes).where(
+      and(eq(verificationCodes.email, email), eq(verificationCodes.type, "reset_password"))
+    );
+
+    await db.insert(verificationCodes).values({
+      email,
+      code: token,
+      type: "reset_password",
+      expiresAt,
+    });
+
+    const result = await sendResetPasswordLink(email, token, origin);
+    if (!result.sent) {
+      return { error: "发送重置密码邮件失败，请检查邮件配置" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("sendResetPasswordLinkAction error:", error);
     return { error: "Internal server error" };
   }
 }
