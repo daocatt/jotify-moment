@@ -102,16 +102,16 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
       <button
         type="button"
         onClick={() => router.push("/pinned")}
-        className="inline-flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors p-2 text-left max-w-[280px] w-full"
+        className="inline-flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors p-3 text-left max-w-[420px] w-full"
       >
         {/* Images first */}
         {pinnedImages.length > 0 ? (
-          <div className="relative h-9 w-20 shrink-0">
+          <div className="relative h-[54px] w-[120px] shrink-0">
             {pinnedImages.slice(0, 3).map((img, idx) => (
               <div
                 key={idx}
-                className="absolute top-0 size-9 rounded overflow-hidden border-2 border-background"
-                style={{ left: idx * 20, zIndex: 3 - idx }}
+                className="absolute top-0 size-[54px] rounded-lg overflow-hidden border-2 border-background"
+                style={{ left: idx * 30, zIndex: 3 - idx }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img} alt="" className="h-full w-full object-cover" />
@@ -120,16 +120,16 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
           </div>
         ) : (
           <div className="flex items-center shrink-0 text-primary/60">
-            <Pin size={14} className="fill-primary/40" />
+            <Pin size={21} className="fill-primary/40" />
           </div>
         )}
         {/* Text after */}
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-foreground truncate font-normal">
+          <p className="text-[16px] text-foreground truncate font-normal leading-snug">
             {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
           </p>
-          <p className="text-[10px] text-muted-foreground font-normal">
-            <Pin size={9} className="inline fill-primary/50 mr-0.5" />
+          <p className="text-[14px] text-muted-foreground font-normal mt-0.5">
+            <Pin size={13} className="inline fill-primary/50 mr-0.5" />
             共 {pinned.posts.length} 条
           </p>
         </div>
