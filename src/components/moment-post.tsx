@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -59,7 +60,7 @@ interface MomentPostProps {
   onRefresh: () => void;
 }
 
-const REACTIONS_LIST = ["❤️", "👍", "😂", "😮", "😢", "🎉", "🙏"];
+const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
 
 export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: MomentPostProps) {
   const router = useRouter();
@@ -71,6 +72,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const mediaFiles = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number }>;
@@ -101,6 +103,14 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
 
   const handleAudioEnded = () => {
     setIsPlaying(false);
+    setProgress(0);
+  };
+
+  const handleTimeUpdate = () => {
+    const a = audioRef.current;
+    if (a && a.duration) {
+      setProgress(Math.min(1, a.currentTime / a.duration));
+    }
   };
 
   const handleReaction = async (emoji: string) => {
@@ -241,30 +251,39 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
 
         {/* Content Body (Markdown) */}
         {post.content && (
-          <div className="text-sm sm:text-base break-words prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
+          <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkBreaks]}
+              components={{
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+              }}
+            >
+              {post.content}
+            </ReactMarkdown>
           </div>
         )}
 
-        {/* Audio voice bubble player (Wechat-Style) */}
+        {/* Audio voice bubble player (Wechat-Style long bar with progress) */}
         {voiceFile && (
           <div className="py-1">
             <audio
               ref={audioRef}
               src={voiceFile.url}
               onEnded={handleAudioEnded}
+              onTimeUpdate={handleTimeUpdate}
               className="hidden"
             />
             <div
               onClick={togglePlayVoice}
-              className="inline-flex items-center gap-3 px-4 py-2 bg-[#F2F2F2] dark:bg-muted active:opacity-80 border border-border rounded-lg cursor-pointer transition-all hover:bg-neutral-200 dark:hover:bg-neutral-800"
-              style={{ width: `${Math.min(180, 80 + (voiceFile.duration || 5) * 5)}px` }}
+              className="inline-flex items-center gap-2.5 h-10 px-3 bg-[#F2F2F2] dark:bg-muted active:opacity-80 border border-border rounded-full cursor-pointer transition-all hover:bg-neutral-200 dark:hover:bg-neutral-800 whitespace-nowrap"
+              style={{ width: `${Math.min(280, Math.max(200, 140 + (voiceFile.duration || 5) * 8))}px` }}
             >
-              <Volume2 className={`size-4 text-neutral-600 dark:text-neutral-400 ${isPlaying ? "animate-bounce" : ""}`} />
-              <span className="text-xs text-neutral-600 dark:text-neutral-400 font-semibold flex-1">
-                {isPlaying ? "播放中..." : "语音消息"}
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">
+              <Volume2 className={`size-4 shrink-0 ${isPlaying ? "text-green-500" : "text-neutral-600 dark:text-neutral-400"}`} />
+              <div className="flex-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600 overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
+              </div>
+              <span className="text-xs text-neutral-600 dark:text-neutral-400 font-semibold shrink-0 tabular-nums">
                 {voiceFile.duration ? `${voiceFile.duration}"` : '5"'}
               </span>
             </div>
@@ -327,7 +346,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 text-muted-foreground hover:text-foreground rounded-full"
+              className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
               onClick={() => setShowEmojiPicker((prev) => !prev)}
             >
               <Smile size={18} />
@@ -351,7 +370,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 text-muted-foreground hover:text-foreground rounded-full"
+            className="size-7 min-h-0 text-muted-foreground hover:text-foreground rounded-full"
             onClick={() => setShowCommentInput((prev) => !prev)}
           >
             <MessageSquare size={18} />
@@ -376,7 +395,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
               size="icon"
               onClick={handleTogglePin}
               disabled={pinLoading}
-              className="size-7 text-muted-foreground hover:text-primary rounded-full"
+              className="size-7 min-h-0 text-muted-foreground hover:text-primary rounded-full"
               title={post.pinnedAt ? "取消置顶" : "置顶"}
             >
               {pinLoading ? <Loader2 className="size-4 animate-spin" /> : post.pinnedAt ? <PinOff size={16} /> : <Pin size={16} />}
@@ -389,7 +408,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh }: Mom
               variant="ghost"
               size="icon"
               onClick={handleDeletePost}
-              className="size-7 text-muted-foreground hover:text-destructive rounded-full"
+              className="size-7 min-h-0 text-muted-foreground hover:text-destructive rounded-full"
             >
               <Trash2 size={18} />
             </Button>

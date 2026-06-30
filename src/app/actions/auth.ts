@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie } from "@/lib/auth";
-import { sendVerificationCode } from "@/lib/mail";
+import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
+import { sendVerificationCode, sendWelcomeEmail } from "@/lib/mail";
 
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
@@ -57,12 +58,12 @@ export async function sendVerificationCodeAction(email: string, type: "register"
       expiresAt,
     });
 
-    const sent = await sendVerificationCode(email, code);
-    if (!sent) {
+    const result = await sendVerificationCode(email, code);
+    if (!result.sent) {
       return { error: "Failed to send verification email. Please check server logs." };
     }
 
-    return { success: true };
+    return { success: true, emailConfigured: result.emailConfigured };
   } catch (error) {
     console.error("sendVerificationCodeAction error:", error);
     return { error: "Internal server error" };
@@ -125,8 +126,6 @@ export async function registerAction(data: {
         email,
         password,
         name,
-        bio: "",
-        coverImage: "",
       },
       headers: await headers(),
     });
@@ -157,6 +156,11 @@ export async function registerAction(data: {
 
     // 6. Delete used code
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
+
+    // 7. Send welcome email (non-blocking)
+    sendWelcomeEmail(email, name).catch((err) => {
+      console.error("Failed to send welcome email:", err);
+    });
 
     return {
       success: true,
@@ -283,10 +287,10 @@ export async function resetPasswordAction(data: {
     }
 
     // Update password in Better Auth accounts table
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await hashPasswordBetter(password);
     await db.update(accounts)
       .set({ password: passwordHash })
-      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
 
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 
