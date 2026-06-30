@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -59,11 +60,12 @@ interface MomentPostProps {
   onOpenLightbox: (images: string[], index: number) => void;
   onRefresh: () => void;
   onRequireLogin?: () => void;
+  isDetailsView?: boolean;
 }
 
 const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
 
-export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin }: MomentPostProps) {
+export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin, isDetailsView = false }: MomentPostProps) {
   const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -194,7 +196,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   };
 
   const goToUserHome = () => {
-    if (post.user.slug) router.push(`/${post.user.slug}`);
+    if (post.user.slug) router.push(`/u/${post.user.slug}`);
   };
 
   // Group reactions by emoji
@@ -427,6 +429,15 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               <Trash2 size={18} />
             </Button>
           )}
+
+          {!isDetailsView && (
+            <Link
+              href={`/mo/${post.id}`}
+              className="ml-auto text-[11px] sm:text-xs text-[#576B95] dark:text-blue-400 font-medium hover:underline flex items-center"
+            >
+              查看更多
+            </Link>
+          )}
         </div>
 
         {/* Expandable Comment input */}
@@ -465,7 +476,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
             {/* Comments List */}
             {post.comments.length > 0 && (
               <div className="space-y-1.5">
-                {post.comments.map((comment) => (
+                {(isDetailsView ? post.comments : post.comments.slice(-5)).map((comment) => (
                   <div
                     key={comment.id}
                     className="group flex items-start justify-between text-xs sm:text-sm text-foreground leading-relaxed"
@@ -486,6 +497,14 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                     )}
                   </div>
                 ))}
+                {!isDetailsView && post.comments.length > 5 && (
+                  <Link
+                    href={`/mo/${post.id}`}
+                    className="block text-[11px] sm:text-xs text-[#576B95] dark:text-blue-400 font-semibold hover:underline mt-2 pt-1 border-t border-border/30"
+                  >
+                    查看全部共 {post.comments.length} 条评论...
+                  </Link>
+                )}
               </div>
             )}
           </div>

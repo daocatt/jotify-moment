@@ -153,7 +153,7 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
       onProfileUpdated={fetchSuperAdmin}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
-      onAvatarClick={() => superAdmin.slug && router.push(`/${superAdmin.slug}`)}
+      onAvatarClick={() => superAdmin.slug && router.push(`/u/${superAdmin.slug}`)}
     />
   );
 }
