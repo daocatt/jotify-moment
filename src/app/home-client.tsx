@@ -98,36 +98,43 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
   }
 
   const pinnedEntry = pinned && pinned.posts.length > 0 ? (
-    <button
-      type="button"
-      onClick={() => router.push("/pinned")}
-      className="mx-4 my-3 inline-flex items-center gap-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-2.5 text-left max-w-[320px] w-full"
-    >
-      <div className="flex items-center gap-1.5 text-primary shrink-0">
-        <Pin size={16} className="fill-primary" />
-        <span className="text-xs font-semibold">置顶</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground truncate">
-          {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
-        </p>
-        <p className="text-[11px] text-muted-foreground">共 {pinned.posts.length} 条置顶</p>
-      </div>
-      {pinnedImages.length > 0 && (
-        <div className="relative h-10 w-24 shrink-0">
-          {pinnedImages.slice(0, 3).map((img, idx) => (
-            <div
-              key={idx}
-              className="absolute top-0 size-10 rounded overflow-hidden border-2 border-background"
-              style={{ left: idx * 22, zIndex: 3 - idx }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="" className="h-full w-full object-cover" />
-            </div>
-          ))}
+    <div className="flex justify-center px-4 my-3">
+      <button
+        type="button"
+        onClick={() => router.push("/pinned")}
+        className="inline-flex items-center gap-2.5 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors p-2 text-left max-w-[280px] w-full"
+      >
+        {/* Images first */}
+        {pinnedImages.length > 0 ? (
+          <div className="relative h-9 w-20 shrink-0">
+            {pinnedImages.slice(0, 3).map((img, idx) => (
+              <div
+                key={idx}
+                className="absolute top-0 size-9 rounded overflow-hidden border-2 border-background"
+                style={{ left: idx * 20, zIndex: 3 - idx }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="" className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center shrink-0 text-primary">
+            <Pin size={14} className="fill-primary" />
+          </div>
+        )}
+        {/* Text after */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-foreground truncate font-normal">
+            {pinned.posts[0].content || `${pinned.posts[0].user.name} 的动态`}
+          </p>
+          <p className="text-[10px] text-muted-foreground font-normal">
+            <Pin size={9} className="inline fill-primary mr-0.5" />
+            共 {pinned.posts.length} 条置顶
+          </p>
         </div>
-      )}
-    </button>
+      </button>
+    </div>
   ) : null;
 
   if (!superAdmin) {
