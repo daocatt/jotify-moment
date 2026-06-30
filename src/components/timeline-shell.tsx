@@ -11,7 +11,7 @@ import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { AdminPanel } from "@/components/admin-panel";
 import { getSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, MessageCircle, Send, Link, Code2, Home } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, MessageCircle, Send, Link, Code2, CircleUserRound } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 export interface CurrentUser {
@@ -289,7 +289,7 @@ export function TimelineShell({
                 onClick={() => router.push(`/u/${currentUser.slug}`)}
                 className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
               >
-                <Home size={13} className="shrink-0" />
+                <CircleUserRound size={13} className="shrink-0" />
                 <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
                   <span>我</span>
                   <span>的</span>
