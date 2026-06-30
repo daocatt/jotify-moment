@@ -253,7 +253,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                     size="sm"
                     variant="outline"
                     onClick={handleApprovePost}
-                    className="h-[18px] py-0 px-1.5 text-[9px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm leading-none flex items-center"
+                    className="h-[14px] py-0 px-1 text-[8.5px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm leading-none flex items-center"
                   >
                     <CheckCircle className="mr-0.5 size-2.5" /> 审核通过
                   </Button>
