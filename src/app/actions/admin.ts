@@ -525,3 +525,64 @@ export async function getTelegramBotNameAction() {
     return { success: true, botName: null };
   }
 }
+
+export async function getResendConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    for (const s of allSettings) {
+      if (s.key.startsWith("resend_")) {
+        config[s.key] = s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getResendConfigAction error:", error);
+    return { error: "Failed to load Resend configuration" };
+  }
+}
+
+export async function saveResendConfigAction(apiKey: string, domain: string, fromName: string, fromEmail: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!apiKey.trim() || !domain.trim() || !fromName.trim() || !fromEmail.trim()) {
+    return { error: "参数不完整" };
+  }
+
+  try {
+    await db.insert(settings).values({ key: "resend_api_key", value: apiKey }).onConflictDoUpdate({ target: settings.key, set: { value: apiKey } });
+    await db.insert(settings).values({ key: "resend_domain", value: domain }).onConflictDoUpdate({ target: settings.key, set: { value: domain } });
+    await db.insert(settings).values({ key: "resend_from_name", value: fromName }).onConflictDoUpdate({ target: settings.key, set: { value: fromName } });
+    await db.insert(settings).values({ key: "resend_from_email", value: fromEmail }).onConflictDoUpdate({ target: settings.key, set: { value: fromEmail } });
+    return { success: true };
+  } catch (error) {
+    console.error("saveResendConfigAction error:", error);
+    return { error: "保存 Resend 配置失败" };
+  }
+}
+
+export async function deleteResendConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await db.delete(settings).where(eq(settings.key, "resend_api_key"));
+    await db.delete(settings).where(eq(settings.key, "resend_domain"));
+    await db.delete(settings).where(eq(settings.key, "resend_from_name"));
+    await db.delete(settings).where(eq(settings.key, "resend_from_email"));
+    return { success: true };
+  } catch (error) {
+    console.error("deleteResendConfigAction error:", error);
+    return { error: "删除 Resend 配置失败" };
+  }
+}

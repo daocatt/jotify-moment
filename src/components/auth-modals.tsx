@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { loginAction, registerAction, sendVerificationCodeAction, resetPasswordAction } from "@/app/actions/auth";
+import { loginAction, registerAction, sendVerificationCodeAction, resetPasswordAction, sendResetPasswordLinkAction } from "@/app/actions/auth";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -89,15 +89,13 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           setPassword("");
         }
       } else {
-        // Forgot password / reset
-        const res = await resetPasswordAction({ email, code, password });
+        // Forgot password / send email link
+        const res = await sendResetPasswordLinkAction(email, window.location.origin);
         if (res.error) {
           toast.error(res.error);
         } else {
-          toast.success("密码重置成功，请重新登录");
-          setMode("login");
-          setPassword("");
-          setCode("");
+          toast.success("重置密码邮件已发送，请检查您的邮箱收件箱！");
+          onClose();
         }
       }
     } catch {
@@ -178,7 +176,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             />
           </div>
 
-          {(mode === "register" || mode === "forgot") && (
+          {mode === "register" && (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground">验证码</label>
               <div className="flex gap-2">
@@ -203,21 +201,21 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">
-              {mode === "forgot" ? "新密码" : "密码"}
-            </label>
-            <Input
-              type="password"
-              placeholder="请输入密码"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          {(mode === "login" || mode === "register") && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">密码</label>
+              <Input
+                type="password"
+                placeholder="请输入密码"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <Button type="submit" className="w-full mt-2" disabled={loading}>
-            {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "重置密码"}
+            {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
 
           <div className="flex justify-between text-xs mt-4 text-muted-foreground">

@@ -20,6 +20,9 @@ import {
   getTelegramConfigAction,
   integrateTelegramAction,
   unbindTelegramAction,
+  getResendConfigAction,
+  saveResendConfigAction,
+  deleteResendConfigAction,
 } from "@/app/actions/admin";
 import {
   Shield,
@@ -75,6 +78,14 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [tgConfig, setTgConfig] = useState<Record<string, string>>({});
   const [tgActionLoading, setTgActionLoading] = useState(false);
 
+  // Resend states
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [resendDomain, setResendDomain] = useState("");
+  const [resendFromName, setResendFromName] = useState("");
+  const [resendFromEmailPrefix, setResendFromEmailPrefix] = useState("");
+  const [resendConfig, setResendConfig] = useState<Record<string, string>>({});
+  const [resendActionLoading, setResendActionLoading] = useState(false);
+
   const isSuperAdmin = currentUser.role === "super_admin";
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -86,11 +97,12 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, settingsRes, pendingRes, tgRes] = await Promise.all([
+      const [usersRes, settingsRes, pendingRes, tgRes, resendRes] = await Promise.all([
         getUsersAction(),
         getSettingsAction(),
         getPendingPostsAction(),
         getTelegramConfigAction(),
+        getResendConfigAction(),
       ]);
 
       if (usersRes.users) setUsersList(usersRes.users);
@@ -101,6 +113,21 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         setTgConfig(tgRes.config);
         setTgBotName(tgRes.config.telegram_bot_name || "");
         setTgBotToken(tgRes.config.telegram_bot_token || "");
+      }
+
+      if (resendRes.config) {
+        setResendConfig(resendRes.config);
+        setResendApiKey(resendRes.config.resend_api_key || "");
+        const dom = resendRes.config.resend_domain || "";
+        setResendDomain(dom);
+        setResendFromName(resendRes.config.resend_from_name || "");
+        const fullEmail = resendRes.config.resend_from_email || "";
+        if (fullEmail && dom) {
+          const prefix = fullEmail.split(`@${dom}`)[0] || "";
+          setResendFromEmailPrefix(prefix);
+        } else {
+          setResendFromEmailPrefix("");
+        }
       }
     } catch {
       toast.error("加载数据失败");
@@ -244,7 +271,44 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
+  // Resend integrations
+  const handleResendSave = async () => {
+    if (!resendApiKey.trim() || !resendDomain.trim() || !resendFromName.trim() || !resendFromEmailPrefix.trim()) {
+      toast.error("请输入所有配置项");
+      return;
+    }
+    const fullFromEmail = `${resendFromEmailPrefix}@${resendDomain}`;
+    setResendActionLoading(true);
+    const res = await saveResendConfigAction(resendApiKey, resendDomain, resendFromName, fullFromEmail);
+    setResendActionLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Resend 配置保存成功");
+      loadData();
+    }
+  };
+
+  const handleResendDelete = async () => {
+    if (!confirm("确认清除 Resend 配置吗？")) return;
+    setResendActionLoading(true);
+    const res = await deleteResendConfigAction();
+    setResendActionLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Resend 配置已成功清除");
+      setResendApiKey("");
+      setResendDomain("");
+      setResendFromName("");
+      setResendFromEmailPrefix("");
+      setResendConfig({});
+      loadData();
+    }
+  };
+
   const isTgIntegrated = !!tgConfig.telegram_bot_token;
+  const isResendIntegrated = !!resendConfig.resend_api_key;
 
   if (loading) {
     return (
@@ -292,6 +356,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
             >
               <Send size={13} />
               <span>Telegram 集成</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="resend"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <Mail size={13} />
+              <span>Resend 集成</span>
             </TabsTrigger>
             <TabsTrigger
               value="posts"
@@ -411,6 +482,98 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                         解除绑定
                       </Button>
                     </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Resend Integration Tab */}
+          <TabsContent value="resend" className="space-y-6 mt-0">
+            <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold">Resend 邮件服务集成</h3>
+                <p className="text-xs text-muted-foreground">配置此集成后，系统将自动使用该域名发送注册验证码、通知和密码重置邮件</p>
+              </div>
+
+              <div className="grid gap-4 border-t border-border pt-4">
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">发信域名 (Domain)</label>
+                  <Input
+                    placeholder="e.g. moment.cc"
+                    value={resendDomain}
+                    onChange={(e) => setResendDomain(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Resend API Key</label>
+                  <Input
+                    type="password"
+                    placeholder="re_123456789_ABCdefGh..."
+                    value={resendApiKey}
+                    onChange={(e) => setResendApiKey(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">发信人显示名称</label>
+                  <Input
+                    placeholder="e.g. Jotify Moment"
+                    value={resendFromName}
+                    onChange={(e) => setResendFromName(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">发信邮件地址</label>
+                  <div className="flex rounded-md shadow-sm">
+                    <Input
+                      placeholder="e.g. no-reply"
+                      value={resendFromEmailPrefix}
+                      onChange={(e) => setResendFromEmailPrefix(e.target.value)}
+                      className="rounded-r-none border-r-0 flex-1"
+                    />
+                    <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted/40 text-muted-foreground text-xs select-none">
+                      @{resendDomain || "发信域名"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">发信域名自动追加且无法修改，系统将使用该后缀发送邮件</p>
+                </div>
+
+                {isResendIntegrated && (
+                  <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-green-600">● 邮件服务运行中</span>
+                      <span className="text-[10px] text-muted-foreground">实时发信中</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground space-y-1">
+                      <p>完整发信地址: {resendFromName} &lt;{resendFromEmailPrefix}@{resendDomain}&gt;</p>
+                      <p>API Key: re_***...{resendApiKey.slice(-6)}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-2">
+                  <Button
+                    onClick={handleResendSave}
+                    disabled={resendActionLoading}
+                    className="text-xs"
+                  >
+                    {resendActionLoading ? <Loader2 className="size-4 animate-spin mr-1" /> : <Mail className="size-3.5 mr-1" />}
+                    {isResendIntegrated ? "保存最新配置" : "一键集成 Resend 邮件服务"}
+                  </Button>
+                  
+                  {isResendIntegrated && (
+                    <Button
+                      variant="outline"
+                      onClick={handleResendDelete}
+                      disabled={resendActionLoading}
+                      className="text-xs text-red-600 border-red-500/20 hover:bg-red-50"
+                    >
+                      <Trash2 className="size-3.5 mr-1" />
+                      清除邮件配置
+                    </Button>
                   )}
                 </div>
               </div>
