@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie } from "@/lib/auth";
+import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import crypto from "crypto";
@@ -88,6 +88,11 @@ export async function registerAction(data: {
     return { error: "All fields are required" };
   }
 
+  const trimmedName = name.trim();
+  if (trimmedName.length < 2) {
+    return { error: "用户名至少需要 2 个字符" };
+  }
+
   try {
     // 1. Verify code
     const validCode = await db.query.verificationCodes.findFirst({
@@ -110,6 +115,14 @@ export async function registerAction(data: {
 
     if (existingUser) {
       return { error: "Email already registered" };
+    }
+
+    // 3. Check name uniqueness
+    const existingName = await db.query.users.findFirst({
+      where: eq(users.name, trimmedName),
+    });
+    if (existingName) {
+      return { error: "该用户名已被使用" };
     }
 
     const isFirstUser = (await db.query.users.findFirst({ columns: { id: true } })) === undefined;
@@ -390,5 +403,44 @@ export async function verifyResetTokenAction(token: string) {
     return { valid: true, email: validCode.email };
   } catch {
     return { valid: false };
+  }
+}
+
+export async function guestSendResetPasswordAction(origin: string) {
+  const user = await getSessionUser();
+  if (!user) return { error: "请先登录" };
+  if (user.role !== "guest") return { error: "仅访客用户可使用此功能" };
+
+  const email = user.email;
+  const rateLimitKey = `${email}:reset_password`;
+  if (!checkRateLimit(rateLimitKey)) {
+    return { error: "请稍后再试，重置邮件发送过于频繁" };
+  }
+
+  try {
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+    await db.delete(verificationCodes).where(
+      and(eq(verificationCodes.email, email), eq(verificationCodes.type, "reset_password"))
+    );
+
+    await db.insert(verificationCodes).values({
+      email,
+      code: tokenHash,
+      type: "reset_password",
+      expiresAt,
+    });
+
+    const result = await sendResetPasswordLink(email, token, origin);
+    if (!result.sent) {
+      return { error: "发送重置密码邮件失败，请检查邮件配置" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("guestSendResetPasswordAction error:", error);
+    return { error: "Internal server error" };
   }
 }
