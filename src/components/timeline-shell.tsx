@@ -10,7 +10,7 @@ import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { getSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, MessageCircle, Send, Link, Code2, CircleUserRound } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, Link, CircleUserRound } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 export interface CurrentUser {
@@ -443,8 +443,9 @@ export function TimelineShell({
         </div>
 
         {/* Expanded state: profile info overlay */}
-        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center px-6 transition-all duration-300 ${coverExpanded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
-          <div className="flex items-center gap-4 mb-4">
+        <div className={`absolute inset-0 z-10 flex flex-col justify-center items-center px-6 transition-all duration-300 ${coverExpanded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+          <div className="w-full max-w-[360px]">
+            <div className="flex items-start gap-4 mb-3">
             <div className="size-16 sm:size-20 rounded-md overflow-hidden bg-background ring-2 ring-background shrink-0">
               {profileUser.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -455,7 +456,7 @@ export function TimelineShell({
                 </div>
               )}
             </div>
-            <div className="text-left min-w-0">
+            <div className="text-left min-w-0 flex-1">
               <h2 className="font-bold text-lg sm:text-xl text-white drop-shadow-md leading-tight">
                 {profileUser.name}
               </h2>
@@ -467,55 +468,58 @@ export function TimelineShell({
 
           {(() => {
             const links: Array<{ icon: React.ReactNode; label: string; href?: string }> = [];
-            if (profileUser.wechat) links.push({ icon: <MessageCircle size={14} />, label: `WeChat: ${profileUser.wechat}` });
+            if (profileUser.wechat) links.push({ icon: <svg viewBox="0 0 512 512" className="size-3.5 fill-current"><path d="M408.67,298.53a21,21,0,1,1,20.9-21,20.85,20.85,0,0,1-20.9,21m-102.17,0a21,21,0,1,1,20.9-21,20.84,20.84,0,0,1-20.9,21M458.59,417.39C491.1,394.08,512,359.13,512,319.51c0-71.08-68.5-129.35-154.41-129.35S203.17,248.43,203.17,319.51s68.5,129.34,154.42,129.34c17.41,0,34.83-2.33,49.92-7,2.49-.86,3.48-1.17,4.64-1.17a16.67,16.67,0,0,1,8.13,2.34L454,462.83a11.62,11.62,0,0,0,3.48,1.17,5,5,0,0,0,4.65-4.66,14.27,14.27,0,0,0-.77-3.86c-.41-1.46-5-16-7.36-25.27a18.94,18.94,0,0,1-.33-3.47,11.4,11.4,0,0,1,5-9.35"/><path d="M246.13,178.51a24.47,24.47,0,0,1,0-48.94c12.77,0,24.38,11.65,24.38,24.47,1.16,12.82-10.45,24.47-24.38,24.47m-123.06,0A24.47,24.47,0,1,1,147.45,154a24.57,24.57,0,0,1-24.38,24.47M184.6,48C82.43,48,0,116.75,0,203c0,46.61,24.38,88.56,63.85,116.53C67.34,321.84,68,327,68,329a11.38,11.38,0,0,1-.66,4.49C63.85,345.14,59.4,364,59.21,365s-1.16,3.5-1.16,4.66a5.49,5.49,0,0,0,5.8,5.83,7.15,7.15,0,0,0,3.49-1.17L108,351c3.49-2.33,5.81-2.33,9.29-2.33a16.33,16.33,0,0,1,5.81,1.16c18.57,5.83,39.47,8.16,60.37,8.16h10.45a133.24,133.24,0,0,1-5.81-38.45c0-78.08,75.47-141,168.35-141h10.45C354.1,105.1,277.48,48,184.6,48"/></svg>, label: profileUser.wechat });
             if (profileUser.telegram) {
               const val = profileUser.telegram;
               const href = val.startsWith("http") ? val : `https://t.me/${val.replace(/^@/, "")}`;
-              links.push({ icon: <Send size={14} />, label: "Telegram", href });
+              links.push({ icon: <svg viewBox="0 0 32 32" className="size-3.5 fill-current"><path d="M22.122 10.040c0.006-0 0.014-0 0.022-0 0.209 0 0.403 0.065 0.562 0.177l-0.003-0.002c0.116 0.101 0.194 0.243 0.213 0.403l0 0.003c0.020 0.122 0.031 0.262 0.031 0.405 0 0.065-0.002 0.129-0.007 0.193l0-0.009c-0.225 2.369-1.201 8.114-1.697 10.766-0.21 1.123-0.623 1.499-1.023 1.535-0.869 0.081-1.529-0.574-2.371-1.126-1.318-0.865-2.063-1.403-3.342-2.246-1.479-0.973-0.52-1.51 0.322-2.384 0.221-0.23 4.052-3.715 4.127-4.031 0.004-0.019 0.006-0.040 0.006-0.062 0-0.078-0.029-0.149-0.076-0.203l0 0c-0.052-0.034-0.117-0.053-0.185-0.053-0.045 0-0.088 0.009-0.128 0.024l0.002-0.001q-0.198 0.045-6.316 4.174c-0.445 0.351-1.007 0.573-1.619 0.599l-0.006 0c-0.867-0.105-1.654-0.298-2.401-0.573l0.074 0.024c-0.938-0.306-1.683-0.467-1.619-0.985q0.051-0.404 1.114-0.827 6.548-2.853 8.733-3.761c1.607-0.853 3.47-1.555 5.429-2.010l0.157-0.031zM15.93 1.025c-8.302 0.020-15.025 6.755-15.025 15.060 0 8.317 6.742 15.060 15.060 15.060s15.060-6.742 15.060-15.060c0-8.305-6.723-15.040-15.023-15.060h-0.002q-0.035-0-0.070 0z"></path></svg>, label: val, href });
             }
             if (profileUser.github) {
               const val = profileUser.github;
               const href = val.startsWith("http") ? val : `https://github.com/${val}`;
-              links.push({ icon: <Code2 size={14} />, label: "GitHub", href });
+              links.push({ icon: <svg viewBox="0 0 20 20" className="size-3.5 fill-current"><path d="M94,7399 C99.523,7399 104,7403.59 104,7409.253 C104,7413.782 101.138,7417.624 97.167,7418.981 C96.66,7419.082 96.48,7418.762 96.48,7418.489 C96.48,7418.151 96.492,7417.047 96.492,7415.675 C96.492,7414.719 96.172,7414.095 95.813,7413.777 C98.04,7413.523 100.38,7412.656 100.38,7408.718 C100.38,7407.598 99.992,7406.684 99.35,7405.966 C99.454,7405.707 99.797,7404.664 99.252,7403.252 C99.252,7403.252 98.414,7402.977 96.505,7404.303 C95.706,7404.076 94.85,7403.962 94,7403.958 C93.15,7403.962 92.295,7404.076 91.497,7404.303 C89.586,7402.977 88.746,7403.252 88.746,7403.252 C88.203,7404.664 88.546,7405.707 88.649,7405.966 C88.01,7406.684 87.619,7407.598 87.619,7408.718 C87.619,7412.646 89.954,7413.526 92.175,7413.785 C91.889,7414.041 91.63,7414.493 91.54,7415.156 C90.97,7415.418 89.522,7415.871 88.63,7414.304 C88.63,7414.304 88.101,7413.319 87.097,7413.247 C87.097,7413.247 86.122,7413.234 87.029,7413.87 C87.029,7413.87 87.684,7414.185 88.139,7415.37 C88.139,7415.37 88.726,7417.2 91.508,7416.58 C91.513,7417.437 91.522,7418.245 91.522,7418.489 C91.522,7418.76 91.338,7419.077 90.839,7418.982 C86.865,7417.627 84,7413.783 84,7409.253 C84,7403.59 88.478,7399 94,7399" transform="translate(-84, -7399)"/></svg>, label: val, href });
             }
             if (profileUser.x) {
               const val = profileUser.x;
               const href = val.startsWith("http") ? val : `https://x.com/${val.replace(/^@/, "")}`;
-              links.push({ icon: <span className="font-bold text-xs" style={{ fontFamily: "system-ui" }}>X</span>, label: "X", href });
+              links.push({ icon: <svg viewBox="0 0 251 256" className="size-3.5 fill-current"><path d="M149.078767,108.398529 L242.331303,0 L220.233437,0 L139.262272,94.1209195 L74.5908396,0 L0,0 L97.7958952,142.3275 L0,256 L22.0991185,256 L107.606755,156.605109 L175.904525,256 L250.495364,256 L149.07334,108.398529 L149.078767,108.398529 Z M118.810995,143.581438 L108.902233,129.408828 L30.0617399,16.6358981 L64.0046968,16.6358981 L127.629893,107.647252 L137.538655,121.819862 L220.243874,240.120681 L186.300917,240.120681 L118.810995,143.586865 L118.810995,143.581438 Z"/></svg>, label: val, href });
             }
             if (profileUser.otherLink) {
               const val = profileUser.otherLink;
               const href = val.startsWith("http") ? val : `https://${val}`;
-              links.push({ icon: <Link size={14} />, label: "链接", href });
+              links.push({ icon: <Link size={14} />, label: val, href });
             }
             if (links.length === 0) return null;
             return (
-              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 max-w-[360px]">
-                {links.map((link, i) => (
-                  link.href ? (
-                    <a
-                      key={i}
-                      href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1.5 text-white/90 hover:text-white text-xs transition-colors"
-                    >
-                      {link.icon}
-                      <span>{link.label}</span>
-                    </a>
-                  ) : (
-                    <span key={i} className="flex items-center gap-1.5 text-white/90 text-xs">
-                      {link.icon}
-                      <span>{link.label}</span>
-                    </span>
-                  )
-                ))}
+              <div className="ml-[4.5rem] sm:ml-[5.5rem]">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                  {links.map((link, i) => (
+                    link.href ? (
+                      <a
+                        key={i}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-white/90 hover:text-white text-xs transition-colors truncate"
+                      >
+                        {link.icon}
+                        <span className="truncate">{link.label}</span>
+                      </a>
+                    ) : (
+                      <span key={i} className="flex items-center gap-1.5 text-white/90 text-xs truncate">
+                        {link.icon}
+                        <span className="truncate">{link.label}</span>
+                      </span>
+                    )
+                  ))}
+                </div>
               </div>
             );
           })()}
 
-          <p className="text-[10px] text-white/50 mt-4">点击收起</p>
+          <p className="text-[10px] text-white/50 mt-4 text-center">点击收起</p>
+          </div>
         </div>
       </div>
 
