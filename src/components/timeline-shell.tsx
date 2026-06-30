@@ -36,7 +36,7 @@ export interface PostData {
   id: string;
   userId: string;
   content: string;
-  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
+  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
   ytVideoId: string | null;
   status: "approved" | "pending";
   pinnedAt: Date | null;

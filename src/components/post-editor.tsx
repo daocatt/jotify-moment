@@ -22,7 +22,7 @@ interface PostEditorProps {
 
 export function PostEditor({ onSuccess }: PostEditorProps) {
   const [content, setContent] = useState("");
-  const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string }>>([]);
+  const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string; thumbnailUrl?: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -114,7 +114,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         if (data.error) {
           toast.error(data.error);
         } else {
-          setMediaFiles((prev) => [...prev, { type: data.type, url: data.url, name: data.name }]);
+          setMediaFiles((prev) => [...prev, { type: data.type, url: data.url, name: data.name, thumbnailUrl: data.thumbnailUrl }]);
         }
       } catch {
         toast.error("文件上传失败");
