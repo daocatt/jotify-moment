@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jotify Moment",
-  description: "A WeChat Moment style log and timeline application.",
+  title: {
+    default: "Jotify Moment",
+    template: "%s · Jotify Moment",
+  },
+  description: "记录生活，分享此刻。",
 };
 
 export default function RootLayout({

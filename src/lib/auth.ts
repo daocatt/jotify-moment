@@ -12,6 +12,11 @@ export interface SessionUser {
   avatar: string | null;
   bio: string | null;
   coverImage: string | null;
+  wechat: string | null;
+  telegram: string | null;
+  github: string | null;
+  x: string | null;
+  otherLink: string | null;
   role: "super_admin" | "admin" | "user";
   status: "active" | "suspended";
 }
@@ -86,6 +91,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       avatar: dbUser.avatar,
       bio: dbUser.bio,
       coverImage: dbUser.coverImage,
+      wechat: dbUser.wechat,
+      telegram: dbUser.telegram,
+      github: dbUser.github,
+      x: dbUser.x,
+      otherLink: dbUser.otherLink,
       role: (dbUser.role as "super_admin" | "admin" | "user") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
     };
@@ -97,4 +107,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 // Stubs to avoid breaking compilation elsewhere
 export async function setSessionCookie(token: string) {}
-export async function clearSessionCookie() {}
+
+export async function clearSessionCookie() {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("better-auth.session_token");
+  } catch {}
+}

@@ -57,7 +57,8 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
     if (res.error) {
       toast.error(res.error);
     } else {
-      toast.success("验证码已发送，请检查收件箱（如未配置发信API，请在服务端控制台查看）");
+      const msg = "验证码已发送，请检查收件箱" + (res.emailConfigured === false ? "（尚未配置发信API）" : "");
+      toast.success(msg);
       startCountdown();
     }
   };
@@ -81,9 +82,10 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
         if (res.error) {
           toast.error(res.error);
         } else {
-          toast.success("注册成功");
-          onSuccess();
-          onClose();
+          toast.success("注册成功，请登录");
+          setMode("login");
+          setCode("");
+          setPassword("");
         }
       } else {
         // Forgot password / reset

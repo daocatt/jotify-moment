@@ -249,6 +249,7 @@ export async function getUserBySlugAction(slug: string) {
       where: eq(users.slug, slug),
       columns: {
         id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, status: true,
+        wechat: true, telegram: true, github: true, x: true, otherLink: true,
       },
     });
     if (!target) return { error: "用户不存在" };
@@ -323,7 +324,7 @@ export async function getSuperAdminProfileAction() {
   try {
     const admin = await db.query.users.findFirst({
       where: eq(users.role, "super_admin"),
-      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true },
+      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true },
     });
     if (!admin) return { error: "No super admin" };
     let slug = admin.slug;
@@ -399,7 +400,7 @@ export async function toggleReactionAction(postId: string, emoji: string) {
   if (!user) return { error: "Unauthorized" };
   if (user.status === "suspended") return { error: "Your account is suspended" };
 
-  const ALLOWED_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🎉", "🙏"];
+  const ALLOWED_EMOJIS = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
   if (!ALLOWED_EMOJIS.includes(emoji)) {
     return { error: "Invalid emoji" };
   }
