@@ -17,7 +17,7 @@ export interface SessionUser {
   github: string | null;
   x: string | null;
   otherLink: string | null;
-  role: "super_admin" | "admin" | "user";
+  role: "super_admin" | "admin" | "user" | "guest";
   status: "active" | "suspended";
 }
 

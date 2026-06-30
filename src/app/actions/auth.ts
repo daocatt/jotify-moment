@@ -75,8 +75,9 @@ export async function registerAction(data: {
   name: string;
   code: string;
   password?: string;
+  role?: "user" | "guest";
 }) {
-  const { email, name, code, password } = data;
+  const { email, name, code, password, role } = data;
 
   if (!email || !name || !code || !password) {
     return { error: "All fields are required" };
@@ -134,25 +135,28 @@ export async function registerAction(data: {
       return { error: "Failed to sign up user" };
     }
 
-    const role = isFirstUser ? "super_admin" : "user";
+    const userRole = isFirstUser ? "super_admin" : (role === "guest" ? "guest" : "user");
 
     // 4. Update additional compatibility fields in the database
     await db.update(users).set({
-      role,
+      role: userRole,
       emailVerified: true,
     }).where(eq(users.id, signUpResult.user.id));
 
-    // 5. Set default homepage slug = nickname (handle collisions by appending short id)
-    const baseSlug = name;
-    let slugCandidate = baseSlug;
-    let attempt = 0;
-    while (attempt < 10) {
-      const conflict = await db.query.users.findFirst({ where: eq(users.slug, slugCandidate) });
-      if (!conflict || conflict.id === signUpResult.user.id) break;
-      attempt++;
-      slugCandidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    let slugCandidate: string | null = null;
+    if (userRole !== "guest") {
+      // 5. Set default homepage slug = nickname (handle collisions by appending short id)
+      const baseSlug = name;
+      slugCandidate = baseSlug;
+      let attempt = 0;
+      while (attempt < 10) {
+        const conflict = await db.query.users.findFirst({ where: eq(users.slug, slugCandidate) });
+        if (!conflict || conflict.id === signUpResult.user.id) break;
+        attempt++;
+        slugCandidate = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
     }
-    await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
 
     // 6. Delete used code
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));

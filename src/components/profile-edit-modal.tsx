@@ -29,6 +29,7 @@ interface ProfileEditModalProps {
     github: string | null;
     x: string | null;
     otherLink: string | null;
+    role?: string;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -202,33 +203,35 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
 
             <TabsContent value="profile">
               <form onSubmit={handleProfileSubmit} className="space-y-4 py-1">
-                <div className="relative h-32 w-full bg-muted rounded overflow-hidden group">
-                  {coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={coverImage} alt="Cover" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
-                      无封面背景图
-                    </div>
-                  )}
-                  <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-                    {uploadingCover ? (
-                      <Loader2 className="animate-spin" />
+                {user.role !== "guest" && (
+                  <div className="relative h-32 w-full bg-muted rounded overflow-hidden group">
+                    {coverImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={coverImage} alt="Cover" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex flex-col items-center gap-1">
-                        <Camera size={20} />
-                        <span className="text-xs">更换背景</span>
+                      <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
+                        无封面背景图
                       </div>
                     )}
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={(e) => handleFileSelect(e, "cover")}
-                      disabled={uploadingCover}
-                    />
-                  </label>
-                </div>
+                    <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                      {uploadingCover ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <Camera size={20} />
+                          <span className="text-xs">更换背景</span>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => handleFileSelect(e, "cover")}
+                        disabled={uploadingCover}
+                      />
+                    </label>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-4">
@@ -241,20 +244,22 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                           {name.charAt(0)}
                         </div>
                       )}
-                      <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-                        {uploadingAvatar ? (
-                          <Loader2 className="animate-spin size-4" />
-                        ) : (
-                          <Camera size={14} />
-                        )}
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, "avatar")}
-                          disabled={uploadingAvatar}
-                        />
-                      </label>
+                      {user.role !== "guest" && (
+                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                          {uploadingAvatar ? (
+                            <Loader2 className="animate-spin size-4" />
+                          ) : (
+                            <Camera size={14} />
+                          )}
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => handleFileSelect(e, "avatar")}
+                            disabled={uploadingAvatar}
+                          />
+                        </label>
+                      )}
                     </div>
                     <div className="flex-1 space-y-1">
                       <label className="text-xs font-normal text-muted-foreground">名字</label>
@@ -268,81 +273,85 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-normal text-muted-foreground">个人简介</label>
-                    <Textarea
-                      placeholder="介绍一下你自己..."
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
+                  {user.role !== "guest" && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-xs font-normal text-muted-foreground">个人简介</label>
+                        <Textarea
+                          placeholder="介绍一下你自己..."
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          rows={3}
+                        />
+                      </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-normal text-muted-foreground">主页路径</label>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground shrink-0">/</span>
-                      <Input
-                        type="text"
-                        placeholder="昵称或自定义路径，支持中文"
-                        value={slug}
-                        maxLength={32}
-                        onChange={(e) => setSlug(e.target.value)}
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">最大 32 位，留空则使用默认。修改后主页地址将变为 /你的路径</p>
-                  </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-normal text-muted-foreground">主页路径</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground shrink-0">/</span>
+                          <Input
+                            type="text"
+                            placeholder="昵称或自定义路径，支持中文"
+                            value={slug}
+                            maxLength={32}
+                            onChange={(e) => setSlug(e.target.value)}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">最大 32 位，留空则使用默认。修改后主页地址将变为 /你的路径</p>
+                      </div>
 
-                  <div className="border-t border-border/60 pt-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">社交链接</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">WeChat</label>
-                        <Input
-                          type="text"
-                          placeholder="微信号"
-                          value={wechat}
-                          onChange={(e) => setWechat(e.target.value)}
-                        />
+                      <div className="border-t border-border/60 pt-3 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">社交链接</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-0.5">
+                            <label className="text-[10px] text-muted-foreground">WeChat</label>
+                            <Input
+                              type="text"
+                              placeholder="微信号"
+                              value={wechat}
+                              onChange={(e) => setWechat(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <label className="text-[10px] text-muted-foreground">Telegram</label>
+                            <Input
+                              type="text"
+                              placeholder="用户名或链接"
+                              value={telegram}
+                              onChange={(e) => setTelegram(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <label className="text-[10px] text-muted-foreground">GitHub</label>
+                            <Input
+                              type="text"
+                              placeholder="用户名或链接"
+                              value={github}
+                              onChange={(e) => setGithub(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <label className="text-[10px] text-muted-foreground">X (Twitter)</label>
+                            <Input
+                              type="text"
+                              placeholder="用户名或链接"
+                              value={x}
+                              onChange={(e) => setX(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[10px] text-muted-foreground">其他链接</label>
+                          <Input
+                            type="text"
+                            placeholder="个人网站或其他链接"
+                            value={otherLink}
+                            onChange={(e) => setOtherLink(e.target.value)}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Telegram</label>
-                        <Input
-                          type="text"
-                          placeholder="用户名或链接"
-                          value={telegram}
-                          onChange={(e) => setTelegram(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">GitHub</label>
-                        <Input
-                          type="text"
-                          placeholder="用户名或链接"
-                          value={github}
-                          onChange={(e) => setGithub(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">X (Twitter)</label>
-                        <Input
-                          type="text"
-                          placeholder="用户名或链接"
-                          value={x}
-                          onChange={(e) => setX(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="text-[10px] text-muted-foreground">其他链接</label>
-                      <Input
-                        type="text"
-                        placeholder="个人网站或其他链接"
-                        value={otherLink}
-                        onChange={(e) => setOtherLink(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
 
                 <DialogFooter className="mt-4">

@@ -30,6 +30,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [role, setRole] = useState<"user" | "guest">("user");
 
   const startCountdown = () => {
     setCountdown(60);
@@ -78,7 +79,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           onClose();
         }
       } else if (mode === "register") {
-        const res = await registerAction({ email, name, code, password });
+        const res = await registerAction({ email, name, code, password, role });
         if (res.error) {
           toast.error(res.error);
         } else {
@@ -124,16 +125,46 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           {mode === "register" && (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">昵称</label>
-              <Input
-                type="text"
-                placeholder="例如：张三"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">昵称</label>
+                <Input
+                  type="text"
+                  placeholder="例如：张三"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">注册类型</label>
+                <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setRole("user")}
+                    className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      role === "user"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    普通用户 (可发文)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("guest")}
+                    className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      role === "guest"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    访客 (仅评论)
+                  </button>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="space-y-1">

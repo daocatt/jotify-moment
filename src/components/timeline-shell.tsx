@@ -190,8 +190,14 @@ export function TimelineShell({
   };
 
   const isOwnPage = !!(profileUser.id && currentUser && profileUser.id === currentUser.id);
-  const renderEditor =
-    showPostEditor === "always" ? !!currentUser : showPostEditor === "own" ? isOwnPage : false;
+  const isGuest = currentUser?.role === "guest";
+  const renderEditor = isGuest
+    ? false
+    : showPostEditor === "always"
+    ? !!currentUser
+    : showPostEditor === "own"
+    ? isOwnPage
+    : false;
 
   const handleBannerAvatarClick = () => {
     if (isOwnPage) {
@@ -543,6 +549,10 @@ export function TimelineShell({
                 currentUser={currentUser}
                 onOpenLightbox={openLightbox}
                 onRefresh={onRefresh}
+                onRequireLogin={() => {
+                  setAuthModalMode("login");
+                  setAuthModalOpen(true);
+                }}
               />
             ))}
             {hasMore && (
