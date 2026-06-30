@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { users, accounts, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword } from "better-auth/crypto";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -69,8 +69,8 @@ export async function initializeSystemAction(data: {
       // 2. Physically insert credentials into accounts table for Better Auth Email provider compatibility
       await tx.insert(accounts).values({
         id: crypto.randomUUID(),
-        accountId: email,
-        providerId: "email",
+        accountId: userId,
+        providerId: "credential",
         userId: userId,
         password: passwordHash,
       });

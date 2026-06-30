@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
 
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
@@ -25,6 +25,46 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
   const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wrapSelection = (before: string, after: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = content.slice(start, end);
+    const newText = content.slice(0, start) + before + selected + after + content.slice(end);
+    setContent(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      if (selected.length === 0) {
+        ta.selectionStart = ta.selectionEnd = start + before.length;
+      } else {
+        ta.selectionStart = start;
+        ta.selectionEnd = start + before.length + selected.length + after.length;
+      }
+    });
+  };
+
+  const toggleLinePrefix = (prefix: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const lineStart = content.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = content.indexOf("\n", start);
+    const realLineEnd = lineEnd === -1 ? content.length : lineEnd;
+    const line = content.slice(lineStart, realLineEnd);
+    const hasPrefix = line.startsWith(prefix);
+    const newLine = hasPrefix ? line.slice(prefix.length) : prefix + line;
+    const newText = content.slice(0, lineStart) + newLine + content.slice(realLineEnd);
+    setContent(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const offset = hasPrefix ? -prefix.length : prefix.length;
+      ta.selectionStart = ta.selectionEnd = Math.max(lineStart, start + offset);
+    });
+  };
 
   const ytVideoId = useMemo(() => {
     const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
@@ -204,7 +244,8 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-4">
       <div className="relative">
         <Textarea
-          placeholder="这一刻的想法... (支持 Markdown 语法)"
+          ref={textareaRef}
+          placeholder="这一刻的想法..."
           value={content}
           maxLength={MAX_POST_LENGTH}
           onChange={(e) => setContent(e.target.value)}
@@ -217,29 +258,49 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
 
       {/* Media Attachments Preview */}
       {mediaFiles.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 py-2">
-          {mediaFiles.map((file, idx) => (
-            <div key={idx} className="relative aspect-square bg-muted rounded overflow-hidden group border border-border">
-              {file.type === "image" && (
-                <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
-              )}
-              {file.type === "video" && (
-                <video src={file.url} className="h-full w-full object-cover" muted />
-              )}
-              {file.type === "audio" && (
-                <div className="h-full w-full flex flex-col items-center justify-center p-2 text-xs text-muted-foreground text-center">
-                  <Mic className="size-6 text-green-500 mb-1" />
-                  <span>语音消息</span>
-                </div>
-              )}
-              <button
-                onClick={() => removeMedia(idx)}
-                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 size={14} />
-              </button>
+        <div className="space-y-2 py-2">
+          {/* Images & videos: compact grid (6+ per row) */}
+          {mediaFiles.some((f) => f.type === "image" || f.type === "video") && (
+            <div className="grid grid-cols-6 gap-1.5">
+              {mediaFiles.map((file, idx) => {
+                if (file.type !== "image" && file.type !== "video") return null;
+                return (
+                  <div key={idx} className="relative aspect-square bg-muted rounded overflow-hidden group border border-border">
+                    {file.type === "image" && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
+                    )}
+                    {file.type === "video" && (
+                      <video src={file.url} className="h-full w-full object-cover" muted />
+                    )}
+                    <button
+                      onClick={() => removeMedia(idx)}
+                      className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-black/80 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
+
+          {/* Voice messages: separate long-bar rows */}
+          {mediaFiles.map((file, idx) => {
+            if (file.type !== "audio") return null;
+            return (
+              <div key={idx} className="relative flex items-center gap-2 px-3 h-10 bg-[#F2F2F2] dark:bg-muted rounded-lg border border-border group">
+                <Mic className="size-4 text-green-500 shrink-0" />
+                <span className="text-xs text-neutral-600 dark:text-neutral-300 font-medium flex-1">语音消息</span>
+                <button
+                  onClick={() => removeMedia(idx)}
+                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -276,6 +337,34 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
 
       <div className="flex items-center justify-between pt-2 border-t border-border/60">
         <div className="flex items-center gap-1">
+          {/* Markdown toolbar */}
+          <div className="flex items-center gap-0.5 mr-1 pr-1 border-r border-border/60">
+            <button
+              type="button"
+              onClick={() => toggleLinePrefix("### ")}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              title="标题"
+            >
+              <Heading3 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => wrapSelection("**", "**")}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              title="加粗"
+            >
+              <Bold size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleLinePrefix("- ")}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              title="列表"
+            >
+              <List size={18} />
+            </button>
+          </div>
+
           {/* Image button */}
           <label className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full cursor-pointer transition-colors">
             <ImageIcon size={20} />

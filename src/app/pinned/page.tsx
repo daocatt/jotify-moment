@@ -50,6 +50,7 @@ export default function PinnedPage() {
       loadingMore={false}
       onLoadMore={() => {}}
       onRefresh={loadData}
+      onProfileUpdated={loadData}
       showBackButton
       showPostEditor="never"
     />

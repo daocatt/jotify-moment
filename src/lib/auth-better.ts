@@ -6,7 +6,6 @@ import * as schema from "@/db/schema";
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-    useUUID: true,
     schema: {
       user: schema.users,
       session: schema.sessions,
@@ -14,8 +13,14 @@ export const auth = betterAuth({
       verification: schema.verifications,
     },
   }),
+  advanced: {
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
+  },
   emailAndPassword: {
     enabled: true,
+    autoSignIn: false,
   },
   user: {
     additionalFields: {
@@ -29,13 +34,32 @@ export const auth = betterAuth({
       },
       bio: {
         type: "string",
+        required: false,
       },
       coverImage: {
         type: "string",
+        required: false,
+      },
+      wechat: {
+        type: "string",
+        required: false,
+      },
+      telegram: {
+        type: "string",
+        required: false,
+      },
+      github: {
+        type: "string",
+        required: false,
+      },
+      x: {
+        type: "string",
+        required: false,
+      },
+      otherLink: {
+        type: "string",
+        required: false,
       },
     },
-  },
-  advanced: {
-    generateId: () => crypto.randomUUID(),
   },
 });

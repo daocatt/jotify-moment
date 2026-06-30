@@ -3,7 +3,7 @@ import { Resend } from "resend";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const fromEmail = process.env.EMAIL_FROM || "onboarding@resend.dev";
 
-export async function sendVerificationCode(email: string, code: string): Promise<boolean> {
+export async function sendVerificationCode(email: string, code: string): Promise<{ sent: boolean; emailConfigured: boolean }> {
   const subject = `[Jotify Moment] Verification Code: ${code}`;
   const html = `
     <div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; border-radius: 5px;">
@@ -20,7 +20,7 @@ export async function sendVerificationCode(email: string, code: string): Promise
     console.log("\n==================================================");
     console.log(`[DEV/TEST ONLY] Verification code for ${email}: ${code}`);
     console.log("==================================================\n");
-    return true;
+    return { sent: true, emailConfigured: false };
   }
 
   try {
@@ -30,9 +30,34 @@ export async function sendVerificationCode(email: string, code: string): Promise
       subject,
       html,
     });
-    return !!data.data?.id;
+    return { sent: !!data.data?.id, emailConfigured: true };
   } catch (error) {
     console.error("Failed to send verification email via Resend:", error);
-    return false;
+    return { sent: false, emailConfigured: true };
+  }
+}
+
+export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
+  if (!resend) {
+    console.log(`[DEV/TEST ONLY] Welcome email for ${email} (${name})`);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `欢迎加入 Jotify Moment，${name}！`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: #111; margin-bottom: 20px;">欢迎加入 Jotify Moment 🎉</h2>
+          <p style="font-size: 16px; color: #555;">你好，<strong>${name}</strong>！</p>
+          <p style="font-size: 14px; color: #555; margin-top: 10px;">你的账号已创建成功。现在可以登录并开始记录生活、分享此刻。</p>
+          <p style="font-size: 12px; color: #999; margin-top: 20px;">如果你没有注册此账号，请忽略此邮件。</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Failed to send welcome email:", error);
   }
 }

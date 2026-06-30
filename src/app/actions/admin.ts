@@ -215,6 +215,11 @@ export async function updateProfileAction(data: {
   bio: string;
   avatar: string;
   coverImage: string;
+  wechat: string;
+  telegram: string;
+  github: string;
+  x: string;
+  otherLink: string;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -240,6 +245,11 @@ export async function updateProfileAction(data: {
         bio: data.bio || null,
         avatar: data.avatar || null,
         coverImage: data.coverImage || null,
+        wechat: data.wechat || null,
+        telegram: data.telegram || null,
+        github: data.github || null,
+        x: data.x || null,
+        otherLink: data.otherLink || null,
       })
       .where(eq(users.id, user.id));
 

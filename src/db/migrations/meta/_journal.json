@@ -36,6 +36,13 @@
       "when": 1782756018389,
       "tag": "0004_boring_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782808727623,
+      "tag": "0005_short_katie_power",
+      "breakpoints": true
     }
   ]
 }

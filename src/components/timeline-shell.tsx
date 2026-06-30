@@ -11,7 +11,7 @@ import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { AdminPanel } from "@/components/admin-panel";
 import { getSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, MessageCircle, Send, Link, Code2 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 export interface CurrentUser {
@@ -24,6 +24,11 @@ export interface CurrentUser {
   avatar: string | null;
   bio: string | null;
   coverImage: string | null;
+  wechat: string | null;
+  telegram: string | null;
+  github: string | null;
+  x: string | null;
+  otherLink: string | null;
 }
 
 export interface PostData {
@@ -70,6 +75,11 @@ export interface ProfileUser {
   avatar: string | null;
   bio: string | null;
   coverImage: string | null;
+  wechat?: string | null;
+  telegram?: string | null;
+  github?: string | null;
+  x?: string | null;
+  otherLink?: string | null;
 }
 
 interface TimelineShellProps {
@@ -80,6 +90,7 @@ interface TimelineShellProps {
   loadingMore: boolean;
   onLoadMore: () => void;
   onRefresh: () => void;
+  onProfileUpdated?: () => void;
   showBackButton?: boolean;
   showPostEditor?: "always" | "own" | "never";
   pinnedEntry?: React.ReactNode;
@@ -94,6 +105,7 @@ export function TimelineShell({
   loadingMore,
   onLoadMore,
   onRefresh,
+  onProfileUpdated,
   showBackButton = false,
   showPostEditor = "never",
   pinnedEntry,
@@ -107,6 +119,10 @@ export function TimelineShell({
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [avatarHovered, setAvatarHovered] = useState(false);
+  const [bannerHovered, setBannerHovered] = useState(false);
+  const [coverExpanded, setCoverExpanded] = useState(false);
   const [sysSettings, setSysSettings] = useState<Record<string, string>>({});
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -203,7 +219,7 @@ export function TimelineShell({
             variant="ghost"
             size="icon"
             onClick={() => router.push("/")}
-            className="size-8 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+            className="size-8 min-h-0 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
           >
             <ArrowLeft size={16} />
           </Button>
@@ -212,7 +228,7 @@ export function TimelineShell({
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="size-8 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+          className="size-8 min-h-0 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
         >
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
@@ -230,27 +246,62 @@ export function TimelineShell({
           <span className="font-semibold text-sm text-foreground truncate">
             {profileUser.name}
           </span>
-          <button
-            type="button"
-            onClick={() => currentUser && goToOwnHome()}
-            className={`size-7 rounded overflow-hidden bg-muted shrink-0 ${currentUser ? "cursor-pointer" : "cursor-default"}`}
+          <div
+            onMouseEnter={() => setAvatarHovered(true)}
+            onMouseLeave={() => setAvatarHovered(false)}
+            className="group relative size-7 rounded-full overflow-hidden bg-muted shrink-0"
           >
-            {currentUser?.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
-                {currentUser ? currentUser.name.charAt(0) : "G"}
-              </div>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => currentUser && (isOwnPage ? setProfileModalOpen(true) : goToOwnHome())}
+              className={`block size-full relative ${currentUser ? "cursor-pointer" : "cursor-default"}`}
+              title={currentUser ? (isOwnPage ? "编辑个人资料" : "我的主页") : undefined}
+            >
+              {currentUser?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
+                  {currentUser ? currentUser.name.charAt(0) : "G"}
+                </div>
+              )}
+              {currentUser && isOwnPage && (
+                <div className={`absolute inset-0 flex items-center justify-center bg-black/45 text-white transition-opacity ${avatarHovered ? "opacity-100" : "opacity-100 sm:opacity-0"}`}>
+                  <Pen size={12} />
+                </div>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Floating Vertical Navigation */}
-      <div className="fixed bottom-6 left-0 md:left-[calc(50%-320px)] md:bottom-12 z-40 flex flex-col gap-2">
+      <div className="fixed bottom-10 left-0 md:left-[calc(50%-320px)] md:bottom-16 z-40 flex flex-col gap-2">
         {currentUser ? (
           <>
+            {renderEditor && (
+              <Button
+                variant={editorOpen ? "default" : "outline"}
+                onClick={() => {
+                  setEditorOpen((v) => {
+                    const next = !v;
+                    if (next) {
+                      setTimeout(() => {
+                        document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }, 50);
+                    }
+                    return next;
+                  });
+                }}
+                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
+              >
+                <Pen size={13} className="shrink-0" />
+                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
+                  <span>发</span>
+                  <span>布</span>
+                </span>
+              </Button>
+            )}
             {(currentUser.role === "super_admin" || currentUser.role === "admin") && (
               <Button
                 variant="outline"
@@ -312,23 +363,34 @@ export function TimelineShell({
       </div>
 
       {/* Cover Photo Banner */}
-      <div ref={coverRef} className="relative w-full h-[260px] sm:h-[300px] bg-neutral-900">
+      <div
+        ref={coverRef}
+        className={`relative w-full bg-neutral-900 transition-all duration-500 ease-in-out cursor-pointer ${coverExpanded ? "h-[420px] sm:h-[460px] overflow-hidden" : "h-[260px] sm:h-[300px]"}`}
+        onClick={() => setCoverExpanded((v) => !v)}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={profileUser.coverImage || "/default-cover.jpg"}
           alt="Timeline Cover"
-          className="w-full h-full object-cover opacity-85"
+          className={`w-full h-full object-cover transition-all duration-500 ${coverExpanded ? "opacity-30 blur-sm scale-105" : "opacity-85"}`}
         />
-        <div className="absolute bottom-4 right-[calc(1rem+4rem+0.75rem)] sm:right-[calc(1rem+5rem+0.75rem)] z-10 text-right select-none">
+
+        {/* Default state: name + avatar (hidden when expanded) */}
+        <div className={`absolute bottom-4 right-[calc(1rem+4rem+0.75rem)] sm:right-[calc(1rem+5rem+0.75rem)] z-10 text-right select-none transition-all duration-300 ${coverExpanded ? "opacity-0 translate-y-2 pointer-events-none" : "opacity-100 translate-y-0"}`}>
           <h2 className="font-bold text-lg sm:text-xl text-white drop-shadow-md leading-tight">
             {profileUser.name}
           </h2>
         </div>
-        <div className="absolute right-4 bottom-0 translate-y-1/2 z-10">
+        <div
+          onMouseEnter={() => setBannerHovered(true)}
+          onMouseLeave={() => setBannerHovered(false)}
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute right-4 bottom-0 translate-y-1/2 z-20 transition-all duration-300 ${coverExpanded ? "opacity-0 translate-y-4 pointer-events-none" : "opacity-100 translate-y-1/2"}`}
+        >
           <button
             type="button"
-            onClick={handleBannerAvatarClick}
-            className={`size-16 sm:size-20 rounded-sm overflow-hidden bg-background ring-2 ring-background block outline-none focus-visible:ring-foreground ${onAvatarClick || isOwnPage ? "cursor-pointer" : "cursor-default"}`}
+            onClick={(e) => { e.stopPropagation(); handleBannerAvatarClick(); }}
+            className={`size-16 sm:size-20 rounded-md overflow-hidden bg-background ring-2 ring-background block outline-none focus-visible:ring-foreground ${onAvatarClick || isOwnPage ? "cursor-pointer" : "cursor-default"}`}
             title={isOwnPage ? "编辑个人资料" : undefined}
           >
             {profileUser.avatar ? (
@@ -340,26 +402,108 @@ export function TimelineShell({
               </div>
             )}
           </button>
+          {isOwnPage && (
+            <div className={`absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white rounded-md transition-opacity pointer-events-none ${bannerHovered ? "sm:opacity-100 opacity-0" : "opacity-0"}`}>
+              <Pen size={18} />
+              <span className="text-[10px] mt-0.5">编辑</span>
+            </div>
+          )}
+        </div>
+
+        {/* Expanded state: profile info overlay */}
+        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center px-6 transition-all duration-300 ${coverExpanded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="size-16 sm:size-20 rounded-md overflow-hidden bg-background ring-2 ring-background shrink-0">
+              {profileUser.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profileUser.avatar} alt="User Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
+                  {profileUser.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <div className="text-left min-w-0">
+              <h2 className="font-bold text-lg sm:text-xl text-white drop-shadow-md leading-tight">
+                {profileUser.name}
+              </h2>
+              <p className="text-xs text-white/80 mt-0.5 max-w-[240px] break-words leading-relaxed">
+                {profileUser.bio || "记录生活，分享此刻"}
+              </p>
+            </div>
+          </div>
+
+          {(() => {
+            const links: Array<{ icon: React.ReactNode; label: string; href?: string }> = [];
+            if (profileUser.wechat) links.push({ icon: <MessageCircle size={14} />, label: `WeChat: ${profileUser.wechat}` });
+            if (profileUser.telegram) {
+              const val = profileUser.telegram;
+              const href = val.startsWith("http") ? val : `https://t.me/${val.replace(/^@/, "")}`;
+              links.push({ icon: <Send size={14} />, label: "Telegram", href });
+            }
+            if (profileUser.github) {
+              const val = profileUser.github;
+              const href = val.startsWith("http") ? val : `https://github.com/${val}`;
+              links.push({ icon: <Code2 size={14} />, label: "GitHub", href });
+            }
+            if (profileUser.x) {
+              const val = profileUser.x;
+              const href = val.startsWith("http") ? val : `https://x.com/${val.replace(/^@/, "")}`;
+              links.push({ icon: <span className="font-bold text-xs" style={{ fontFamily: "system-ui" }}>X</span>, label: "X", href });
+            }
+            if (profileUser.otherLink) {
+              const val = profileUser.otherLink;
+              const href = val.startsWith("http") ? val : `https://${val}`;
+              links.push({ icon: <Link size={14} />, label: "链接", href });
+            }
+            if (links.length === 0) return null;
+            return (
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 max-w-[360px]">
+                {links.map((link, i) => (
+                  link.href ? (
+                    <a
+                      key={i}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1.5 text-white/90 hover:text-white text-xs transition-colors"
+                    >
+                      {link.icon}
+                      <span>{link.label}</span>
+                    </a>
+                  ) : (
+                    <span key={i} className="flex items-center gap-1.5 text-white/90 text-xs">
+                      {link.icon}
+                      <span>{link.label}</span>
+                    </span>
+                  )
+                ))}
+              </div>
+            );
+          })()}
+
+          <p className="text-[10px] text-white/50 mt-4">点击收起</p>
         </div>
       </div>
 
-      {/* Bio */}
-      <div className="flex items-center justify-end px-4 pt-2 pb-2">
+      {/* Bio (hidden when cover expanded) */}
+      <div className={`flex items-center justify-end px-4 pt-2 pb-2 transition-all duration-300 ${coverExpanded ? "h-0 pt-0 pb-0 overflow-hidden opacity-0" : ""}`}>
         <p className="text-xs text-muted-foreground truncate max-w-[200px] text-right pr-3">
           {profileUser.bio || "记录生活，分享此刻"}
         </p>
         <div className="w-16 sm:w-20 h-8 sm:h-10 shrink-0" />
       </div>
 
-      {renderEditor && currentUser && (
-        <div className="px-4 py-3 border-b border-border/60">
-          <PostEditor onSuccess={onRefresh} />
+      {renderEditor && currentUser && editorOpen && (
+        <div id="post-editor" className="px-4 py-3 border-b border-border/60 scroll-mt-16">
+          <PostEditor onSuccess={() => { setEditorOpen(false); onRefresh(); }} />
         </div>
       )}
 
       {pinnedEntry}
 
-      <div className="flex-1 divide-y divide-border/60">
+      <div className="flex-1 divide-y divide-border/60 pb-20">
         {loadingPosts && posts.length === 0 ? (
           <div className="divide-y divide-border/60">
             {[...Array(4)].map((_, i) => (
@@ -425,14 +569,14 @@ export function TimelineShell({
         />
       )}
 
-      {profileModalOpen && isOwnPage && currentUser && (
+      {profileModalOpen && currentUser && (
         <ProfileEditModal
           user={currentUser}
           isOpen={profileModalOpen}
           onClose={() => setProfileModalOpen(false)}
           onSuccess={() => {
             fetchSession();
-            onRefresh();
+            onProfileUpdated?.();
           }}
         />
       )}
