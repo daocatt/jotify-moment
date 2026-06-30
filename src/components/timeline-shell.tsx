@@ -209,7 +209,7 @@ export function TimelineShell({
 
   const goToOwnHome = () => {
     if (currentUser?.slug) {
-      router.push(`/${currentUser.slug}`);
+      router.push(`/u/${currentUser.slug}`);
     } else {
       toast.error("尚未设置主页路径");
     }

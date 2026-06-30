@@ -67,7 +67,7 @@ export const verifications = pgTable("verifications", {
 });
 
 export const posts = pgTable("posts", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: text("id").primaryKey(),
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
@@ -85,7 +85,7 @@ export const posts = pgTable("posts", {
 
 export const comments = pgTable("comments", {
   id: uuid("id").defaultRandom().primaryKey(),
-  postId: uuid("post_id")
+  postId: text("post_id")
     .references(() => posts.id, { onDelete: "cascade" })
     .notNull(),
   userId: uuid("user_id")
@@ -100,7 +100,7 @@ export const comments = pgTable("comments", {
 
 export const reactions = pgTable("reactions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  postId: uuid("post_id")
+  postId: text("post_id")
     .references(() => posts.id, { onDelete: "cascade" })
     .notNull(),
   userId: uuid("user_id")
