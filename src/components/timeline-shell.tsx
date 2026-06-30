@@ -119,7 +119,6 @@ export function TimelineShell({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
