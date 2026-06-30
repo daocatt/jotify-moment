@@ -214,11 +214,22 @@ export async function loginAction(data: { email: string; password?: string }) {
       headers: await headers(),
     });
 
-    if (!signInResult || !signInResult.user) {
+    if (!signInResult || !signInResult.user || !signInResult.token) {
       return { error: "Invalid email or password" };
     }
 
     LOGIN_RATE_LIMITS.delete(email);
+
+    // Set Better Auth session cookie manually in Next.js Server Action
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    cookieStore.set("better-auth.session_token", signInResult.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+      path: "/",
+    });
 
     return {
       success: true,
@@ -243,6 +254,9 @@ export async function logoutAction() {
     await auth.api.signOut({
       headers: await headers(),
     });
+
+    // Clear session cookie manually
+    await clearSessionCookie();
 
     return { success: true };
   } catch (error) {
