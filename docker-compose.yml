@@ -3,6 +3,8 @@ services:
     image: postgres:15-alpine
     container_name: jotify-moment-db
     restart: always
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -11,7 +13,7 @@ services:
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -38,17 +40,17 @@ services:
       dockerfile: Dockerfile
     container_name: jotify-moment-web
     restart: always
-    ports:
-      - "127.0.0.1:${APP_PORT:-3000}:3000"
     env_file:
       - .env
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
     environment:
       - TZ=Asia/Shanghai
     depends_on:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - ./public/uploads:/app/public/uploads
+      - ${DATA_PATH:-./data}/uploads:/app/public/uploads
 
 volumes:
   postgres_data:
