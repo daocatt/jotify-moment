@@ -360,36 +360,46 @@
   }
 
   /* ── transitions-dev: Skeleton ── */
-  .t-skel {
-    animation: t-skel-pulse var(--pulse-dur) var(--ease-linear) var(--pulse-count);
-    opacity: var(--pulse-min);
+  .t-skel { position: relative; }
+  .t-skel-skeleton,
+  .t-skel-content {
+    position: absolute;
+    inset: 0;
   }
-  @keyframes t-skel-pulse {
-    0%, 100% { opacity: var(--pulse-min); }
-    50% { opacity: 1; }
-  }
-  .t-skel.is-revealed {
+  .t-skel-skeleton {
+    z-index: 1;
     opacity: 1;
     filter: blur(0);
-    transform: translateY(0);
     transition:
       opacity var(--reveal-dur) var(--reveal-ease),
-      filter var(--reveal-dur) var(--reveal-ease),
-      transform var(--reveal-dur) var(--reveal-ease);
+      filter  var(--reveal-dur) var(--reveal-ease);
   }
   .t-skel-content {
+    z-index: 2;
     opacity: 0;
     filter: blur(var(--reveal-blur));
-    transform: translateY(var(--distance-base));
     transition:
       opacity var(--reveal-dur) var(--reveal-ease),
-      filter var(--reveal-dur) var(--reveal-ease),
-      transform var(--reveal-dur) var(--reveal-ease);
+      filter  var(--reveal-dur) var(--reveal-ease);
   }
-  .t-skel-content.is-revealed {
+  .t-skel.is-revealed .t-skel-skeleton {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  .t-skel.is-revealed .t-skel-content {
     opacity: 1;
     filter: blur(0);
-    transform: translateY(0);
+  }
+  .t-skel.is-resetting .t-skel-skeleton,
+  .t-skel.is-resetting .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > * {
+    animation: t-skel-pulse var(--pulse-dur) var(--ease-linear) var(--pulse-count);
+  }
+  @keyframes t-skel-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: var(--pulse-min); }
   }
 
   /* ── transitions-dev: Error state shake ── */
@@ -446,6 +456,49 @@
   }
   @keyframes t-check-draw { to { stroke-dashoffset: 0; } }
 
+  /* ── transitions-dev: Panel reveal ── */
+  .t-panel-slide {
+    overflow: hidden;
+  }
+  .t-panel-slide[data-open="true"] {
+    animation: t-panel-open var(--panel-open-dur) var(--panel-ease) forwards;
+  }
+  .t-panel-slide[data-open="false"] {
+    animation: t-panel-close var(--panel-close-dur) var(--panel-ease) forwards;
+  }
+  @keyframes t-panel-open {
+    from {
+      max-height: 0;
+      opacity: 0;
+    }
+    to {
+      max-height: 200px;
+      opacity: 1;
+    }
+  }
+  @keyframes t-panel-close {
+    from {
+      max-height: 200px;
+      opacity: 1;
+    }
+    to {
+      max-height: 0;
+      opacity: 0;
+    }
+  }
+
+  /* ── transitions-dev: Card hover tilt ── */
+  .t-tilt { perspective: var(--tilt-perspective); }
+  .t-tilt-card {
+    transform-style: preserve-3d;
+    transform: rotateX(0deg) rotateY(0deg);
+    transition: transform var(--tilt-return) var(--tilt-return-ease);
+    will-change: transform;
+  }
+  .t-tilt-card.is-tilting {
+    transition: transform var(--tilt-follow) var(--tilt-follow-ease);
+  }
+
   /* ── transitions-dev: Tooltip ── */
   .t-tt {
     opacity: 0;
@@ -471,9 +524,11 @@
 @media (prefers-reduced-motion: reduce) {
   .t-modal, .t-icon-swap .t-icon, .t-tabs-pill, .t-dropdown,
   .t-skel.is-revealed, .t-skel-content, .t-error.is-error,
-  .t-tt, .t-success-check { transition: none !important; }
+  .t-tt, .t-success-check, .t-panel-slide, .t-tilt-card { transition: none !important; }
   .t-skel, .t-error.is-shaking, .t-success-check[data-state="in"],
-  .t-success-check[data-state="in"] svg path { animation: none !important; }
+  .t-success-check[data-state="in"] svg path,
+  .t-panel-slide { animation: none !important; }
   .t-success-check { opacity: 1; }
   .t-success-check svg path { stroke-dashoffset: 0 !important; }
+  .t-panel-slide[data-open="true"] { max-height: none; opacity: 1; }
 }
