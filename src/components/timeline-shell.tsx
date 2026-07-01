@@ -578,9 +578,9 @@ export function TimelineShell({
 
       <div className="flex-1 divide-y divide-border/60 pb-20">
         {posts.length === 0 && loadingPosts ? (
-          <div className="divide-y divide-border/60">
+          <>
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="t-skel-skeleton is-pulsing flex gap-4 p-4">
+              <div key={i} className="animate-pulse flex gap-4 p-4">
                 <div className="size-10 rounded bg-border/50 shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-3 bg-border/50 rounded w-24" />
@@ -590,7 +590,7 @@ export function TimelineShell({
                 </div>
               </div>
             ))}
-          </div>
+          </>
         ) : posts.length === 0 ? (
           <div>
             <div className="divide-y divide-border/60 opacity-30 pointer-events-none">
