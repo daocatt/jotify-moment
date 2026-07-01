@@ -38,6 +38,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     container_name: jotify-moment-web
     restart: always
     env_file:
