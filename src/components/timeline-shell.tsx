@@ -8,7 +8,7 @@ import { PostEditor } from "@/components/post-editor";
 import { MomentPost } from "@/components/moment-post";
 import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
-import { getSettingsAction } from "@/app/actions/admin";
+import { getPublicSettingsAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 import { LogOut, Shield, Moon, Sun, Loader2, ArrowLeft, Pen, Link, CircleUserRound, Info } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
@@ -150,7 +150,7 @@ export function TimelineShell({
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const res = await getSettingsAction();
+    const res = await getPublicSettingsAction();
     setSysSettings(res.settings || {});
   }, []);
 
