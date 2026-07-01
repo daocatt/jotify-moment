@@ -125,14 +125,17 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     }
     if (reacting) return;
     setReacting(true);
-    const res = await toggleReactionAction(post.id, emoji);
-    setShowEmojiPicker(false);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      onRefresh();
+    try {
+      const res = await toggleReactionAction(post.id, emoji);
+      setShowEmojiPicker(false);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        onRefresh();
+      }
+    } finally {
+      setReacting(false);
     }
-    setReacting(false);
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
