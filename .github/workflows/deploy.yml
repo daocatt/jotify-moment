@@ -72,11 +72,7 @@ jobs:
             docker-compose up -d db
             sleep 3
 
-            # 5. Run migrations
-            echo "🗄️ Running DB migrations..."
-            docker-compose run --rm migrate 2>&1 | grep -vE '(DATABASE_URL|POSTGRES_PASSWORD)'
-
-            # 6. Start all services
+            # 5. Start all services
             echo "🚀 Starting containers..."
             docker-compose up -d
 
