@@ -19,14 +19,11 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/src/db/migrations ./src/db/migrations
+COPY --from=builder /app/src/db/migrate.js ./src/db/migrate.js
 
 RUN mkdir -p public/uploads && chmod 777 public/uploads
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
-
-FROM builder AS migrator
-WORKDIR /app
-ENV TZ=Asia/Shanghai
-CMD ["npx", "tsx", "src/db/migrate.ts"]
+CMD ["sh", "-c", "node src/db/migrate.js && node server.js"]
