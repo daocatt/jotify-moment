@@ -251,7 +251,10 @@ export function TimelineShell({
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="size-8 min-h-0 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
         >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          <span className="t-icon-swap" data-state={theme === "dark" ? "a" : "b"}>
+            <span className="t-icon" data-icon="a"><Sun size={16} /></span>
+            <span className="t-icon" data-icon="b"><Moon size={16} /></span>
+          </span>
         </Button>
         {!showBackButton && (
           <Button
