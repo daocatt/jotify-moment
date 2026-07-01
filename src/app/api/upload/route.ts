@@ -36,7 +36,6 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("Upload handler error:", error);
-    const message = error instanceof Error ? error.message : "Failed to upload file";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "文件上传失败，请重试" }, { status: 500 });
   }
 }
