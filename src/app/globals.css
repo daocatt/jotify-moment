@@ -83,6 +83,89 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* transitions-dev motion tokens */
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
+  --ease-linear: linear;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ease-bounce-strong: cubic-bezier(0.34, 3.85, 0.64, 1);
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+  --distance-large: 30px;
+  --scale-large: 0.96;
+  --scale-medium: 0.97;
+  --scale-small: 0.98;
+  --scale-tiny: 0.99;
+  --blur-small: 2px;
+  --blur-medium: 3px;
+  --blur-large: 8px;
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dropdown-open-dur: 250ms;
+  --dropdown-close-dur: 150ms;
+  --dropdown-pre-scale: 0.97;
+  --dropdown-closing-scale: 0.99;
+  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-opacity-dur: 500ms;
+  --check-rotate-dur: 500ms;
+  --check-rotate-from: 80deg;
+  --check-bob-dur: 500ms;
+  --check-y-amount: 40px;
+  --check-blur-dur: 500ms;
+  --check-blur-from: 10px;
+  --check-path-dur: 500ms;
+  --check-path-delay: 80ms;
+  --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+  --shake-distance: 6px;
+  --shake-overshoot: 4px;
+  --shake-dur-a: 80ms;
+  --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --revert-hold: 3000ms;
+  --revert-dur: 280ms;
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: 100px;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tt-in-dur: 150ms;
+  --tt-out-dur: 50ms;
+  --tt-scale: 0.98;
+  --tt-delay: 80ms;
+  --tt-in-ease: ease-out;
+  --tt-out-ease: ease-out;
+  --tt-bg: #ffffff;
+  --tt-fg: #2f2f2f;
 }
 
 .dark {
@@ -173,4 +256,173 @@
     min-height: 2.4rem;
     font-size: 0.9rem;
   }
+
+  /* ── transitions-dev: Modal ── */
+  .t-modal {
+    transform-origin: center;
+    transform: scale(var(--modal-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-open-dur) var(--modal-ease),
+      opacity var(--modal-open-dur) var(--modal-ease);
+    will-change: transform, opacity;
+  }
+  .t-modal.is-open,
+  .t-modal[data-open] {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .t-modal.is-closing,
+  .t-modal[data-closed] {
+    transform: scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease);
+  }
+
+  /* ── transitions-dev: Icon swap ── */
+  .t-icon-swap {
+    position: relative;
+    display: inline-grid;
+  }
+  .t-icon-swap .t-icon {
+    grid-area: 1 / 1;
+    transition:
+      opacity var(--icon-swap-dur) var(--icon-swap-ease),
+      filter var(--icon-swap-dur) var(--icon-swap-ease),
+      transform var(--icon-swap-dur) var(--icon-swap-ease);
+    will-change: opacity, filter, transform;
+  }
+  .t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+  .t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  .t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+  .t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+    opacity: 0;
+    filter: blur(var(--icon-swap-blur));
+    transform: scale(var(--icon-swap-start-scale));
+  }
+
+  /* ── transitions-dev: Tabs sliding ── */
+  .t-tabs-pill {
+    position: absolute;
+    transition:
+      transform var(--tabs-dur) var(--tabs-ease),
+      width var(--tabs-dur) var(--tabs-ease);
+    will-change: transform, width;
+  }
+  .t-tabs-pill[data-no-transition="true"] {
+    transition: none !important;
+  }
+
+  /* ── transitions-dev: Dropdown ── */
+  .t-dropdown {
+    transform-origin: var(--dropdown-origin, top left);
+    transform: scale(var(--dropdown-pre-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--dropdown-open-dur) var(--dropdown-ease),
+      opacity var(--dropdown-open-dur) var(--dropdown-ease);
+    will-change: transform, opacity;
+  }
+  .t-dropdown.is-open,
+  .t-dropdown[data-open] {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .t-dropdown.is-closing,
+  .t-dropdown[data-closed] {
+    transform: scale(var(--dropdown-closing-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--dropdown-close-dur) var(--dropdown-ease),
+      opacity var(--dropdown-close-dur) var(--dropdown-ease);
+  }
+
+  /* ── transitions-dev: Skeleton ── */
+  .t-skel {
+    animation: t-skel-pulse var(--pulse-dur) var(--ease-linear) var(--pulse-count);
+    opacity: var(--pulse-min);
+  }
+  @keyframes t-skel-pulse {
+    0%, 100% { opacity: var(--pulse-min); }
+    50% { opacity: 1; }
+  }
+  .t-skel.is-revealed {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+    transition:
+      opacity var(--reveal-dur) var(--reveal-ease),
+      filter var(--reveal-dur) var(--reveal-ease),
+      transform var(--reveal-dur) var(--reveal-ease);
+  }
+  .t-skel-content {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+    transform: translateY(var(--distance-base));
+    transition:
+      opacity var(--reveal-dur) var(--reveal-ease),
+      filter var(--reveal-dur) var(--reveal-ease),
+      transform var(--reveal-dur) var(--reveal-ease);
+  }
+  .t-skel-content.is-revealed {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+
+  /* ── transitions-dev: Error state shake ── */
+  .t-error.is-error {
+    transition:
+      border-color var(--revert-dur) var(--shake-ease);
+  }
+  .t-error.is-shaking {
+    animation: t-shake var(--shake-dur-a) var(--shake-ease);
+  }
+  @keyframes t-shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(calc(-1 * var(--shake-distance) + var(--shake-overshoot))); }
+    50% { transform: translateX(calc(var(--shake-distance) - var(--shake-overshoot))); }
+    75% { transform: translateX(calc(-1 * var(--shake-distance))); }
+    100% { transform: translateX(0); }
+  }
+
+  /* ── transitions-dev: Tooltip ── */
+  .t-tt {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+    transition:
+      opacity var(--tt-out-dur) var(--tt-out-ease),
+      transform var(--tt-out-dur) var(--tt-out-ease);
+    pointer-events: none;
+  }
+  .t-tt.is-shown {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    transition-delay: var(--tt-delay);
+    transition-duration: var(--tt-in-dur);
+    transition-timing-function: var(--tt-in-ease);
+  }
+  .t-tt.is-hiding {
+    transition-delay: 0ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-modal, .t-icon-swap-icon, .t-tabs-pill, .t-dropdown,
+  .t-skel.is-revealed, .t-skel-content, .t-error.is-error,
+  .t-tt { transition: none !important; }
+  .t-skel, .t-error.is-shaking { animation: none !important; }
 }
