@@ -28,15 +28,13 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const bytes = arrayBuffer instanceof SharedArrayBuffer ? new Uint8Array(arrayBuffer) : new Uint8Array(arrayBuffer);
-    const buffer = Buffer.from(bytes);
+    const buffer = Buffer.from(arrayBuffer.slice(0));
     
     const result = await uploadFile(buffer, file.name, file.type);
     
     return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("Upload handler error:", error);
-    const message = error instanceof Error ? error.message : "Failed to upload file";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "文件上传失败，请重试" }, { status: 500 });
   }
 }
