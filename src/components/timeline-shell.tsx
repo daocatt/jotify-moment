@@ -135,6 +135,16 @@ export function TimelineShell({
       setRevealed(false);
     }
   }, [loadingPosts, posts.length]);
+  
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted 
+    ? (theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches))
+    : false;
+
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -258,10 +268,10 @@ export function TimelineShell({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(isDark ? "light" : "dark")}
           className="size-8 min-h-0 rounded-full text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
         >
-          <span className="t-icon-swap" data-state={theme === "dark" ? "a" : "b"}>
+          <span className="t-icon-swap" data-state={isDark ? "a" : "b"}>
             <span className="t-icon" data-icon="a"><Sun size={16} /></span>
             <span className="t-icon" data-icon="b"><Moon size={16} /></span>
           </span>
