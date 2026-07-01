@@ -182,8 +182,7 @@ export async function POST(req: Request) {
     return result;
   } catch (error: unknown) {
     console.error("Telegram webhook error:", error);
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -350,7 +349,6 @@ async function processSingleMessage(botToken: string, message: any, authorUser: 
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     console.error("processSingleMessage error:", error);
-    const msg = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -180,15 +180,19 @@ export async function registerAction(data: {
     });
 
     if (!signUpResult || !signUpResult.user) {
-      return { error: "Failed to sign up user" };
+      return { error: "注册失败，请重试" };
     }
 
     const userRole = isFirstUser ? "super_admin" : "guest";
 
-    await db.update(users).set({
-      role: userRole,
-      emailVerified: true,
-    }).where(eq(users.id, signUpResult.user.id));
+    try {
+      await db.update(users).set({
+        role: userRole,
+        emailVerified: true,
+      }).where(eq(users.id, signUpResult.user.id));
+    } catch {
+      console.error("registerAction: failed to update role for user", signUpResult.user.id);
+    }
 
     let slugCandidate: string | null = null;
     if (userRole !== "guest") {
@@ -201,11 +205,19 @@ export async function registerAction(data: {
         }
       }
       if (slugCandidate) {
-        await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
+        try {
+          await db.update(users).set({ slug: slugCandidate }).where(eq(users.id, signUpResult.user.id));
+        } catch {
+          console.error("registerAction: failed to set slug for user", signUpResult.user.id);
+        }
       }
     }
 
-    await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
+    try {
+      await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
+    } catch {
+      console.error("registerAction: failed to delete verification code");
+    }
 
     sendWelcomeEmail(email, name).catch((err) => {
       console.error("Failed to send welcome email:", err);
@@ -223,7 +235,7 @@ export async function registerAction(data: {
     };
   } catch (error: any) {
     console.error("registerAction error:", error);
-    return { error: error.message || "Internal server error" };
+    return { error: "注册失败，请重试" };
   }
 }
 
@@ -301,7 +313,7 @@ export async function loginAction(data: { email: string; password?: string; hcap
     };
   } catch (error: any) {
     console.error("loginAction error:", error);
-    return { error: error.message || "Invalid email or password" };
+    return { error: "邮箱或密码错误" };
   }
 }
 
