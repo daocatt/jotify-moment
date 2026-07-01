@@ -46,7 +46,7 @@ cp .env.example .env
 * `DATABASE_URL`：PostgreSQL 数据库连接串。
 * `BETTER_AUTH_SECRET`：Auth 模块加密秘钥（可使用命令生成：`openssl rand -hex 32`）。
 * `BETTER_AUTH_URL`：本地默认为 `http://localhost:3000`。
-* `DOCKER_DATA_PATH`：指定本地数据及上传文件存储的基准文件夹（本地建议保留 `./data`）。
+* `DOCKER_DATA_PATH`：Docker 容器映射的数据及上传文件存储的基准文件夹（本地建议保留 `./data`）。
 
 ### 3. 启动本地数据库
 
@@ -66,13 +66,11 @@ npx drizzle-kit push
 npm run dev
 ```
 
-打开 `http://localhost:3000` 即可预览项目。首个注册的账户将自动获得 **超级管理员（Super Admin）** 权限。
+打开 `http://localhost:3000` 即可预览项目
 
 ---
 
 ## GitHub 部署
-
-项目内置了生产级持续集成与部署（CD）工作流，定义在 [.github/workflows/deploy.yml](file:///.github/workflows/deploy.yml) 中。当您将代码推送至 `main` 分支时，系统会自动执行类型检查、模拟构建并远程 SSH 部署至 VPS 服务器。
 
 ### ⚙️ GitHub Secrets 配置项
 
@@ -84,7 +82,7 @@ npm run dev
 | `VPS_USERNAME` | `root` | 用于 SSH 连接的登录用户名 |
 | `VPS_SSH_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | 登录服务器所用的 SSH 私钥 |
 | `VPS_PORT` | `22` | SSH 端口号（默认为 22） |
-| `VPS_PROJECT_PATH` | `/www/my_project/jotify_moment` | VPS 上的项目代码克隆及运行根目录 |
+| `VPS_PROJECT_PATH` | `/www/my_project/jotify_moment/webapp` | VPS 上的项目代码克隆及运行根目录 |
 | `VPS_ENV_FILE` | `/www/my_project/jotify_moment/.env.prod` | VPS 上预先存放的真实生产配置文件路径 |
 
 配置完成后，向 `main` 分支执行 `git push`，即可自动触发一键打包并无缝重启服务器上运行的 Docker 服务。
@@ -101,25 +99,25 @@ npm run dev
 
 ### 2. 准备物理配置文件
 
-在 VPS 的应用运行目录（如 `/www/my_project/jotify_moment`）中拉取源码：
+在 VPS 的应用运行目录（如 `/www/my_project/jotify_moment/webapp`）中拉取源码：
 
 ```bash
-git clone https://github.com/your-username/jotify-moment.git .
+git clone https://github.com/daocatt/jotify-moment.git .
 ```
 
-在此目录下，编辑创建您生产环境使用的 `.env.prod` 配置文件：
+在此目录下，编辑创建您生产环境使用的 `.env` 配置文件：
 
 ```env
 # PostgreSQL 容器配置
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_super_strong_password
+POSTGRES_PASSWORD=[强密码]
 POSTGRES_DB=jotify_moment
 DB_PORT=5432
 DOCKER_DATA_PATH=/www/my_project/jotify_moment/data
 
 # App 容器运行配置
 APP_PORT=3000
-DATABASE_URL=postgres://postgres:your_super_strong_password@db:5432/jotify_moment
+DATABASE_URL=postgres://postgres:[强密码]@db:5432/jotify_moment
 
 # Better Auth 认证配置
 BETTER_AUTH_SECRET=your_32_bytes_hex_secret
@@ -132,7 +130,7 @@ BETTER_AUTH_URL=https://your-moment-domain.com
 
 ```bash
 # 启动所有服务（自动完成初始化数据库构建及脚本迁移）
-docker compose --env-file .env.prod up -d
+docker compose --env-file .env up -d
 ```
 
 启动后容器将映射内部 `3000` 端口至您指定的宿主机 `APP_PORT`（仅对本地 `127.0.0.1` 暴露以确保安全）。
