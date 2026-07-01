@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Mail, User, KeyRound, Loader2, Send } from "lucide-react";
 import { updateProfileAction } from "@/app/actions/admin";
 import { guestSendResetPasswordAction } from "@/app/actions/auth";
+import { SuccessCheck } from "@/components/ui/success-check";
 
 export function GuestProfileClient() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function GuestProfileClient() {
   const [saving, setSaving] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [resetCountdown, setResetCountdown] = useState(0);
+  const [showSaved, setShowSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -57,8 +59,9 @@ export function GuestProfileClient() {
       if (res.error) {
         toast.error(res.error);
       } else {
-        toast.success("用户名已更新");
+        setShowSaved(true);
         setUser((prev) => prev ? { ...prev, name } : prev);
+        setTimeout(() => setShowSaved(false), 1500);
       }
     } catch {
       toast.error("保存失败，请重试");
@@ -135,6 +138,7 @@ export function GuestProfileClient() {
                 <Button type="submit" size="sm" disabled={saving} className="shrink-0">
                   {saving ? <Loader2 className="animate-spin size-4" /> : "保存"}
                 </Button>
+                <SuccessCheck show={showSaved} size={18} className="ml-1" />
               </div>
             </div>
           </form>
