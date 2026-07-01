@@ -5,6 +5,8 @@ import { eq, and, desc } from "drizzle-orm";
 import { getUserBySlugAction } from "@/app/actions/posts";
 import { UserHomeClient } from "./user-home-client";
 
+export const dynamic = "force-dynamic";
+
 function plainExcerpt(content: string, max = 80): string {
   const plain = content
     .replace(/```[\s\S]*?```/g, " ")
