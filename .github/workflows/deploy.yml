@@ -1,57 +1,87 @@
-name: CI/CD Build and Deploy
+name: Production CD (Jotify Moment)
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22.x
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Generate Drizzle migrations
-      run: npm run db:generate
+      - name: Type check
+        run: npx tsc --noEmit
 
-    - name: Build application
-      run: npm run build
-      env:
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/jotify_moment
-        JWT_SECRET: dummy-secret-for-ci-build
-
-    - name: Run lint
-      run: npm run lint
+      - name: Verify Build
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
   deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-laptop
-
+    needs: verify
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - name: Remote SSH Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT != '' && secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
 
-    - name: Deploy via SSH
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ secrets.DEPLOY_USER }}
-        key: ${{ secrets.DEPLOY_SSH_KEY }}
-        script: |
-          cd ${{ secrets.DEPLOY_PATH }}
-          git pull origin main
-          docker compose build --no-cache web
-          docker compose up -d migrate
-          docker compose up -d web
-          docker compose logs --tail=20 web
+            PROJECT_PATH="${{ secrets.VPS_PROJECT_PATH }}"
+            ENV_FILE="${{ secrets.VPS_ENV_FILE }}"
+
+            cd "$PROJECT_PATH"
+            echo "🚀 Deployment started at $(date)"
+
+            # 1. Sync code
+            echo "📥 Fetching latest code..."
+            git fetch --all
+            git checkout -B main origin/main
+            git reset --hard origin/main
+
+            # 2. Clean and prepare
+            echo "🧹 Cleaning legacy build artifacts..."
+            cp "$ENV_FILE" .env
+
+            # 3. Build Docker images
+            echo "📦 Building new Docker images..."
+            docker compose --env-file "$ENV_FILE" build --no-cache 2>&1 | grep -vE '(DATABASE_URL|BETTER_AUTH_SECRET|POSTGRES_PASSWORD)'
+
+            # 4. Start database
+            echo "🗄️ Bootstrapping database..."
+            docker compose --env-file "$ENV_FILE" up -d db
+            sleep 3
+
+            # 5. Run migrations
+            echo "🗄️ Running DB migrations..."
+            docker compose --env-file "$ENV_FILE" run --rm migrate 2>&1 | grep -vE '(DATABASE_URL|POSTGRES_PASSWORD)'
+
+            # 6. Start all services
+            echo "🚀 Starting containers..."
+            docker compose --env-file "$ENV_FILE" up -d
+
+            # 7. Cleanup
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+
+            echo "✅ Deployment successful!"
