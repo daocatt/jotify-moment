@@ -1,9 +1,32 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import sharp from "sharp";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { db } from "@/db";
+import { settings } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const DEFAULT_MAX_FILE_SIZE_MB = 50;
+const DEFAULT_ALLOWED_EXTENSIONS = "jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a";
+
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/wave": "wav",
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+};
 
 const MAGIC_BYTES: Record<string, number[]> = {
   "image/jpeg": [0xff, 0xd8, 0xff],
@@ -22,49 +45,61 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
   return signature.every((byte, idx) => buffer[idx] === byte);
 }
 
-// Allowed MIME types and extensions
-const ALLOWED_MIME_TYPES: Record<string, string> = {
-  // Images
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/png": "png",
-  "image/gif": "gif",
-  "image/webp": "webp",
-  // Video
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-  // Audio
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-  "audio/wav": "wav",
-  "audio/wave": "wav",
-  "audio/webm": "webm",
-  "audio/ogg": "ogg",
-  "audio/x-m4a": "m4a",
-  "audio/m4a": "m4a",
-};
+async function getStorageConfig(): Promise<{
+  mode: "local" | "s3";
+  maxFileSizeMB: number;
+  allowedExtensions: string[];
+  s3AccessKeyId: string;
+  s3SecretAccessKey: string;
+  s3BucketName: string;
+  s3Endpoint: string;
+  s3Region: string;
+  s3PublicUrl: string;
+}> {
+  const rows = await db.query.settings.findMany({
+    where: (s, { or }) => or(
+      eq(s.key, "storage_mode"),
+      eq(s.key, "storage_max_file_size_mb"),
+      eq(s.key, "storage_allowed_extensions"),
+      eq(s.key, "storage_s3_access_key_id"),
+      eq(s.key, "storage_s3_secret_access_key"),
+      eq(s.key, "storage_s3_bucket_name"),
+      eq(s.key, "storage_s3_endpoint"),
+      eq(s.key, "storage_s3_region"),
+      eq(s.key, "storage_s3_public_url")
+    ),
+  });
 
-// Configure S3/R2 if environment variables exist
-const s3Configured =
-  process.env.S3_ACCESS_KEY_ID &&
-  process.env.S3_SECRET_ACCESS_KEY &&
-  process.env.S3_BUCKET_NAME;
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
 
-const s3Client = s3Configured
-  ? new S3Client({
-      endpoint: process.env.S3_ENDPOINT, // Optional for S3, required for Cloudflare R2
-      region: process.env.S3_REGION || "auto",
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-      },
-    })
-  : null;
+  const mode = map.storage_mode === "s3" ? "s3" : "local";
+  const maxFileSizeMB = parseInt(map.storage_max_file_size_mb || String(DEFAULT_MAX_FILE_SIZE_MB), 10);
+  const allowedExtensions = (map.storage_allowed_extensions || DEFAULT_ALLOWED_EXTENSIONS).split(",").map((e: string) => e.trim().toLowerCase().replace(/^\./, ""));
+
+  return {
+    mode,
+    maxFileSizeMB,
+    allowedExtensions,
+    s3AccessKeyId: map.storage_s3_access_key_id || "",
+    s3SecretAccessKey: map.storage_s3_secret_access_key || "",
+    s3BucketName: map.storage_s3_bucket_name || "",
+    s3Endpoint: map.storage_s3_endpoint || "",
+    s3Region: map.storage_s3_region || "auto",
+    s3PublicUrl: map.storage_s3_public_url || "",
+  };
+}
 
 export interface UploadResult {
   url: string;
+  thumbnailUrl?: string;
   name: string;
   type: "image" | "video" | "audio";
+}
+
+export async function getUploadLimits(): Promise<{ maxFileSizeMB: number; allowedExtensions: string[] }> {
+  const config = await getStorageConfig();
+  return { maxFileSizeMB: config.maxFileSizeMB, allowedExtensions: config.allowedExtensions };
 }
 
 export async function uploadFile(
@@ -72,98 +107,147 @@ export async function uploadFile(
   originalName: string,
   mimeType: string
 ): Promise<UploadResult> {
-  if (fileBuffer.length > MAX_FILE_SIZE) {
-    throw new Error(`File size exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+  const config = await getStorageConfig();
+
+  if (fileBuffer.length > config.maxFileSizeMB * 1024 * 1024) {
+    throw new Error(`File size exceeds maximum allowed size of ${config.maxFileSizeMB}MB`);
   }
 
-  const extension = ALLOWED_MIME_TYPES[mimeType] || ALLOWED_MIME_TYPES[mimeType.toLowerCase()];
-  
+  const extension = MIME_TO_EXT[mimeType] || MIME_TO_EXT[mimeType.toLowerCase()];
   if (!extension) {
     throw new Error(`Unsupported file type: ${mimeType}`);
+  }
+
+  if (!config.allowedExtensions.includes(extension)) {
+    throw new Error(`File extension .${extension} is not allowed. Allowed: ${config.allowedExtensions.join(", ")}`);
   }
 
   if (!validateMagicBytes(fileBuffer, mimeType)) {
     throw new Error(`File content does not match declared MIME type: ${mimeType}`);
   }
 
-  // Get type
   let type: "image" | "video" | "audio" = "image";
-  if (mimeType.startsWith("video/")) {
-    type = "video";
-  } else if (mimeType.startsWith("audio/")) {
-    type = "audio";
-  }
+  if (mimeType.startsWith("video/")) type = "video";
+  else if (mimeType.startsWith("audio/")) type = "audio";
 
-  // YearMonth directory format: YYYYMM
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  
-  // Encrypt/randomize filename: uuid + extension
-  const randomName = `${crypto.randomUUID()}.${extension}`;
-  const key = `${yearMonth}/${randomName}`;
+  const hash = crypto.randomBytes(16).toString("hex");
+  const fileName = `${hash}.${extension}`;
+  const thumbFileName = `${hash}_thumb.${extension}`;
+  const key = `${yearMonth}/${fileName}`;
+  const thumbKey = `${yearMonth}/${thumbFileName}`;
 
-  if (s3Configured && s3Client) {
-    // S3 / R2 Upload
-    const bucket = process.env.S3_BUCKET_NAME!;
+  const isImage = type === "image";
+
+  let thumbnailBuffer: Buffer | null = null;
+  if (isImage) {
+    try {
+      thumbnailBuffer = await sharp(fileBuffer)
+        .resize(400, 400, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    } catch (err) {
+      console.error("Thumbnail generation failed:", err);
+    }
+  }
+
+  if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
+    const s3Client = new S3Client({
+      endpoint: config.s3Endpoint || undefined,
+      region: config.s3Region || "auto",
+      credentials: {
+        accessKeyId: config.s3AccessKeyId,
+        secretAccessKey: config.s3SecretAccessKey,
+      },
+    });
+
     await s3Client.send(
       new PutObjectCommand({
-        Bucket: bucket,
+        Bucket: config.s3BucketName,
         Key: key,
         Body: fileBuffer,
         ContentType: mimeType,
       })
     );
-    // Custom S3 public URL or standard endpoint URL
-    const publicUrl = process.env.S3_PUBLIC_URL 
-      ? `${process.env.S3_PUBLIC_URL}/${key}`
-      : `${process.env.S3_ENDPOINT}/${bucket}/${key}`;
-    return {
-      url: publicUrl,
-      name: originalName,
-      type,
-    };
+
+    const publicUrl = config.s3PublicUrl
+      ? `${config.s3PublicUrl}/${key}`
+      : `${config.s3Endpoint}/${config.s3BucketName}/${key}`;
+
+    let thumbnailUrl: string | undefined;
+    if (isImage && thumbnailBuffer) {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: config.s3BucketName,
+          Key: thumbKey,
+          Body: thumbnailBuffer,
+          ContentType: "image/jpeg",
+        })
+      );
+      thumbnailUrl = config.s3PublicUrl
+        ? `${config.s3PublicUrl}/${thumbKey}`
+        : `${config.s3Endpoint}/${config.s3BucketName}/${thumbKey}`;
+    }
+
+    return { url: publicUrl, thumbnailUrl, name: originalName, type };
   } else {
-    // Local storage upload
     const uploadDir = path.join(process.cwd(), "public", "uploads", yearMonth);
-    
-    // Ensure directory exists
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
+    fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
 
-    const filePath = path.join(uploadDir, randomName);
-    fs.writeFileSync(filePath, fileBuffer);
-    
-    // Web url path
-    const url = `/uploads/${yearMonth}/${randomName}`;
+    if (isImage && thumbnailBuffer) {
+      fs.writeFileSync(path.join(uploadDir, thumbFileName), thumbnailBuffer);
+    }
+
     return {
-      url,
+      url: `/uploads/${yearMonth}/${fileName}`,
+      thumbnailUrl: isImage ? `/uploads/${yearMonth}/${thumbFileName}` : undefined,
       name: originalName,
       type,
     };
   }
 }
 
-export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>) {
+export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>) {
+  const config = await getStorageConfig();
+
   for (const media of mediaUrls) {
-    try {
-      if (s3Configured && s3Client) {
-        const bucket = process.env.S3_BUCKET_NAME!;
-        const publicUrl = process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${bucket}`;
-        if (media.url.startsWith(publicUrl)) {
-          const key = media.url.slice(publicUrl.length + 1);
-          await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-        }
-      } else {
-        if (media.url.startsWith("/uploads/")) {
-          const filePath = path.join(process.cwd(), "public", media.url);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+    const urlsToDelete = [media.url];
+    if (media.thumbnailUrl) urlsToDelete.push(media.thumbnailUrl);
+
+    for (const url of urlsToDelete) {
+      try {
+        if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
+          const s3Client = new S3Client({
+            endpoint: config.s3Endpoint || undefined,
+            region: config.s3Region || "auto",
+            credentials: {
+              accessKeyId: config.s3AccessKeyId,
+              secretAccessKey: config.s3SecretAccessKey,
+            },
+          });
+
+          const publicUrl = config.s3PublicUrl
+            ? `${config.s3PublicUrl}`
+            : `${config.s3Endpoint}/${config.s3BucketName}`;
+          if (url.startsWith(publicUrl)) {
+            const key = url.slice(publicUrl.length + 1);
+            await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
+          }
+        } else {
+          if (url.startsWith("/uploads/")) {
+            const filePath = path.join(process.cwd(), "public", url);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
           }
         }
+      } catch (error) {
+        console.error("Failed to delete media file:", url, error);
       }
-    } catch (error) {
-      console.error("Failed to delete media file:", media.url, error);
     }
   }
 }

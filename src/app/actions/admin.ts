@@ -3,18 +3,17 @@
 import { db } from "@/db";
 import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
+import crypto from "crypto";
 import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
   if (url.startsWith("/uploads/")) return true;
-  const s3PublicUrl = process.env.S3_PUBLIC_URL;
-  if (s3PublicUrl && url.startsWith(s3PublicUrl)) return true;
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" || parsed.protocol === "http:";
@@ -24,12 +23,17 @@ function isValidUrl(url: string): boolean {
 }
 
 export async function getSettingsAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
   try {
     const allSettings = await db.query.settings.findMany();
-    const settingsMap: Record<string, string> = {};
-
-    settingsMap["allow_registration"] = "true";
-    settingsMap["require_approval"] = "false";
+    const settingsMap: Record<string, string> = {
+      allow_registration: "true",
+      require_approval: "false",
+    };
 
     for (const s of allSettings) {
       settingsMap[s.key] = s.value;
@@ -38,6 +42,27 @@ export async function getSettingsAction() {
     return { success: true, settings: settingsMap };
   } catch (error) {
     console.error("getSettingsAction error:", error);
+    return { error: "Failed to load settings" };
+  }
+}
+
+export async function getPublicSettingsAction() {
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const settingsMap: Record<string, string> = {
+      allow_registration: "true",
+      require_approval: "false",
+    };
+
+    for (const s of allSettings) {
+      if (s.key === "allow_registration" || s.key === "require_approval") {
+        settingsMap[s.key] = s.value;
+      }
+    }
+
+    return { success: true, settings: settingsMap };
+  } catch (error) {
+    console.error("getPublicSettingsAction error:", error);
     return { error: "Failed to load settings" };
   }
 }
@@ -71,7 +96,9 @@ export async function updateSettingAction(key: string, value: string) {
   }
 }
 
-export async function getUsersAction() {
+const ADMIN_USERS_PAGE_SIZE = 20;
+
+export async function getUsersAction(cursor?: string) {
   const user = await getSessionUser();
   if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
     return { error: "Unauthorized" };
@@ -79,7 +106,9 @@ export async function getUsersAction() {
 
   try {
     const allUsers = await db.query.users.findMany({
-      orderBy: [users.createdAt],
+      where: cursor ? lt(users.createdAt, new Date(cursor)) : undefined,
+      orderBy: [desc(users.createdAt)],
+      limit: ADMIN_USERS_PAGE_SIZE + 1,
       columns: {
         id: true,
         email: true,
@@ -89,10 +118,18 @@ export async function getUsersAction() {
         bio: true,
         role: true,
         status: true,
+        loginDisabledAt: true,
         createdAt: true,
       },
     });
-    return { success: true, users: allUsers };
+
+    const hasMore = allUsers.length > ADMIN_USERS_PAGE_SIZE;
+    const items = hasMore ? allUsers.slice(0, ADMIN_USERS_PAGE_SIZE) : allUsers;
+    const nextCursor = hasMore && items.length > 0
+      ? items[items.length - 1].createdAt.toISOString()
+      : null;
+
+    return { success: true, users: items, nextCursor, hasMore };
   } catch (error) {
     console.error("getUsersAction error:", error);
     return { error: "Failed to fetch users" };
@@ -127,6 +164,29 @@ export async function updateUserStatusAction(targetUserId: string, status: strin
     return { success: true };
   } catch (error) {
     console.error("updateUserStatusAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function unlockLoginAction(targetUserId: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+
+    if (!targetUser) return { error: "User not found" };
+    if (!targetUser.loginDisabledAt) return { error: "该账号未被禁用登录" };
+
+    await db.update(users).set({ loginDisabledAt: null }).where(eq(users.id, targetUserId));
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("unlockLoginAction error:", error);
     return { error: "Internal server error" };
   }
 }
@@ -226,9 +286,15 @@ export async function updateProfileAction(data: {
   if (user.status === "suspended") return { error: "Your account is suspended" };
 
   if (user.role === "guest") {
-    if (!data.name.trim()) return { error: "Name cannot be empty" };
+    if (!data.name.trim()) return { error: "用户名不能为空" };
+    if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
+    const trimmedName = data.name.trim();
+    const existingName = await db.query.users.findFirst({
+      where: eq(users.name, trimmedName),
+    });
+    if (existingName && existingName.id !== user.id) return { error: "该用户名已被使用" };
     try {
-      await db.update(users).set({ name: data.name }).where(eq(users.id, user.id));
+      await db.update(users).set({ name: trimmedName }).where(eq(users.id, user.id));
       revalidatePath("/");
       return { success: true };
     } catch (error) {
@@ -237,7 +303,8 @@ export async function updateProfileAction(data: {
     }
   }
 
-  if (!data.name.trim()) return { error: "Name cannot be empty" };
+  if (!data.name.trim()) return { error: "用户名不能为空" };
+  if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
   if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };
   if (data.coverImage && !isValidUrl(data.coverImage)) return { error: "Invalid cover image URL" };
 
@@ -297,7 +364,7 @@ export async function updateUserEmailAction(targetUserId: string, email: string)
     await db
       .update(accounts)
       .set({ accountId: trimmed })
-      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "credential")));
 
     revalidatePath("/");
     return { success: true };
@@ -326,7 +393,7 @@ export async function adminChangePasswordAction(targetUserId: string, newPasswor
     await db
       .update(accounts)
       .set({ password: passwordHash })
-      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, targetUserId), eq(accounts.providerId, "credential")));
 
     return { success: true };
   } catch (error) {
@@ -359,7 +426,7 @@ export async function changePasswordAction(data: {
 
   try {
     const account = await db.query.accounts.findFirst({
-      where: and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")),
+      where: and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")),
     });
 
     if (!account || !account.password) {
@@ -375,7 +442,7 @@ export async function changePasswordAction(data: {
     await db
       .update(accounts)
       .set({ password: passwordHash })
-      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "email")));
+      .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
 
     return { success: true };
   } catch (error) {
@@ -385,6 +452,11 @@ export async function changePasswordAction(data: {
 }
 
 export async function cleanupExpiredCodesAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
   try {
     await db.delete(verificationCodes).where(
       lt(verificationCodes.expiresAt, new Date())
@@ -393,5 +465,306 @@ export async function cleanupExpiredCodesAction() {
   } catch (error) {
     console.error("cleanupExpiredCodesAction error:", error);
     return { error: "Failed to cleanup expired codes" };
+  }
+}
+
+export async function getTelegramConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    const SECRET_KEYS = new Set(["telegram_bot_token", "telegram_webhook_secret"]);
+    for (const s of allSettings) {
+      if (s.key.startsWith("telegram_")) {
+        config[s.key] = SECRET_KEYS.has(s.key) && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getTelegramConfigAction error:", error);
+    return { error: "Failed to load telegram configuration" };
+  }
+}
+
+export async function integrateTelegramAction(botName: string, botToken: string, origin: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!botName.trim() || !botToken.trim() || !origin.trim()) {
+    return { error: "参数不完整" };
+  }
+
+  const webhookSecret = crypto.randomUUID().replace(/-/g, "");
+
+  try {
+    // 1. Call setWebhook via fetch
+    const webhookUrl = `${origin}/api/telegram/webhook`;
+    const tgUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${webhookSecret}`;
+    const res = await fetch(tgUrl);
+    const data = await res.json();
+
+    if (!data.ok) {
+      return { error: `Telegram Webhook 注册失败: ${data.description || "未知原因"}` };
+    }
+
+    // 2. Save to settings table
+    await db.insert(settings).values({ key: "telegram_bot_name", value: botName }).onConflictDoUpdate({ target: settings.key, set: { value: botName } });
+    await db.insert(settings).values({ key: "telegram_bot_token", value: botToken }).onConflictDoUpdate({ target: settings.key, set: { value: botToken } });
+    await db.insert(settings).values({ key: "telegram_webhook_secret", value: webhookSecret }).onConflictDoUpdate({ target: settings.key, set: { value: webhookSecret } });
+
+    return { success: true };
+  } catch (error) {
+    console.error("integrateTelegramAction error:", error);
+    return { error: "集成过程中发生网络错误" };
+  }
+}
+
+export async function unbindTelegramAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const botTokenSetting = await db.query.settings.findFirst({
+      where: eq(settings.key, "telegram_bot_token"),
+    });
+
+    if (botTokenSetting?.value) {
+      // Unregister webhook from telegram
+      const tgUrl = `https://api.telegram.org/bot${botTokenSetting.value}/deleteWebhook`;
+      await fetch(tgUrl).catch((e) => console.error("deleteWebhook error:", e));
+    }
+
+    // Delete keys
+    await db.delete(settings).where(eq(settings.key, "telegram_bot_name"));
+    await db.delete(settings).where(eq(settings.key, "telegram_bot_token"));
+    await db.delete(settings).where(eq(settings.key, "telegram_webhook_secret"));
+
+    return { success: true };
+  } catch (error) {
+    console.error("unbindTelegramAction error:", error);
+    return { error: "解绑过程中发生错误" };
+  }
+}
+
+export async function generateTelegramBindTokenAction() {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const bindToken = crypto.randomUUID().replace(/-/g, "");
+
+  try {
+    await db.update(users).set({ telegramBindToken: bindToken }).where(eq(users.id, user.id));
+    return { success: true, bindToken };
+  } catch (error) {
+    console.error("generateTelegramBindTokenAction error:", error);
+    return { error: "生成绑定 Token 失败" };
+  }
+}
+
+export async function unbindUserTelegramAction() {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+
+  try {
+    await db.update(users).set({
+      telegram: null,
+      telegramChatId: null,
+      telegramBindToken: null,
+    }).where(eq(users.id, user.id));
+    return { success: true };
+  } catch (error) {
+    console.error("unbindUserTelegramAction error:", error);
+    return { error: "解绑 Telegram 失败" };
+  }
+}
+
+export async function getTelegramBotNameAction() {
+  try {
+    const setting = await db.query.settings.findFirst({
+      where: eq(settings.key, "telegram_bot_name"),
+    });
+    return { success: true, botName: setting?.value || null };
+  } catch (error) {
+    console.error("getTelegramBotNameAction error:", error);
+    return { success: true, botName: null };
+  }
+}
+
+export async function getResendConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    for (const s of allSettings) {
+      if (s.key.startsWith("resend_")) {
+        config[s.key] = s.key === "resend_api_key" && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getResendConfigAction error:", error);
+    return { error: "Failed to load Resend configuration" };
+  }
+}
+
+export async function saveResendConfigAction(apiKey: string, domain: string, fromName: string, fromEmail: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!apiKey.trim() || !domain.trim() || !fromName.trim() || !fromEmail.trim()) {
+    return { error: "参数不完整" };
+  }
+
+  try {
+    await db.insert(settings).values({ key: "resend_api_key", value: apiKey }).onConflictDoUpdate({ target: settings.key, set: { value: apiKey } });
+    await db.insert(settings).values({ key: "resend_domain", value: domain }).onConflictDoUpdate({ target: settings.key, set: { value: domain } });
+    await db.insert(settings).values({ key: "resend_from_name", value: fromName }).onConflictDoUpdate({ target: settings.key, set: { value: fromName } });
+    await db.insert(settings).values({ key: "resend_from_email", value: fromEmail }).onConflictDoUpdate({ target: settings.key, set: { value: fromEmail } });
+    return { success: true };
+  } catch (error) {
+    console.error("saveResendConfigAction error:", error);
+    return { error: "保存 Resend 配置失败" };
+  }
+}
+
+export async function deleteResendConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await db.delete(settings).where(eq(settings.key, "resend_api_key"));
+    await db.delete(settings).where(eq(settings.key, "resend_domain"));
+    await db.delete(settings).where(eq(settings.key, "resend_from_name"));
+    await db.delete(settings).where(eq(settings.key, "resend_from_email"));
+    return { success: true };
+  } catch (error) {
+    console.error("deleteResendConfigAction error:", error);
+    return { error: "删除 Resend 配置失败" };
+  }
+}
+
+export async function getStorageConfigAction() {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const config: Record<string, string> = {};
+    for (const s of allSettings) {
+      if (s.key.startsWith("storage_")) {
+        config[s.key] = s.key === "storage_s3_secret_access_key" && s.value
+          ? "****" + s.value.slice(-4)
+          : s.value;
+      }
+    }
+    return { success: true, config };
+  } catch (error) {
+    console.error("getStorageConfigAction error:", error);
+    return { error: "Failed to load storage configuration" };
+  }
+}
+
+export async function saveStorageConfigAction(data: {
+  mode: string;
+  maxFileSizeMB: string;
+  allowedExtensions: string;
+  s3AccessKeyId: string;
+  s3SecretAccessKey: string;
+  s3BucketName: string;
+  s3Endpoint: string;
+  s3Region: string;
+  s3PublicUrl: string;
+}) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!data.mode || (data.mode !== "local" && data.mode !== "s3")) {
+    return { error: "Invalid storage mode" };
+  }
+
+  if (data.mode === "s3") {
+    if (!data.s3AccessKeyId.trim() || !data.s3SecretAccessKey.trim() || !data.s3BucketName.trim()) {
+      return { error: "S3 模式需要填写 Access Key ID、Secret Access Key 和 Bucket Name" };
+    }
+  }
+
+  const mb = parseInt(data.maxFileSizeMB, 10);
+  if (isNaN(mb) || mb < 1 || mb > 500) {
+    return { error: "文件大小限制必须在 1-500 MB 之间" };
+  }
+
+  if (!data.allowedExtensions.trim()) {
+    return { error: "请至少配置一个允许的文件后缀" };
+  }
+
+  try {
+    const upserts: Record<string, string> = {
+      storage_mode: data.mode,
+      storage_max_file_size_mb: String(mb),
+      storage_allowed_extensions: data.allowedExtensions.trim(),
+      storage_s3_access_key_id: data.s3AccessKeyId.trim(),
+      storage_s3_secret_access_key: data.s3SecretAccessKey.trim(),
+      storage_s3_bucket_name: data.s3BucketName.trim(),
+      storage_s3_endpoint: data.s3Endpoint.trim(),
+      storage_s3_region: data.s3Region.trim() || "auto",
+      storage_s3_public_url: data.s3PublicUrl.trim(),
+    };
+
+    for (const [key, value] of Object.entries(upserts)) {
+      await db.insert(settings).values({ key, value }).onConflictDoUpdate({
+        target: settings.key,
+        set: { value },
+      });
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("saveStorageConfigAction error:", error);
+    return { error: "保存上传配置失败" };
+  }
+}
+
+export async function updateFaviconAction(faviconUrl: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await db.insert(settings).values({ key: "site_favicon", value: faviconUrl }).onConflictDoUpdate({
+      target: settings.key,
+      set: { value: faviconUrl },
+    });
+    revalidatePath("/");
+    revalidatePath("/api/favicon");
+    return { success: true };
+  } catch (error) {
+    console.error("updateFaviconAction error:", error);
+    return { error: "更新图标失败" };
   }
 }

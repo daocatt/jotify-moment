@@ -22,7 +22,7 @@ interface PostEditorProps {
 
 export function PostEditor({ onSuccess }: PostEditorProps) {
   const [content, setContent] = useState("");
-  const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string }>>([]);
+  const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string; thumbnailUrl?: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -73,6 +73,8 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
   }, [content]);
 
   // Voice recording state
+  const MAX_RECORDING_SECONDS = 60;
+
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
@@ -112,7 +114,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         if (data.error) {
           toast.error(data.error);
         } else {
-          setMediaFiles((prev) => [...prev, { type: data.type, url: data.url, name: data.name }]);
+          setMediaFiles((prev) => [...prev, { type: data.type, url: data.url, name: data.name, thumbnailUrl: data.thumbnailUrl }]);
         }
       } catch {
         toast.error("文件上传失败");
@@ -181,9 +183,19 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       setIsRecording(true);
       setRecordingDuration(0);
 
-      // Start duration timer
       timerRef.current = setInterval(() => {
-        setRecordingDuration((prev) => prev + 1);
+        setRecordingDuration((prev) => {
+          if (prev + 1 >= MAX_RECORDING_SECONDS) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+              mediaRecorderRef.current.stop();
+            }
+            setIsRecording(false);
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+          }
+          return prev + 1;
+        });
       }, 1000);
     } catch (error) {
       console.error(error);
@@ -327,7 +339,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center justify-between text-green-600 dark:text-green-400">
           <div className="flex items-center gap-2">
             <Mic className="animate-pulse size-5" />
-            <span className="text-sm font-semibold">正在录制语音... {formatDuration(recordingDuration)}</span>
+            <span className="text-sm font-semibold">正在录制语音... {formatDuration(recordingDuration)} <span className="text-[10px] font-normal text-green-500/70">/ {formatDuration(MAX_RECORDING_SECONDS)}</span></span>
           </div>
           <Button size="sm" variant="destructive" onClick={stopRecording} className="h-8">
             <Square className="mr-1 size-3 fill-current" /> 停止
