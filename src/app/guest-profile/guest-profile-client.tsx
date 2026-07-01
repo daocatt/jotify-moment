@@ -18,6 +18,7 @@ export function GuestProfileClient() {
   const [sendingReset, setSendingReset] = useState(false);
   const [resetCountdown, setResetCountdown] = useState(0);
   const [showSaved, setShowSaved] = useState(false);
+  const [shakeName, setShakeName] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -51,6 +52,8 @@ export function GuestProfileClient() {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("用户名不能为空");
+      setShakeName(true);
+      setTimeout(() => setShakeName(false), 500);
       return;
     }
     setSaving(true);
@@ -58,6 +61,8 @@ export function GuestProfileClient() {
       const res = await updateProfileAction({ name, slug: "", bio: "", avatar: "", coverImage: "", wechat: "", telegram: "", github: "", x: "", otherLink: "" });
       if (res.error) {
         toast.error(res.error);
+        setShakeName(true);
+        setTimeout(() => setShakeName(false), 500);
       } else {
         setShowSaved(true);
         setUser((prev) => prev ? { ...prev, name } : prev);
@@ -128,12 +133,13 @@ export function GuestProfileClient() {
               <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                 <User size={12} /> 用户名
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="输入用户名"
                   required
+                  className={`t-error ${shakeName ? "is-error is-shaking border-red-500" : ""}`}
                 />
                 <Button type="submit" size="sm" disabled={saving} className="shrink-0">
                   {saving ? <Loader2 className="animate-spin size-4" /> : "保存"}
