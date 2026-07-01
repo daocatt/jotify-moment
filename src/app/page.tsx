@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getSuperAdminProfileAction } from "@/app/actions/posts";
 import { HomeClient } from "./home-client";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
   const res = await getSuperAdminProfileAction();
   if ("user" in res && res.user) {
