@@ -432,7 +432,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
               </form>
             </TabsContent>
 
-            {tgBotName && (
+            {tgBotName && user.role !== "guest" && (
               <TabsContent value="telegram" className="space-y-4 py-2">
                 <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-4">
                   <div className="space-y-1">
