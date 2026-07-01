@@ -24,8 +24,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: migrator
     container_name: jotify-moment-migrate
-    command: ["node", "-e", "const { drizzle } = require('drizzle-orm/postgres-js'); const postgres = require('postgres'); const { migrate } = require('drizzle-orm/postgres-js/migrator'); const client = postgres(process.env.DATABASE_URL); const db = drizzle(client); migrate(db, { migrationsFolder: './src/db/migrations' }).then(() => { console.log('Migration complete'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); });"]
     env_file:
       - .env
     environment:
@@ -51,6 +51,3 @@ services:
         condition: service_completed_successfully
     volumes:
       - ${DOCKER_DATA_PATH:-./data}/uploads:/app/public/uploads
-
-volumes:
-  postgres_data:
