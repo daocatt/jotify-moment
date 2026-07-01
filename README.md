@@ -1,10 +1,11 @@
 # Jotify Moment
 
-一个轻量、优雅、可自托管的个人微博 / 瞬间分享系统（微信朋友圈 / Twitter 风格）。支持图文、音视频多媒体发表，深度集成 Telegram Bot 发帖，内置管理员审核流与高颜值控制台，保护隐私且易于部署。
+一个轻量的日志系统。
 
 ---
 
 ## 目录
+
 * [基本简介](#基本简介)
 * [本地部署](#本地部署)
 * [GitHub 部署](#github-部署)
@@ -12,49 +13,51 @@
 
 ---
 
-## 基本简介
+## 核心功能
 
-Jotify Moment 旨在帮助个人创作者与生活记录者轻松搭建独享的“瞬间”分享平台。
-
-### ✨ 核心功能
-* **多媒体发帖**：完美支持 Markdown 文本、多图相册预览、音频（语音）、视频多媒体展示。
-* **管理员审核流**：开启发帖审核后，常规用户发表的内容需管理员后台审核通过方可公开。
 * **Telegram Bot 深度绑定**：
-  * **一键集成**：管理员可在控制台一键接入 Bot，webhook 自动认证防泄露。
-  * **快速发帖**：直接给 Bot 发送文字、图片、语音或视频，平台自动同步发布。
-  * **用户自助绑定**：普通用户可一键唤起 Bot 绑定，也支持在聊天界面输入 `/start <token>` 关联。
-* **Resend 邮件服务集成**：数据库动态管理发信域名、发信人等，完美承载账户注册验证码、欢迎信及重置密码邮件（2小时有效期 Token 重置链路）。
-* **全功能系统控制台**：全新的 `/admin` 独立控制面板，包含全局开关、发帖审核、用户管理、TG及邮件服务集成模块。
+  * **一键集成**：在控制台一键接入 Bot，webhook 自动认证防泄露
+  * **快速发帖**：直接给 Bot 发送文字、图片、语音或视频，平台自动同步发布
+  * **用户自助绑定**：一键唤起 Bot 绑定
+* **Resend 集成**：邮箱验证码，注册，找回密码
 
 ---
 
 ## 本地部署
 
 ### 1. 克隆并安装依赖
+
 ```bash
-git clone https://github.com/your-username/jotify-moment.git
+git clone https://github.com/daocatt/jotify-moment.git
 cd jotify-moment
 npm install
 ```
 
 ### 2. 配置文件
+
 复制环境配置文件模板并修改配置：
+
 ```bash
 cp .env.example .env
 ```
+
 编辑 `.env` 文件，补充以下必须参数：
+
 * `DATABASE_URL`：PostgreSQL 数据库连接串。
 * `BETTER_AUTH_SECRET`：Auth 模块加密秘钥（可使用命令生成：`openssl rand -hex 32`）。
-* `BETTER_AUTH_URL`：应用前端地址，本地默认为 `http://localhost:3000`。
-* `DATA_PATH`：指定本地数据及上传文件存储的基准文件夹（本地建议保留 `./data`）。
+* `BETTER_AUTH_URL`：本地默认为 `http://localhost:3000`。
+* `DOCKER_DATA_PATH`：指定本地数据及上传文件存储的基准文件夹（本地建议保留 `./data`）。
 
 ### 3. 启动本地数据库
+
 如果您本地有 Docker 容器环境，可直接通过 docker 启动辅助数据库：
+
 ```bash
 docker compose up -d db
 ```
 
 ### 4. 运行数据库迁移并启动开发服务器
+
 ```bash
 # 生成并运行 schema 同步
 npx drizzle-kit push
@@ -62,6 +65,7 @@ npx drizzle-kit push
 # 运行本地开发服务器
 npm run dev
 ```
+
 打开 `http://localhost:3000` 即可预览项目。首个注册的账户将自动获得 **超级管理员（Super Admin）** 权限。
 
 ---
@@ -71,6 +75,7 @@ npm run dev
 项目内置了生产级持续集成与部署（CD）工作流，定义在 [.github/workflows/deploy.yml](file:///.github/workflows/deploy.yml) 中。当您将代码推送至 `main` 分支时，系统会自动执行类型检查、模拟构建并远程 SSH 部署至 VPS 服务器。
 
 ### ⚙️ GitHub Secrets 配置项
+
 请在您的 GitHub 仓库的 **Settings -> Secrets and variables -> Actions** 中配置以下 **Repository Secrets**：
 
 | Secret 键名 | 示例值 | 说明 |
@@ -91,21 +96,26 @@ npm run dev
 直接通过 Docker Compose 运行容器进行自托管部署，适合手动管理服务的用户。
 
 ### 1. 环境准备
+
 在您的 VPS 服务器上安装 Docker 及 Docker Compose，并确保应用和数据库目录有写权限。
 
 ### 2. 准备物理配置文件
+
 在 VPS 的应用运行目录（如 `/www/my_project/jotify_moment`）中拉取源码：
+
 ```bash
 git clone https://github.com/your-username/jotify-moment.git .
 ```
+
 在此目录下，编辑创建您生产环境使用的 `.env.prod` 配置文件：
+
 ```env
 # PostgreSQL 容器配置
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_super_strong_password
 POSTGRES_DB=jotify_moment
 DB_PORT=5432
-DATA_PATH=/www/my_project/jotify_moment/data
+DOCKER_DATA_PATH=/www/my_project/jotify_moment/data
 
 # App 容器运行配置
 APP_PORT=3000
@@ -117,15 +127,20 @@ BETTER_AUTH_URL=https://your-moment-domain.com
 ```
 
 ### 3. 一键启动容器
+
 生产环境中通过 `--env-file` 指定独立配置文件启动：
+
 ```bash
 # 启动所有服务（自动完成初始化数据库构建及脚本迁移）
 docker compose --env-file .env.prod up -d
 ```
+
 启动后容器将映射内部 `3000` 端口至您指定的宿主机 `APP_PORT`（仅对本地 `127.0.0.1` 暴露以确保安全）。
 
 ### 4. 反向代理配置 (以 Nginx 为例)
+
 在 Nginx 配置中配置反向代理以支持 SSL 与访问转发：
+
 ```nginx
 server {
     listen 80;
@@ -151,4 +166,5 @@ server {
     }
 }
 ```
+
 配置重载并启用后，您的个人瞬间平台即搭建部署完毕。

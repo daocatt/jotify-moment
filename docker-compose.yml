@@ -13,7 +13,7 @@ services:
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
-      - ${DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
+      - ${DOCKER_DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -50,7 +50,7 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - ${DATA_PATH:-./data}/uploads:/app/public/uploads
+      - ${DOCKER_DATA_PATH:-./data}/uploads:/app/public/uploads
 
 volumes:
   postgres_data:
