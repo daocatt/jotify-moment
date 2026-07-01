@@ -30,18 +30,41 @@ export async function getSettingsAction() {
 
   try {
     const allSettings = await db.query.settings.findMany();
-    const settingsMap: Record<string, string> = {};
-
-    settingsMap["allow_registration"] = "true";
-    settingsMap["require_approval"] = "false";
+    const settingsMap: Record<string, string> = {
+      allow_registration: "true",
+      require_approval: "false",
+    };
 
     for (const s of allSettings) {
-      settingsMap[s.key] = s.value;
+      if (s.key === "allow_registration" || s.key === "require_approval") {
+        settingsMap[s.key] = s.value;
+      }
     }
 
     return { success: true, settings: settingsMap };
   } catch (error) {
     console.error("getSettingsAction error:", error);
+    return { error: "Failed to load settings" };
+  }
+}
+
+export async function getPublicSettingsAction() {
+  try {
+    const allSettings = await db.query.settings.findMany();
+    const settingsMap: Record<string, string> = {
+      allow_registration: "true",
+      require_approval: "false",
+    };
+
+    for (const s of allSettings) {
+      if (s.key === "allow_registration" || s.key === "require_approval") {
+        settingsMap[s.key] = s.value;
+      }
+    }
+
+    return { success: true, settings: settingsMap };
+  } catch (error) {
+    console.error("getPublicSettingsAction error:", error);
     return { error: "Failed to load settings" };
   }
 }
