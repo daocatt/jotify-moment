@@ -378,7 +378,9 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
           </div>
 
           {/* Image button */}
-          <label className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full cursor-pointer transition-colors">
+          <label className={`p-2 text-muted-foreground rounded-full transition-colors ${
+            uploading || isRecording ? "cursor-not-allowed pointer-events-none opacity-50" : "hover:text-foreground hover:bg-muted cursor-pointer"
+          }`}>
             <ImageIcon size={20} />
               <input
                 type="file"
@@ -392,7 +394,9 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
           </label>
 
           {/* Video button */}
-          <label className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full cursor-pointer transition-colors">
+          <label className={`p-2 text-muted-foreground rounded-full transition-colors ${
+            uploading || isRecording ? "cursor-not-allowed pointer-events-none opacity-50" : "hover:text-foreground hover:bg-muted cursor-pointer"
+          }`}>
             <Video size={20} />
               <input
                 type="file"

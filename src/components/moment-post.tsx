@@ -72,6 +72,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [reacting, setReacting] = useState(false);
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -122,6 +123,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       toast.error("请先登录账户");
       return;
     }
+    if (reacting) return;
+    setReacting(true);
     const res = await toggleReactionAction(post.id, emoji);
     setShowEmojiPicker(false);
     if (res.error) {
@@ -129,6 +132,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     } else {
       onRefresh();
     }
+    setReacting(false);
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -391,7 +395,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                   <button
                     key={emoji}
                     onClick={() => handleReaction(emoji)}
-                    className="hover:scale-125 text-base p-1 transition-transform"
+                    disabled={reacting}
+                    className="hover:scale-125 text-base p-1 transition-transform disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {emoji}
                   </button>

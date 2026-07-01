@@ -72,7 +72,7 @@ export function ImageCropModal({ isOpen, imageSrc, aspect, title, onConfirm, onC
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/jpeg", 0.92);
       });
 
-      onConfirm(blob);
+      await onConfirm(blob);
     } catch {
       toast.error("裁剪图片失败");
     } finally {
