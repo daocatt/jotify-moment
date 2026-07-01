@@ -102,7 +102,6 @@ export async function initializeSystemAction(data: {
     return { success: true };
   } catch (error: unknown) {
     console.error("initializeSystemAction database error:", error);
-    const message = error instanceof Error ? error.message : "初始化超级管理员失败，请重试";
-    return { error: message };
+    return { error: "初始化超级管理员失败，请重试" };
   }
 }
