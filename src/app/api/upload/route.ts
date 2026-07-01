@@ -28,7 +28,8 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const bytes = arrayBuffer instanceof SharedArrayBuffer ? new Uint8Array(arrayBuffer) : new Uint8Array(arrayBuffer);
+    const buffer = Buffer.from(bytes);
     
     const result = await uploadFile(buffer, file.name, file.type);
     
