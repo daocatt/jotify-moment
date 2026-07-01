@@ -1,21 +1,19 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:15-alpine
     container_name: jotify-moment-db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: jotify_moment
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-jotify_moment}
       TZ: Asia/Shanghai
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,8 +24,9 @@ services:
       dockerfile: Dockerfile
     container_name: jotify-moment-migrate
     command: ["node", "-e", "const { drizzle } = require('drizzle-orm/postgres-js'); const postgres = require('postgres'); const { migrate } = require('drizzle-orm/postgres-js/migrator'); const client = postgres(process.env.DATABASE_URL); const db = drizzle(client); migrate(db, { migrationsFolder: './src/db/migrations' }).then(() => { console.log('Migration complete'); process.exit(0); }).catch((e) => { console.error(e); process.exit(1); });"]
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
       - TZ=Asia/Shanghai
     depends_on:
       db:
@@ -40,23 +39,11 @@ services:
     container_name: jotify-moment-web
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgres://postgres:postgrespassword@db:5432/jotify_moment
       - TZ=Asia/Shanghai
-      - JWT_SECRET=change-this-to-a-secure-secret-key-in-production
-      - RESEND_API_KEY=your-resend-api-key
-      - EMAIL_FROM=onboarding@resend.dev
-      - TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-      - TELEGRAM_ALLOWED_USER_IDS=your-tg-user-id-1,your-tg-user-id-2
-      - TELEGRAM_WEBHOOK_SECRET=your-webhook-secret-token
-      - TELEGRAM_BOT_AUTHOR_ID=
-      - S3_ACCESS_KEY_ID=
-      - S3_SECRET_ACCESS_KEY=
-      - S3_BUCKET_NAME=
-      - S3_ENDPOINT=
-      - S3_REGION=
-      - S3_PUBLIC_URL=
     depends_on:
       migrate:
         condition: service_completed_successfully
