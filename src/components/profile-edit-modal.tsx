@@ -261,9 +261,9 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className={`grid ${tgBotName ? "grid-cols-3" : "grid-cols-2"} w-full`}>
+            <TabsList className={`grid ${tgBotName && user.role !== "guest" ? "grid-cols-3" : "grid-cols-2"} w-full`}>
               <TabsTrigger value="profile">基础资料</TabsTrigger>
-              {tgBotName && <TabsTrigger value="telegram">启用 Telegram</TabsTrigger>}
+              {tgBotName && user.role !== "guest" && <TabsTrigger value="telegram">启用 Telegram</TabsTrigger>}
               <TabsTrigger value="password">修改密码</TabsTrigger>
             </TabsList>
 
