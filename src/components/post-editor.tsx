@@ -105,7 +105,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       formData.append("file", file);
 
       try {
-        const res = await fetch("/api/upload", {
+        const res = await fetch("/api/upload?biz=moment", {
           method: "POST",
           body: formData,
         });
@@ -158,7 +158,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         formData.append("file", file);
 
         try {
-          const res = await fetch("/api/upload", {
+          const res = await fetch("/api/upload?biz=moment", {
             method: "POST",
             body: formData,
           });

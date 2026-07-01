@@ -151,7 +151,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/upload?biz=profile", { method: "POST", body: formData });
       const data = await res.json();
       if (data.error) {
         toast.error(data.error);

@@ -27,12 +27,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `File size exceeds maximum allowed size of ${limits.maxFileSizeMB}MB` }, { status: 413 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const biz = searchParams.get("biz") as "profile" | "moment" | null;
+
     const arrayBuffer = await file.arrayBuffer();
     const view = new Uint8Array(arrayBuffer);
     const buffer = Buffer.alloc(arrayBuffer.byteLength);
     buffer.set(view);
     
-    const result = await uploadFile(buffer, file.name, file.type);
+    const result = await uploadFile(buffer, file.name, file.type, biz || undefined);
     
     return NextResponse.json(result);
   } catch (error: unknown) {

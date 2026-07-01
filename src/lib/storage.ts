@@ -105,7 +105,8 @@ export async function getUploadLimits(): Promise<{ maxFileSizeMB: number; allowe
 export async function uploadFile(
   fileBuffer: Buffer,
   originalName: string,
-  mimeType: string
+  mimeType: string,
+  bizType?: "profile" | "moment"
 ): Promise<UploadResult> {
   const config = await getStorageConfig();
 
@@ -132,11 +133,26 @@ export async function uploadFile(
 
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  let folder = "";
+  if (bizType === "profile") {
+    folder = `profile/${yearMonth}`;
+  } else {
+    // Default to moment folder division by media type
+    if (type === "image") {
+      folder = `moment/images/${yearMonth}`;
+    } else if (type === "audio") {
+      folder = `moment/voice/${yearMonth}`;
+    } else if (type === "video") {
+      folder = `moment/video/${yearMonth}`;
+    }
+  }
+
   const hash = crypto.randomBytes(16).toString("hex");
   const fileName = `${hash}.${extension}`;
   const thumbFileName = `${hash}_thumb.${extension}`;
-  const key = `${yearMonth}/${fileName}`;
-  const thumbKey = `${yearMonth}/${thumbFileName}`;
+  const key = `${folder}/${fileName}`;
+  const thumbKey = `${folder}/${thumbFileName}`;
 
   const isImage = type === "image";
 
@@ -192,7 +208,7 @@ export async function uploadFile(
 
     return { url: publicUrl, thumbnailUrl, name: originalName, type };
   } else {
-    const uploadDir = path.join(process.cwd(), "public", "uploads", yearMonth);
+    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -203,8 +219,8 @@ export async function uploadFile(
     }
 
     return {
-      url: `/uploads/${yearMonth}/${fileName}`,
-      thumbnailUrl: isImage ? `/uploads/${yearMonth}/${thumbFileName}` : undefined,
+      url: `/uploads/${folder}/${fileName}`,
+      thumbnailUrl: isImage ? `/uploads/${folder}/${thumbFileName}` : undefined,
       name: originalName,
       type,
     };
