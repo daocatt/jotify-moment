@@ -157,12 +157,14 @@ export async function uploadFile(
   const isImage = type === "image";
 
   let thumbnailBuffer: Buffer | null = null;
-  if (isImage) {
+  if (isImage && bizType !== "profile") {
     try {
-      thumbnailBuffer = await sharp(fileBuffer)
+      const rawThumb = await sharp(fileBuffer)
         .resize(400, 400, { fit: "cover" })
         .jpeg({ quality: 80 })
         .toBuffer();
+      thumbnailBuffer = Buffer.alloc(rawThumb.length);
+      thumbnailBuffer.set(rawThumb);
     } catch (err) {
       console.error("Thumbnail generation failed:", err);
     }
