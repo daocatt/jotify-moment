@@ -25,3 +25,8 @@ RUN mkdir -p public/uploads && chmod 777 public/uploads
 EXPOSE 3000
 
 CMD ["node", "server.js"]
+
+FROM builder AS migrator
+WORKDIR /app
+ENV TZ=Asia/Shanghai
+CMD ["npx", "tsx", "src/db/migrate.ts"]
