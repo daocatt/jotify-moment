@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { loginAction, registerAction, sendVerificationCodeAction, resetPasswordAction } from "@/app/actions/auth";
+import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isHcaptchaEnabledAction } from "@/app/actions/auth";
+
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -24,13 +27,30 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [hcaptchaEnabled, setHcaptchaEnabled] = useState(false);
+  const [hcaptchaToken, setHcaptchaToken] = useState<string>("");
+  const captchaRef = useRef<HCaptcha>(null);
 
-  // Form states
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-  const [role, setRole] = useState<"user" | "guest">("user");
+
+  useEffect(() => {
+    isHcaptchaEnabledAction().then((res) => {
+      if (res.enabled) setHcaptchaEnabled(true);
+    });
+  }, []);
+
+  const resetCaptcha = () => {
+    setHcaptchaToken("");
+    captchaRef.current?.resetCaptcha();
+  };
+
+  const switchMode = (newMode: "login" | "register" | "forgot") => {
+    setMode(newMode);
+    resetCaptcha();
+  };
 
   const startCountdown = () => {
     setCountdown(60);
@@ -50,58 +70,69 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
       toast.error("请输入电子邮箱");
       return;
     }
+    if (hcaptchaEnabled && !hcaptchaToken) {
+      toast.error("请完成人机验证");
+      return;
+    }
     setLoading(true);
     const type = mode === "register" ? "register" : "forgot_password";
-    const res = await sendVerificationCodeAction(email, type);
+    const res = await sendVerificationCodeAction(email, type, hcaptchaToken || undefined);
     setLoading(false);
 
     if (res.error) {
       toast.error(res.error);
+      resetCaptcha();
     } else {
       const msg = "验证码已发送，请检查收件箱" + (res.emailConfigured === false ? "（尚未配置发信API）" : "");
       toast.success(msg);
       startCountdown();
+      resetCaptcha();
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hcaptchaEnabled && !hcaptchaToken) {
+      toast.error("请完成人机验证");
+      return;
+    }
     setLoading(true);
 
     try {
       if (mode === "login") {
-        const res = await loginAction({ email, password });
+        const res = await loginAction({ email, password, hcaptchaToken: hcaptchaToken || undefined });
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
           toast.success("登录成功");
           onSuccess();
           onClose();
         }
       } else if (mode === "register") {
-        const res = await registerAction({ email, name, code, password, role });
+        const res = await registerAction({ email, name, code, password, hcaptchaToken: hcaptchaToken || undefined });
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
           toast.success("注册成功，请登录");
-          setMode("login");
+          switchMode("login");
           setCode("");
           setPassword("");
         }
       } else {
-        // Forgot password / reset
-        const res = await resetPasswordAction({ email, code, password });
+        const res = await sendResetPasswordLinkAction(email, window.location.origin, hcaptchaToken || undefined);
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
-          toast.success("密码重置成功，请重新登录");
-          setMode("login");
-          setPassword("");
-          setCode("");
+          toast.success("重置密码邮件已发送，请检查您的邮箱收件箱！");
+          onClose();
         }
       }
     } catch {
       toast.error("操作失败，请重试");
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -119,7 +150,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           <DialogDescription>
             {mode === "login" && "登录以发布日志或进行互动"}
             {mode === "register" && "创建一个新账户加入 Moment"}
-            {mode === "forgot" && "通过邮箱验证码找回您的密码"}
+            {mode === "forgot" && "通过邮箱重置链接找回您的密码"}
           </DialogDescription>
         </DialogHeader>
 
@@ -136,34 +167,6 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
                   required
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">注册类型</label>
-                <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setRole("user")}
-                    className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                      role === "user"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    普通用户 (可发文)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("guest")}
-                    className={`py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                      role === "guest"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    访客 (仅评论)
-                  </button>
-                </div>
-              </div>
             </>
           )}
 
@@ -178,7 +181,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             />
           </div>
 
-          {(mode === "register" || mode === "forgot") && (
+          {mode === "register" && (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground">验证码</label>
               <div className="flex gap-2">
@@ -203,21 +206,33 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">
-              {mode === "forgot" ? "新密码" : "密码"}
-            </label>
-            <Input
-              type="password"
-              placeholder="请输入密码"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          {(mode === "login" || mode === "register") && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">密码</label>
+              <Input
+                type="password"
+                placeholder="请输入密码"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {hcaptchaEnabled && HCAPTCHA_SITE_KEY && (
+            <div className="flex justify-center">
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setHcaptchaToken(token)}
+                onExpire={() => setHcaptchaToken("")}
+                languageOverride="zh"
+              />
+            </div>
+          )}
 
           <Button type="submit" className="w-full mt-2" disabled={loading}>
-            {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "重置密码"}
+            {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
 
           <div className="flex justify-between text-xs mt-4 text-muted-foreground">
@@ -225,18 +240,14 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
               <>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode("register");
-                  }}
+                  onClick={() => switchMode("register")}
                   className="hover:underline hover:text-primary"
                 >
                   注册新账号
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode("forgot");
-                  }}
+                  onClick={() => switchMode("forgot")}
                   className="hover:underline hover:text-primary"
                 >
                   忘记密码？
@@ -245,7 +256,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             ) : (
               <button
                 type="button"
-                onClick={() => setMode("login")}
+                onClick={() => switchMode("login")}
                 className="hover:underline hover:text-primary mx-auto"
               >
                 返回登录

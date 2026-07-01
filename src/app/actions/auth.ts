@@ -3,9 +3,14 @@
 import { db } from "@/db";
 import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie } from "@/lib/auth";
+import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
-import { sendVerificationCode, sendWelcomeEmail } from "@/lib/mail";
+import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
+import crypto from "crypto";
+
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
@@ -21,7 +26,7 @@ function checkRateLimit(key: string): boolean {
 }
 
 const LOGIN_RATE_LIMITS = new Map<string, { count: number; resetAt: number }>();
-const MAX_LOGIN_ATTEMPTS = 5;
+const MAX_LOGIN_ATTEMPTS = 10;
 const LOGIN_WINDOW = 15 * 60_000;
 
 function checkLoginRateLimit(email: string): boolean {
@@ -35,8 +40,35 @@ function checkLoginRateLimit(email: string): boolean {
   return entry.count <= MAX_LOGIN_ATTEMPTS;
 }
 
-export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password") {
+async function verifyHcaptcha(token: string): Promise<boolean> {
+  const secret = process.env.HCAPTCHA_SECRET;
+  if (!secret) return true;
+  try {
+    const res = await fetch("https://api.hcaptcha.com/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function isHcaptchaEnabledAction() {
+  return { enabled: !!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY };
+}
+
+export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password", hcaptchaToken?: string) {
   if (!email) return { error: "Email is required" };
+
+  const hcaptchaSiteKey = process.env.HCAPTCHA_SECRET;
+  if (hcaptchaSiteKey) {
+    if (!hcaptchaToken) return { error: "请完成人机验证" };
+    const valid = await verifyHcaptcha(hcaptchaToken);
+    if (!valid) return { error: "人机验证失败，请重试" };
+  }
 
   const rateLimitKey = `${email}:${type}`;
   if (!checkRateLimit(rateLimitKey)) {
@@ -75,16 +107,27 @@ export async function registerAction(data: {
   name: string;
   code: string;
   password?: string;
-  role?: "user" | "guest";
+  hcaptchaToken?: string;
 }) {
-  const { email, name, code, password, role } = data;
+  const { email, name, code, password, hcaptchaToken } = data;
 
   if (!email || !name || !code || !password) {
     return { error: "All fields are required" };
   }
 
+  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
+  if (hcaptchaSecret) {
+    if (!hcaptchaToken) return { error: "请完成人机验证" };
+    const valid = await verifyHcaptcha(hcaptchaToken);
+    if (!valid) return { error: "人机验证失败，请重试" };
+  }
+
+  const trimmedName = name.trim();
+  if (trimmedName.length < 2) {
+    return { error: "用户名至少需要 2 个字符" };
+  }
+
   try {
-    // 1. Verify code
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
         eq(verificationCodes.email, email),
@@ -98,13 +141,19 @@ export async function registerAction(data: {
       return { error: "Invalid or expired verification code" };
     }
 
-    // 2. Check if user already exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.email, email),
     });
 
     if (existingUser) {
       return { error: "Email already registered" };
+    }
+
+    const existingName = await db.query.users.findFirst({
+      where: eq(users.name, trimmedName),
+    });
+    if (existingName) {
+      return { error: "该用户名已被使用" };
     }
 
     const isFirstUser = (await db.query.users.findFirst({ columns: { id: true } })) === undefined;
@@ -121,7 +170,6 @@ export async function registerAction(data: {
     const { headers } = await import("next/headers");
     const { auth } = await import("@/lib/auth-better");
 
-    // 3. Register user via Better Auth
     const signUpResult = await auth.api.signUpEmail({
       body: {
         email,
@@ -135,9 +183,8 @@ export async function registerAction(data: {
       return { error: "Failed to sign up user" };
     }
 
-    const userRole = isFirstUser ? "super_admin" : (role === "guest" ? "guest" : "user");
+    const userRole = isFirstUser ? "super_admin" : "guest";
 
-    // 4. Update additional compatibility fields in the database
     await db.update(users).set({
       role: userRole,
       emailVerified: true,
@@ -145,7 +192,6 @@ export async function registerAction(data: {
 
     let slugCandidate: string | null = null;
     if (userRole !== "guest") {
-      // 5. Set default homepage slug = unique 8-digit number
       for (let attempt = 0; attempt < 20; attempt++) {
         const candidate = Math.floor(10000000 + Math.random() * 90000000).toString();
         const conflict = await db.query.users.findFirst({ where: eq(users.slug, candidate) });
@@ -159,10 +205,8 @@ export async function registerAction(data: {
       }
     }
 
-    // 6. Delete used code
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 
-    // 7. Send welcome email (non-blocking)
     sendWelcomeEmail(email, name).catch((err) => {
       console.error("Failed to send welcome email:", err);
     });
@@ -173,7 +217,7 @@ export async function registerAction(data: {
         id: signUpResult.user.id,
         email: signUpResult.user.email,
         name: signUpResult.user.name,
-        role,
+        role: userRole,
         slug: slugCandidate,
       }
     };
@@ -183,15 +227,18 @@ export async function registerAction(data: {
   }
 }
 
-export async function loginAction(data: { email: string; password?: string }) {
-  const { email, password } = data;
+export async function loginAction(data: { email: string; password?: string; hcaptchaToken?: string }) {
+  const { email, password, hcaptchaToken } = data;
 
   if (!email || !password) {
     return { error: "Email and password are required" };
   }
 
-  if (!checkLoginRateLimit(email)) {
-    return { error: "登录尝试过于频繁，请15分钟后再试" };
+  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
+  if (hcaptchaSecret) {
+    if (!hcaptchaToken) return { error: "请完成人机验证" };
+    const valid = await verifyHcaptcha(hcaptchaToken);
+    if (!valid) return { error: "人机验证失败，请重试" };
   }
 
   try {
@@ -203,6 +250,10 @@ export async function loginAction(data: { email: string; password?: string }) {
       return { error: "Invalid email or password" };
     }
 
+    if (user.loginDisabledAt) {
+      return { error: "该账号因密码错误次数过多已被禁用登录，请联系管理员解锁" };
+    }
+
     if (user.status === "suspended") {
       return { error: "Your account has been suspended" };
     }
@@ -210,7 +261,6 @@ export async function loginAction(data: { email: string; password?: string }) {
     const { headers } = await import("next/headers");
     const { auth } = await import("@/lib/auth-better");
 
-    // Authenticate via Better Auth
     const signInResult = await auth.api.signInEmail({
       body: {
         email,
@@ -220,19 +270,23 @@ export async function loginAction(data: { email: string; password?: string }) {
     });
 
     if (!signInResult || !signInResult.user || !signInResult.token) {
+      if (!checkLoginRateLimit(email)) {
+        await db.update(users).set({ loginDisabledAt: new Date() }).where(eq(users.email, email));
+        LOGIN_RATE_LIMITS.delete(email);
+        return { error: "密码错误次数过多，账号已被禁用登录，请联系管理员解锁" };
+      }
       return { error: "Invalid email or password" };
     }
 
     LOGIN_RATE_LIMITS.delete(email);
 
-    // Set Better Auth session cookie manually in Next.js Server Action
     const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
     cookieStore.set("better-auth.session_token", signInResult.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       path: "/",
     });
 
@@ -260,7 +314,6 @@ export async function logoutAction() {
       headers: await headers(),
     });
 
-    // Clear session cookie manually
     await clearSessionCookie();
 
     return { success: true };
@@ -271,41 +324,40 @@ export async function logoutAction() {
 }
 
 export async function resetPasswordAction(data: {
-  email: string;
-  code: string;
+  token: string;
   password?: string;
 }) {
-  const { email, code, password } = data;
+  const { token, password } = data;
 
-  if (!email || !code || !password) {
-    return { error: "All fields are required" };
+  if (!token || !password) {
+    return { error: "所有字段都是必填的" };
   }
 
   try {
-    // Verify code
+    const tokenHash = hashToken(token);
+
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
-        eq(verificationCodes.email, email),
-        eq(verificationCodes.code, code),
-        eq(verificationCodes.type, "forgot_password"),
+        eq(verificationCodes.code, tokenHash),
+        eq(verificationCodes.type, "reset_password"),
         gt(verificationCodes.expiresAt, new Date())
       ),
     });
 
     if (!validCode) {
-      return { error: "Invalid or expired verification code" };
+      return { error: "重置链接无效或已过期，请重新申请" };
     }
 
-    // Get user
+    const email = validCode.email;
+
     const user = await db.query.users.findFirst({
       where: eq(users.email, email),
     });
 
     if (!user) {
-      return { error: "User not found" };
+      return { error: "用户不存在" };
     }
 
-    // Update password in Better Auth accounts table
     const passwordHash = await hashPasswordBetter(password);
     await db.update(accounts)
       .set({ password: passwordHash })
@@ -317,9 +369,219 @@ export async function resetPasswordAction(data: {
       and(eq(verificationCodes.email, email), lt(verificationCodes.expiresAt, new Date()))
     );
 
+    if (user.loginDisabledAt) {
+      await db.update(users).set({ loginDisabledAt: null }).where(eq(users.id, user.id));
+    }
+
     return { success: true };
   } catch (error) {
     console.error("resetPasswordAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+const MAX_RESET_PASSWORD_SENDS = 5;
+const RESET_PASSWORD_24H = 24 * 60 * 60 * 1000;
+
+const RESET_PASSWORD_SEND_LIMITS = new Map<string, { count: number; resetAt: number }>();
+
+function checkResetPasswordSendLimit(email: string): { allowed: boolean; count: number } {
+  const now = Date.now();
+  const entry = RESET_PASSWORD_SEND_LIMITS.get(email);
+  if (!entry || now > entry.resetAt) {
+    RESET_PASSWORD_SEND_LIMITS.set(email, { count: 1, resetAt: now + RESET_PASSWORD_24H });
+    return { allowed: true, count: 1 };
+  }
+  if (entry.count >= MAX_RESET_PASSWORD_SENDS) {
+    return { allowed: false, count: entry.count };
+  }
+  entry.count++;
+  return { allowed: true, count: entry.count };
+}
+
+export async function sendResetPasswordLinkAction(email: string, origin: string, hcaptchaToken?: string) {
+  if (!email) return { error: "邮箱不能为空" };
+
+  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
+  if (hcaptchaSecret) {
+    if (!hcaptchaToken) return { error: "请完成人机验证" };
+    const valid = await verifyHcaptcha(hcaptchaToken);
+    if (!valid) return { error: "人机验证失败，请重试" };
+  }
+
+  const rateLimitKey = `${email}:reset_password`;
+  if (!checkRateLimit(rateLimitKey)) {
+    return { error: "请稍后再试，重置邮件发送过于频繁" };
+  }
+
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (!user) {
+      return { error: "该邮箱未注册账户" };
+    }
+
+    const existingToken = await db.query.verificationCodes.findFirst({
+      where: and(
+        eq(verificationCodes.email, email),
+        eq(verificationCodes.type, "reset_password"),
+        gt(verificationCodes.expiresAt, new Date())
+      ),
+    });
+
+    if (existingToken) {
+      const sendCheck = checkResetPasswordSendLimit(email);
+      if (!sendCheck.allowed) {
+        return { error: "重置密码邮件发送次数已达上限（5次），请24小时后再试" };
+      }
+
+      const newToken = crypto.randomBytes(32).toString("hex");
+      const newTokenHash = hashToken(newToken);
+      const newExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+      await db.delete(verificationCodes).where(eq(verificationCodes.id, existingToken.id));
+
+      await db.insert(verificationCodes).values({
+        email,
+        code: newTokenHash,
+        type: "reset_password",
+        expiresAt: newExpiresAt,
+        sentCount: String(sendCheck.count),
+      });
+
+      const result = await sendResetPasswordLink(email, newToken, origin);
+      if (!result.sent) {
+        return { error: "发送重置密码邮件失败，请检查邮件配置" };
+      }
+
+      return { success: true };
+    }
+
+    const sendCheck = checkResetPasswordSendLimit(email);
+    if (!sendCheck.allowed) {
+      return { error: "重置密码邮件发送次数已达上限（5次），请24小时后再试" };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+    await db.insert(verificationCodes).values({
+      email,
+      code: tokenHash,
+      type: "reset_password",
+      expiresAt,
+      sentCount: String(sendCheck.count),
+    });
+
+    const result = await sendResetPasswordLink(email, token, origin);
+    if (!result.sent) {
+      return { error: "发送重置密码邮件失败，请检查邮件配置" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("sendResetPasswordLinkAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function verifyResetTokenAction(token: string) {
+  if (!token) return { valid: false };
+
+  try {
+    const tokenHash = hashToken(token);
+    const validCode = await db.query.verificationCodes.findFirst({
+      where: and(
+        eq(verificationCodes.code, tokenHash),
+        eq(verificationCodes.type, "reset_password"),
+        gt(verificationCodes.expiresAt, new Date())
+      ),
+      columns: { id: true, email: true },
+    });
+
+    if (!validCode) return { valid: false };
+    return { valid: true, email: validCode.email };
+  } catch {
+    return { valid: false };
+  }
+}
+
+export async function guestSendResetPasswordAction(origin: string) {
+  const user = await getSessionUser();
+  if (!user) return { error: "请先登录" };
+  if (user.role !== "guest") return { error: "仅访客用户可使用此功能" };
+
+  const email = user.email;
+  const rateLimitKey = `${email}:reset_password`;
+  if (!checkRateLimit(rateLimitKey)) {
+    return { error: "请稍后再试，重置邮件发送过于频繁" };
+  }
+
+  try {
+    const existingToken = await db.query.verificationCodes.findFirst({
+      where: and(
+        eq(verificationCodes.email, email),
+        eq(verificationCodes.type, "reset_password"),
+        gt(verificationCodes.expiresAt, new Date())
+      ),
+    });
+
+    if (existingToken) {
+      const sendCheck = checkResetPasswordSendLimit(email);
+      if (!sendCheck.allowed) {
+        return { error: "重置密码邮件发送次数已达上限（5次），请24小时后再试" };
+      }
+
+      const newToken = crypto.randomBytes(32).toString("hex");
+      const newTokenHash = hashToken(newToken);
+      const newExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+      await db.delete(verificationCodes).where(eq(verificationCodes.id, existingToken.id));
+
+      await db.insert(verificationCodes).values({
+        email,
+        code: newTokenHash,
+        type: "reset_password",
+        expiresAt: newExpiresAt,
+        sentCount: String(sendCheck.count),
+      });
+
+      const result = await sendResetPasswordLink(email, newToken, origin);
+      if (!result.sent) {
+        return { error: "发送重置密码邮件失败，请检查邮件配置" };
+      }
+
+      return { success: true };
+    }
+
+    const sendCheck = checkResetPasswordSendLimit(email);
+    if (!sendCheck.allowed) {
+      return { error: "重置密码邮件发送次数已达上限（5次），请24小时后再试" };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+    await db.insert(verificationCodes).values({
+      email,
+      code: tokenHash,
+      type: "reset_password",
+      expiresAt,
+      sentCount: String(sendCheck.count),
+    });
+
+    const result = await sendResetPasswordLink(email, token, origin);
+    if (!result.sent) {
+      return { error: "发送重置密码邮件失败，请检查邮件配置" };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("guestSendResetPasswordAction error:", error);
     return { error: "Internal server error" };
   }
 }

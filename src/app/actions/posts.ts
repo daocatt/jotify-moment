@@ -83,7 +83,6 @@ export async function getPostsAction(cursor?: string) {
           columns: {
             id: true,
             name: true,
-            email: true,
             avatar: true,
             role: true,
             slug: true,
@@ -158,7 +157,7 @@ export async function deletePostAction(postId: string) {
       return { error: "Unauthorized to delete this post" };
     }
 
-    const mediaUrls = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number }>;
+    const mediaUrls = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
     await deleteMediaFiles(mediaUrls);
 
     await db.delete(posts).where(eq(posts.id, postId));
@@ -183,7 +182,7 @@ export async function getPinnedPostsAction() {
       limit: MAX_PINNED,
       with: {
         author: {
-          columns: { id: true, name: true, email: true, avatar: true, role: true, slug: true },
+          columns: { id: true, name: true, avatar: true, role: true, slug: true },
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
@@ -305,7 +304,7 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
       limit: PAGE_SIZE + 1,
       with: {
         author: {
-          columns: { id: true, name: true, email: true, avatar: true, role: true, slug: true },
+          columns: { id: true, name: true, avatar: true, role: true, slug: true },
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
@@ -459,7 +458,7 @@ export async function getPostByIdAction(postId: string) {
       where: eq(posts.id, postId),
       with: {
         author: {
-          columns: { id: true, name: true, email: true, avatar: true, role: true, slug: true },
+          columns: { id: true, name: true, avatar: true, role: true, slug: true },
         },
         comments: {
           orderBy: [asc(comments.createdAt)],

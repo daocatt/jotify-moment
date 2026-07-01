@@ -14,11 +14,14 @@ export interface SessionUser {
   coverImage: string | null;
   wechat: string | null;
   telegram: string | null;
+  telegramChatId: string | null;
+  telegramBindToken: string | null;
   github: string | null;
   x: string | null;
   otherLink: string | null;
   role: "super_admin" | "admin" | "user" | "guest";
   status: "active" | "suspended";
+  loginDisabledAt: Date | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -84,7 +87,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     }
 
     let slug = dbUser.slug;
-    if (!slug) {
+    if (!slug && dbUser.role !== "guest") {
       slug = await ensureUserSlug(dbUser.id, dbUser.name);
     }
 
@@ -98,11 +101,14 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       coverImage: dbUser.coverImage,
       wechat: dbUser.wechat,
       telegram: dbUser.telegram,
+      telegramChatId: dbUser.telegramChatId,
+      telegramBindToken: dbUser.telegramBindToken,
       github: dbUser.github,
       x: dbUser.x,
       otherLink: dbUser.otherLink,
-      role: (dbUser.role as "super_admin" | "admin" | "user") || "user",
+      role: (dbUser.role as "super_admin" | "admin" | "user" | "guest") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
+      loginDisabledAt: dbUser.loginDisabledAt,
     };
   } catch (error) {
     console.error("getSessionUser error:", error);

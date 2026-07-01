@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { uploadFile } from "@/lib/storage";
-
-const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+import { uploadFile, getUploadLimits } from "@/lib/storage";
 
 export async function POST(req: Request) {
   try {
@@ -22,8 +20,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (file.size > MAX_UPLOAD_SIZE) {
-      return NextResponse.json({ error: `File size exceeds maximum allowed size of ${MAX_UPLOAD_SIZE / 1024 / 1024}MB` }, { status: 413 });
+    const limits = await getUploadLimits();
+    const maxBytes = limits.maxFileSizeMB * 1024 * 1024;
+
+    if (file.size > maxBytes) {
+      return NextResponse.json({ error: `File size exceeds maximum allowed size of ${limits.maxFileSizeMB}MB` }, { status: 413 });
     }
 
     const arrayBuffer = await file.arrayBuffer();
