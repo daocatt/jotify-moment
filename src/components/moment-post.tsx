@@ -67,6 +67,7 @@ const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉"
 export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin, isDetailsView = false }: MomentPostProps) {
   const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiClosing, setEmojiClosing] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -366,13 +367,26 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                   onRequireLogin?.();
                   return;
                 }
-                setShowEmojiPicker((prev) => !prev);
+                if (showEmojiPicker) {
+                  setEmojiClosing(true);
+                } else {
+                  setEmojiClosing(false);
+                  setShowEmojiPicker(true);
+                }
               }}
             >
               <Smile size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
             </button>
             {showEmojiPicker && (
-              <div className="absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full animate-in slide-in-from-bottom-2 duration-150">
+              <div
+                className={`t-dropdown ${emojiClosing ? "is-closing" : "is-open"} absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full`}
+                onTransitionEnd={() => {
+                  if (emojiClosing) {
+                    setShowEmojiPicker(false);
+                    setEmojiClosing(false);
+                  }
+                }}
+              >
                 {REACTIONS_LIST.map((emoji) => (
                   <button
                     key={emoji}
@@ -404,30 +418,40 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
 
           {/* Pin/Unpin for admin */}
           {isAdmin && post.status === "approved" && (
-            <button
-              onClick={handleTogglePin}
-              disabled={pinLoading}
-              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
-              title={post.pinnedAt ? "取消置顶" : "置顶"}
-            >
-              {pinLoading ? (
-                <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
-              ) : post.pinnedAt ? (
-                <PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" />
-              ) : (
-                <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" />
-              )}
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleTogglePin}
+                disabled={pinLoading}
+                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
+                onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
+              >
+                {pinLoading ? (
+                  <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+                ) : (
+                  <span className="t-icon-swap" data-state={post.pinnedAt ? "a" : "b"}>
+                    <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" /></span>
+                    <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" /></span>
+                  </span>
+                )}
+              </button>
+              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.pinnedAt ? "取消置顶" : "置顶"}</span>
+            </div>
           )}
 
           {/* Delete Button */}
           {(isOwner || isAdmin) && (
-            <button
-              onClick={handleDeletePost}
-              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
-            >
-              <Trash2 size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleDeletePost}
+                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
+                onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
+              >
+                <Trash2 size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
+              </button>
+              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">删除</span>
+            </div>
           )}
 
           {!isDetailsView && (
