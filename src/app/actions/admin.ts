@@ -36,9 +36,7 @@ export async function getSettingsAction() {
     };
 
     for (const s of allSettings) {
-      if (s.key === "allow_registration" || s.key === "require_approval") {
-        settingsMap[s.key] = s.value;
-      }
+      settingsMap[s.key] = s.value;
     }
 
     return { success: true, settings: settingsMap };
