@@ -82,11 +82,13 @@ export async function POST(req: Request) {
 
     const botToken = botTokenSetting.value;
 
-    if (webhookSecretSetting?.value) {
-      const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-      if (secretHeader !== webhookSecretSetting.value) {
-        return NextResponse.json({ error: "Invalid secret token" }, { status: 403 });
-      }
+    if (!webhookSecretSetting?.value) {
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 403 });
+    }
+
+    const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+    if (secretHeader !== webhookSecretSetting.value) {
+      return NextResponse.json({ error: "Invalid secret token" }, { status: 403 });
     }
 
     const body = await req.json();
