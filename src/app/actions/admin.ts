@@ -498,16 +498,24 @@ export async function integrateTelegramAction(botName: string, botToken: string,
     return { error: "Unauthorized" };
   }
 
-  if (!botName.trim() || !botToken.trim() || !origin.trim()) {
+  if (!botName.trim() || !origin.trim()) {
     return { error: "参数不完整" };
+  }
+
+  let actualToken = botToken.trim();
+  if (!actualToken || actualToken.startsWith("****")) {
+    const saved = await db.query.settings.findFirst({ where: eq(settings.key, "telegram_bot_token") });
+    if (!saved?.value) {
+      return { error: "请输入 Bot Token" };
+    }
+    actualToken = saved.value;
   }
 
   const webhookSecret = crypto.randomUUID().replace(/-/g, "");
 
   try {
-    // 1. Call setWebhook via fetch
     const webhookUrl = `${origin}/api/telegram/webhook`;
-    const tgUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${webhookSecret}`;
+    const tgUrl = `https://api.telegram.org/bot${actualToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${webhookSecret}`;
     const res = await fetch(tgUrl);
     const data = await res.json();
 
@@ -515,9 +523,8 @@ export async function integrateTelegramAction(botName: string, botToken: string,
       return { error: `Telegram Webhook 注册失败: ${data.description || "未知原因"}` };
     }
 
-    // 2. Save to settings table
     await db.insert(settings).values({ key: "telegram_bot_name", value: botName }).onConflictDoUpdate({ target: settings.key, set: { value: botName } });
-    await db.insert(settings).values({ key: "telegram_bot_token", value: botToken }).onConflictDoUpdate({ target: settings.key, set: { value: botToken } });
+    await db.insert(settings).values({ key: "telegram_bot_token", value: actualToken }).onConflictDoUpdate({ target: settings.key, set: { value: actualToken } });
     await db.insert(settings).values({ key: "telegram_webhook_secret", value: webhookSecret }).onConflictDoUpdate({ target: settings.key, set: { value: webhookSecret } });
 
     return { success: true };
@@ -629,12 +636,21 @@ export async function saveResendConfigAction(apiKey: string, domain: string, fro
     return { error: "Unauthorized" };
   }
 
-  if (!apiKey.trim() || !domain.trim() || !fromName.trim() || !fromEmail.trim()) {
+  if (!domain.trim() || !fromName.trim() || !fromEmail.trim()) {
     return { error: "参数不完整" };
   }
 
+  let actualApiKey = apiKey.trim();
+  if (!actualApiKey || actualApiKey.startsWith("****")) {
+    const saved = await db.query.settings.findFirst({ where: eq(settings.key, "resend_api_key") });
+    if (!saved?.value) {
+      return { error: "请输入 API Key" };
+    }
+    actualApiKey = saved.value;
+  }
+
   try {
-    await db.insert(settings).values({ key: "resend_api_key", value: apiKey }).onConflictDoUpdate({ target: settings.key, set: { value: apiKey } });
+    await db.insert(settings).values({ key: "resend_api_key", value: actualApiKey }).onConflictDoUpdate({ target: settings.key, set: { value: actualApiKey } });
     await db.insert(settings).values({ key: "resend_domain", value: domain }).onConflictDoUpdate({ target: settings.key, set: { value: domain } });
     await db.insert(settings).values({ key: "resend_from_name", value: fromName }).onConflictDoUpdate({ target: settings.key, set: { value: fromName } });
     await db.insert(settings).values({ key: "resend_from_email", value: fromEmail }).onConflictDoUpdate({ target: settings.key, set: { value: fromEmail } });
@@ -707,8 +723,15 @@ export async function saveStorageConfigAction(data: {
   }
 
   if (data.mode === "s3") {
-    if (!data.s3AccessKeyId.trim() || !data.s3SecretAccessKey.trim() || !data.s3BucketName.trim()) {
-      return { error: "S3 模式需要填写 Access Key ID、Secret Access Key 和 Bucket Name" };
+    if (!data.s3AccessKeyId.trim() || !data.s3BucketName.trim()) {
+      return { error: "S3 模式需要填写 Access Key ID 和 Bucket Name" };
+    }
+    if (!data.s3SecretAccessKey.trim() || data.s3SecretAccessKey.startsWith("****")) {
+      const saved = await db.query.settings.findFirst({ where: eq(settings.key, "storage_s3_secret_access_key") });
+      if (!saved?.value) {
+        return { error: "S3 模式需要填写 Secret Access Key" };
+      }
+      data.s3SecretAccessKey = saved.value;
     }
   }
 
