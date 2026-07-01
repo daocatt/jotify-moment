@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getPostByIdAction } from "@/app/actions/posts";
 import { MoClient } from "./mo-client";
 
+export const dynamic = "force-dynamic";
+
 function plainExcerpt(content: string, max = 80): string {
   const plain = content
     .replace(/```[\s\S]*?```/g, " ")
