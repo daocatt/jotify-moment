@@ -26,6 +26,7 @@ import {
   getStorageConfigAction,
   saveStorageConfigAction,
   updateFaviconAction,
+  unlockLoginAction,
 } from "@/app/actions/admin";
 import {
   Shield,
@@ -46,6 +47,7 @@ import {
   ArrowLeft,
   Upload,
   Cloud,
+  LockOpen,
   HardDrive,
   ImagePlus,
 } from "lucide-react";
@@ -262,6 +264,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success(newStatus === "suspended" ? "用户已被封禁" : "用户已解除封禁");
+      loadData();
+    }
+  };
+
+  const handleUnlockLogin = async (userId: string) => {
+    const res = await unlockLoginAction(userId);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("已解锁登录");
       loadData();
     }
   };
@@ -998,6 +1010,9 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
+                        {user.loginDisabledAt && (
+                          <span className="text-[10px] text-orange-500 font-medium">登录已禁用</span>
+                        )}
                       </div>
                     </div>
 
@@ -1031,6 +1046,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                             </span>
                           )}
                         </Button>
+
+                        {user.loginDisabledAt && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
+                            onClick={() => handleUnlockLogin(user.id)}
+                          >
+                            <LockOpen size={12} className="mr-1" /> 解锁登录
+                          </Button>
+                        )}
                       </div>
                     )}
 

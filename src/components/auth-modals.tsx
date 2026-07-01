@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { loginAction, registerAction, sendVerificationCodeAction, resetPasswordAction, sendResetPasswordLinkAction } from "@/app/actions/auth";
+import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isHcaptchaEnabledAction } from "@/app/actions/auth";
+
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -24,12 +27,30 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [hcaptchaEnabled, setHcaptchaEnabled] = useState(false);
+  const [hcaptchaToken, setHcaptchaToken] = useState<string>("");
+  const captchaRef = useRef<HCaptcha>(null);
 
-  // Form states
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+
+  useEffect(() => {
+    isHcaptchaEnabledAction().then((res) => {
+      if (res.enabled) setHcaptchaEnabled(true);
+    });
+  }, []);
+
+  const resetCaptcha = () => {
+    setHcaptchaToken("");
+    captchaRef.current?.resetCaptcha();
+  };
+
+  const switchMode = (newMode: "login" | "register" | "forgot") => {
+    setMode(newMode);
+    resetCaptcha();
+  };
 
   const startCountdown = () => {
     setCountdown(60);
@@ -49,49 +70,61 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
       toast.error("请输入电子邮箱");
       return;
     }
+    if (hcaptchaEnabled && !hcaptchaToken) {
+      toast.error("请完成人机验证");
+      return;
+    }
     setLoading(true);
     const type = mode === "register" ? "register" : "forgot_password";
-    const res = await sendVerificationCodeAction(email, type);
+    const res = await sendVerificationCodeAction(email, type, hcaptchaToken || undefined);
     setLoading(false);
 
     if (res.error) {
       toast.error(res.error);
+      resetCaptcha();
     } else {
       const msg = "验证码已发送，请检查收件箱" + (res.emailConfigured === false ? "（尚未配置发信API）" : "");
       toast.success(msg);
       startCountdown();
+      resetCaptcha();
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hcaptchaEnabled && !hcaptchaToken) {
+      toast.error("请完成人机验证");
+      return;
+    }
     setLoading(true);
 
     try {
       if (mode === "login") {
-        const res = await loginAction({ email, password });
+        const res = await loginAction({ email, password, hcaptchaToken: hcaptchaToken || undefined });
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
           toast.success("登录成功");
           onSuccess();
           onClose();
         }
       } else if (mode === "register") {
-        const res = await registerAction({ email, name, code, password });
+        const res = await registerAction({ email, name, code, password, hcaptchaToken: hcaptchaToken || undefined });
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
           toast.success("注册成功，请登录");
-          setMode("login");
+          switchMode("login");
           setCode("");
           setPassword("");
         }
       } else {
-        // Forgot password / send email link
-        const res = await sendResetPasswordLinkAction(email, window.location.origin);
+        const res = await sendResetPasswordLinkAction(email, window.location.origin, hcaptchaToken || undefined);
         if (res.error) {
           toast.error(res.error);
+          resetCaptcha();
         } else {
           toast.success("重置密码邮件已发送，请检查您的邮箱收件箱！");
           onClose();
@@ -99,6 +132,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
       }
     } catch {
       toast.error("操作失败，请重试");
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -185,6 +219,18 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
+          {hcaptchaEnabled && HCAPTCHA_SITE_KEY && (
+            <div className="flex justify-center">
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setHcaptchaToken(token)}
+                onExpire={() => setHcaptchaToken("")}
+                languageOverride="zh"
+              />
+            </div>
+          )}
+
           <Button type="submit" className="w-full mt-2" disabled={loading}>
             {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
@@ -194,18 +240,14 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
               <>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode("register");
-                  }}
+                  onClick={() => switchMode("register")}
                   className="hover:underline hover:text-primary"
                 >
                   注册新账号
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode("forgot");
-                  }}
+                  onClick={() => switchMode("forgot")}
                   className="hover:underline hover:text-primary"
                 >
                   忘记密码？
@@ -214,7 +256,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             ) : (
               <button
                 type="button"
-                onClick={() => setMode("login")}
+                onClick={() => switchMode("login")}
                 className="hover:underline hover:text-primary mx-auto"
               >
                 返回登录

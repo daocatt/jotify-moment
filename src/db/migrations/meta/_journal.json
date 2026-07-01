@@ -71,6 +71,13 @@
       "when": 1782840746887,
       "tag": "0009_bumpy_marrow",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782907061192,
+      "tag": "0010_quick_scourge",
+      "breakpoints": true
     }
   ]
 }

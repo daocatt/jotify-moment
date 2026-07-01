@@ -118,6 +118,7 @@ export async function getUsersAction(cursor?: string) {
         bio: true,
         role: true,
         status: true,
+        loginDisabledAt: true,
         createdAt: true,
       },
     });
@@ -163,6 +164,29 @@ export async function updateUserStatusAction(targetUserId: string, status: strin
     return { success: true };
   } catch (error) {
     console.error("updateUserStatusAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function unlockLoginAction(targetUserId: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+
+    if (!targetUser) return { error: "User not found" };
+    if (!targetUser.loginDisabledAt) return { error: "该账号未被禁用登录" };
+
+    await db.update(users).set({ loginDisabledAt: null }).where(eq(users.id, targetUserId));
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("unlockLoginAction error:", error);
     return { error: "Internal server error" };
   }
 }
