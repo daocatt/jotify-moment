@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+RUN npx -y esbuild src/db/migrate.ts --bundle --platform=node --target=node22 --outfile=src/db/migrate.js
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ENV DATABASE_URL=$DATABASE_URL
