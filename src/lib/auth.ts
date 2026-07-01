@@ -21,6 +21,7 @@ export interface SessionUser {
   otherLink: string | null;
   role: "super_admin" | "admin" | "user" | "guest";
   status: "active" | "suspended";
+  loginDisabledAt: Date | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -107,6 +108,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       otherLink: dbUser.otherLink,
       role: (dbUser.role as "super_admin" | "admin" | "user" | "guest") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
+      loginDisabledAt: dbUser.loginDisabledAt,
     };
   } catch (error) {
     console.error("getSessionUser error:", error);

@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   status: statusEnum("status").default("active").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  loginDisabledAt: timestamp("login_disabled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -135,6 +136,7 @@ export const verificationCodes = pgTable("verification_codes", {
   code: text("code").notNull(),
   type: text("type").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  sentCount: text("sent_count").default("1"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("verification_codes_email_idx").on(table.email),
