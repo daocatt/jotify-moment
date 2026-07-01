@@ -465,7 +465,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
         </div>
 
         {/* Expandable Comment input */}
-        {showCommentInput && (
+        <div className="t-panel-slide" data-open={showCommentInput}>
           <form onSubmit={handleAddComment} className="flex gap-2 items-center mt-2 max-w-lg">
             <input
               type="text"
@@ -474,13 +474,13 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
               onChange={(e) => setCommentText(e.target.value)}
               className="flex-1 text-xs sm:text-sm px-3 py-1.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring"
               required
-              autoFocus
+              autoFocus={showCommentInput}
             />
             <Button type="submit" size="sm" className="h-8" disabled={loading}>
               发送
             </Button>
           </form>
-        )}
+        </div>
 
         {/* Reactions List and Comments Container */}
         {(post.reactions.length > 0 || post.comments.length > 0) && (

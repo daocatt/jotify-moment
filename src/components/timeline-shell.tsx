@@ -124,7 +124,17 @@ export function TimelineShell({
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    if (!loadingPosts && posts.length > 0) {
+      const t = setTimeout(() => setRevealed(true), 50);
+      return () => clearTimeout(t);
+    } else {
+      setRevealed(false);
+    }
+  }, [loadingPosts, posts.length]);
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -567,10 +577,10 @@ export function TimelineShell({
       {pinnedEntry}
 
       <div className="flex-1 divide-y divide-border/60 pb-20">
-        {loadingPosts && posts.length === 0 ? (
+        {posts.length === 0 && loadingPosts ? (
           <div className="divide-y divide-border/60">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex gap-4 p-4 animate-pulse">
+              <div key={i} className="t-skel-skeleton is-pulsing flex gap-4 p-4">
                 <div className="size-10 rounded bg-border/50 shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-3 bg-border/50 rounded w-24" />
@@ -598,40 +608,55 @@ export function TimelineShell({
             <p className="text-center text-xs text-muted-foreground py-3">时间线上空空如也，发布第一条日志吧。</p>
           </div>
         ) : (
-          <>
-            {posts.map((post) => (
-              <MomentPost
-                key={post.id}
-                post={post}
-                currentUser={currentUser}
-                onOpenLightbox={openLightbox}
-                onRefresh={onRefresh}
-                onRequireLogin={() => {
-                  setAuthModalMode("login");
-                  setAuthModalOpen(true);
-                }}
-              />
-            ))}
-            {hasMore && (
-              <div>
-                {loadingMore && (
-                  <div className="divide-y divide-border/60">
-                    {[...Array(2)].map((_, i) => (
-                      <div key={`sk-${i}`} className="flex gap-4 p-4 animate-pulse">
-                        <div className="size-10 rounded bg-border/50 shrink-0" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3 bg-border/50 rounded w-24" />
-                          <div className="h-3 bg-border/50 rounded w-full" />
-                          <div className="h-3 bg-border/50 rounded w-3/4" />
-                        </div>
-                      </div>
-                    ))}
+          <div className={`t-skel ${revealed ? "is-revealed" : ""}`}>
+            {loadingPosts && (
+              <div className="t-skel-skeleton is-pulsing divide-y divide-border/60">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-4 p-4">
+                    <div className="size-10 rounded bg-border/50 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-border/50 rounded w-24" />
+                      <div className="h-3 bg-border/50 rounded w-full" />
+                      <div className="h-3 bg-border/50 rounded w-3/4" />
+                    </div>
                   </div>
-                )}
-                <div ref={sentinelRef} className="h-1" />
+                ))}
               </div>
             )}
-          </>
+            <div className="t-skel-content divide-y divide-border/60">
+              {posts.map((post) => (
+                <MomentPost
+                  key={post.id}
+                  post={post}
+                  currentUser={currentUser}
+                  onOpenLightbox={openLightbox}
+                  onRefresh={onRefresh}
+                  onRequireLogin={() => {
+                    setAuthModalMode("login");
+                    setAuthModalOpen(true);
+                  }}
+                />
+              ))}
+              {hasMore && (
+                <div>
+                  {loadingMore && (
+                    <div className="divide-y divide-border/60">
+                      {[...Array(2)].map((_, i) => (
+                        <div key={`sk-${i}`} className="flex gap-4 p-4 animate-pulse">
+                          <div className="size-10 rounded bg-border/50 shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3 bg-border/50 rounded w-20" />
+                            <div className="h-3 bg-border/50 rounded w-full" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div ref={sentinelRef} className="h-1" />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
