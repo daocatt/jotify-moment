@@ -33,6 +33,8 @@ export interface CurrentUser {
   github: string | null;
   x: string | null;
   otherLink: string | null;
+  customDomain: string | null;
+  allowCustomDomain: boolean;
 }
 
 export interface PostData {
@@ -285,6 +287,10 @@ export function TimelineShell({
   };
 
   const goToOwnHome = () => {
+    if (currentUser?.customDomain) {
+      window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
+      return;
+    }
     if (currentUser?.slug) {
       router.push(`/u/${currentUser.slug}`);
     } else {
@@ -392,7 +398,13 @@ export function TimelineShell({
             ) : currentUser.slug ? (
               <Button
                 variant="outline"
-                onClick={() => router.push(`/u/${currentUser.slug}`)}
+                onClick={() => {
+                  if (currentUser.customDomain) {
+                    window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
+                  } else {
+                    router.push(`/u/${currentUser.slug}`);
+                  }
+                }}
                 className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
               >
                 <CircleUserRound size={13} className="shrink-0" />
