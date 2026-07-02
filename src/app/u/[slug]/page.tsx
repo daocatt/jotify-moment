@@ -46,11 +46,16 @@ export async function generateMetadata({
   };
 }
 
+import { headers } from "next/headers";
+
 export default async function UserHomePage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return <UserHomeClient slug={slug} />;
+  const headersList = await headers();
+  const isCustomDomain = headersList.get("x-custom-domain") === "true";
+
+  return <UserHomeClient slug={slug} isCustomDomain={isCustomDomain} />;
 }

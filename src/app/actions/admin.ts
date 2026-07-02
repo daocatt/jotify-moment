@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret", "allow_custom_domains"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -126,6 +126,8 @@ export async function getUsersAction(cursor?: string) {
         status: true,
         loginDisabledAt: true,
         createdAt: true,
+        customDomain: true,
+        allowCustomDomain: true,
       },
     });
 
@@ -170,6 +172,34 @@ export async function updateUserStatusAction(targetUserId: string, status: strin
     return { success: true };
   } catch (error) {
     console.error("updateUserStatusAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function updateUserCustomDomainPermissionAction(targetUserId: string, allowed: boolean) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+
+    if (!targetUser) return { error: "User not found" };
+    if (targetUser.role === "super_admin") {
+      return { error: "Cannot restrict the Super Admin" };
+    }
+
+    await db.update(users).set({
+      allowCustomDomain: allowed,
+      ...(!allowed && { customDomain: null }),
+    }).where(eq(users.id, targetUserId));
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserCustomDomainPermissionAction error:", error);
     return { error: "Internal server error" };
   }
 }
@@ -287,6 +317,7 @@ export async function updateProfileAction(data: {
   x: string;
   otherLink: string;
   theme?: string;
+  customDomain?: string;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -323,6 +354,45 @@ export async function updateProfileAction(data: {
     if (existing && existing.id !== user.id) return { error: "该主页路径已被占用" };
   }
 
+  let customDomain = data.customDomain?.trim().toLowerCase() || null;
+  if (customDomain) {
+    customDomain = customDomain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+
+    const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
+    if (!DOMAIN_RE.test(customDomain)) {
+      return { error: "域名格式不合法，请输入如 moment.example.com 的格式" };
+    }
+
+    const mainHostEnv = process.env.MAIN_HOST || "";
+    const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+    if (mainHosts.includes(customDomain)) {
+      return { error: "不能使用主站域名作为自定义域名" };
+    }
+
+    const globalAllowRow = await db.query.settings.findFirst({
+      where: eq(settings.key, "allow_custom_domains")
+    });
+    const isGloballyAllowed = globalAllowRow?.value === "true";
+    if (!isGloballyAllowed) {
+      return { error: "系统当前未开启自定义域名功能" };
+    }
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { allowCustomDomain: true }
+    });
+    if (!dbUser?.allowCustomDomain) {
+      return { error: "管理员已禁用您的自定义域名权限" };
+    }
+
+    const existingDomain = await db.query.users.findFirst({
+      where: eq(users.customDomain, customDomain)
+    });
+    if (existingDomain && existingDomain.id !== user.id) {
+      return { error: "该自定义域名已被其他用户使用" };
+    }
+  }
+
   try {
     await db
       .update(users)
@@ -338,6 +408,7 @@ export async function updateProfileAction(data: {
         x: data.x || null,
         otherLink: data.otherLink || null,
         theme: data.theme || null,
+        customDomain: customDomain,
       })
       .where(eq(users.id, user.id));
 

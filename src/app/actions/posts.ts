@@ -265,6 +265,7 @@ export async function getUserBySlugAction(slug: string) {
       columns: {
         id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, status: true,
         wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true,
+        customDomain: true, allowCustomDomain: true,
       },
     });
     if (!target) return { error: "用户不存在" };
@@ -340,7 +341,7 @@ export async function getSuperAdminProfileAction() {
   try {
     const admin = await db.query.users.findFirst({
       where: eq(users.role, "super_admin"),
-      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true },
+      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true, customDomain: true, allowCustomDomain: true },
     });
     if (!admin) return { error: "No super admin" };
     let slug = admin.slug;
@@ -491,5 +492,17 @@ export async function getPostByIdAction(postId: string) {
   } catch (error) {
     console.error("getPostByIdAction error:", error);
     return { error: "Failed to fetch post details" };
+  }
+}
+
+export async function checkCustomDomainAvailabilityAction() {
+  try {
+    const globalAllowRow = await db.query.settings.findFirst({
+      where: eq(settings.key, "allow_custom_domains")
+    });
+    return { success: true, allowed: globalAllowRow?.value === "true" };
+  } catch (error) {
+    console.error("checkCustomDomainAvailabilityAction error:", error);
+    return { success: false, allowed: false };
   }
 }

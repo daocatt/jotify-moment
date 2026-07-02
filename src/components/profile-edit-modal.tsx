@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { updateProfileAction, changePasswordAction, getTelegramBotNameAction, generateTelegramBindTokenAction, unbindUserTelegramAction } from "@/app/actions/admin";
+import { checkCustomDomainAvailabilityAction } from "@/app/actions/posts";
 import { THEME_LIST } from "@/lib/theme-resolver";
 import { Camera, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { ImageCropModal } from "@/components/image-crop-modal";
@@ -34,6 +35,8 @@ interface ProfileEditModalProps {
     x: string | null;
     otherLink: string | null;
     theme?: string | null;
+    customDomain?: string | null;
+    allowCustomDomain?: boolean;
     role?: string;
   };
   isOpen: boolean;
@@ -53,16 +56,24 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [x, setX] = useState(user.x || "");
   const [otherLink, setOtherLink] = useState(user.otherLink || "");
   const [selectedTheme, setSelectedTheme] = useState(user.theme || "");
+  const [customDomain, setCustomDomain] = useState(user.customDomain || "");
 
   const [tgBotName, setTgBotName] = useState<string | null>(null);
   const [tgChatId, setTgChatId] = useState(user.telegramChatId || null);
   const [tgBindToken, setTgBindToken] = useState(user.telegramBindToken || null);
   const [tgLoading, setTgLoading] = useState(false);
 
+  const [globalCustomDomainsAllowed, setGlobalCustomDomainsAllowed] = useState(false);
+
   useEffect(() => {
     getTelegramBotNameAction().then((res) => {
       if (res.success && res.botName) {
         setTgBotName(res.botName);
+      }
+    });
+    checkCustomDomainAvailabilityAction().then((res) => {
+      if (res.success) {
+        setGlobalCustomDomainsAllowed(res.allowed);
       }
     });
   }, []);
@@ -202,6 +213,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       x,
       otherLink,
       theme: selectedTheme || "",
+      customDomain: customDomain || "",
     });
     setLoading(false);
 
@@ -372,6 +384,19 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                         </div>
                         <p className="text-[10px] text-muted-foreground">最大 32 位，留空则使用默认。修改后主页地址将变为 /你的路径</p>
                       </div>
+
+                      {globalCustomDomainsAllowed && user.allowCustomDomain === true && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-normal text-muted-foreground">自定义域名</label>
+                          <Input
+                            type="text"
+                            placeholder="例如: moment.yourname.com"
+                            value={customDomain}
+                            onChange={(e) => setCustomDomain(e.target.value)}
+                          />
+                          <p className="text-[10px] text-muted-foreground">绑定并使用您自己的独立域名访问此主页。需提前将该域名 CNAME 解析至本站域名。</p>
+                        </div>
+                      )}
 
                       <div className="border-t border-border/60 pt-3 space-y-2">
                         <p className="text-xs font-medium text-muted-foreground">社交链接</p>

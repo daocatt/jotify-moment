@@ -23,7 +23,7 @@ interface ProfileUserFull {
   theme: string | null;
 }
 
-export function UserHomeClient({ slug }: { slug: string }) {
+export function UserHomeClient({ slug, isCustomDomain = false }: { slug: string; isCustomDomain?: boolean }) {
   const [profileUser, setProfileUser] = useState<ProfileUserFull | null>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -111,7 +111,7 @@ export function UserHomeClient({ slug }: { slug: string }) {
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
       onProfileUpdated={fetchUser}
-      showBackButton
+      showBackButton={!isCustomDomain}
       showPostEditor="own"
     />
   );
