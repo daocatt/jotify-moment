@@ -205,10 +205,25 @@ export function TimelineShell({
     if (!ssoAction) return;
 
     if (currentUser) {
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("sso_action");
-      cleanUrl.searchParams.delete("callback");
-      router.replace(cleanUrl.pathname + cleanUrl.search);
+      const callback = searchParams.get("callback");
+      if (callback) {
+        generateSSOTokenAction(callback).then((tokenRes) => {
+          if (tokenRes.success && tokenRes.token) {
+            const callbackUrl = new URL(callback);
+            callbackUrl.searchParams.set("sso_token", tokenRes.token);
+            window.location.href = callbackUrl.toString();
+          } else {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete("sso_action");
+            cleanUrl.searchParams.delete("callback");
+            router.replace(cleanUrl.pathname + cleanUrl.search);
+          }
+        });
+      } else {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("sso_action");
+        router.replace(cleanUrl.pathname + cleanUrl.search);
+      }
       return;
     }
 
