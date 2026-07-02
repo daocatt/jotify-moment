@@ -6,9 +6,11 @@ import { eq, and } from "drizzle-orm";
 
 const DOMAIN_CACHE_TTL = 30_000;
 const SETTING_CACHE_TTL = 60_000;
+const UNKNOWN_DOMAIN_COOLDOWN = 60_000;
 
 const domainCache = new Map<string, { slug: string; expires: number }>();
 const settingCache = new Map<string, { value: string; expires: number }>();
+const unknownDomainCache = new Map<string, number>();
 
 function isValidDomain(domain: string): boolean {
   return /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain);
@@ -66,10 +68,20 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const hostname = host.split(":")[0].toLowerCase();
   const mainHosts = getMainHosts();
+
+  if (mainHosts.length === 0) {
+    console.error("[Proxy] MAIN_HOST is not configured — all requests treated as main host");
+  }
+
   const isMainHost = mainHosts.length > 0 && mainHosts.includes(hostname);
 
   if (!isMainHost) {
     if (!isValidDomain(hostname)) {
+      return new NextResponse(null, { status: 404 });
+    }
+
+    const lastRejected = unknownDomainCache.get(hostname);
+    if (lastRejected && Date.now() - lastRejected < UNKNOWN_DOMAIN_COOLDOWN) {
       return new NextResponse(null, { status: 404 });
     }
 
@@ -119,6 +131,14 @@ export async function proxy(request: NextRequest) {
       }
     } catch (err) {
       console.error("Proxy custom domain routing failed:", err);
+    }
+
+    unknownDomainCache.set(hostname, Date.now());
+    if (unknownDomainCache.size > 5000) {
+      const now = Date.now();
+      for (const [h, t] of unknownDomainCache) {
+        if (now - t > UNKNOWN_DOMAIN_COOLDOWN) unknownDomainCache.delete(h);
+      }
     }
 
     return new NextResponse(null, { status: 404 });

@@ -10,14 +10,16 @@ import { AuthModals } from "@/components/auth-modals";
 import { getPostByIdAction } from "@/app/actions/posts";
 import { useTheme } from "@/components/theme-provider";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
+import { useSSOCallback } from "@/lib/use-sso";
 import { toast } from "sonner";
 
 interface MoClientProps {
   id: string;
   isCustomDomain?: boolean;
+  mainHost?: string;
 }
 
-export function MoClient({ id, isCustomDomain = false }: MoClientProps) {
+export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps) {
   const router = useRouter();
   const { setTheme } = useTheme();
 
@@ -28,6 +30,19 @@ export function MoClient({ id, isCustomDomain = false }: MoClientProps) {
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
+
+  const handleLoginClick = useCallback(() => {
+    if (isCustomDomain && mainHost) {
+      const protocol = window.location.protocol;
+      const callback = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/?sso_action=login&callback=${callback}`;
+    } else {
+      setAuthModalMode("login");
+      setAuthModalOpen(true);
+    }
+  }, [isCustomDomain, mainHost]);
+
+  useSSOCallback(isCustomDomain);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -133,10 +148,7 @@ export function MoClient({ id, isCustomDomain = false }: MoClientProps) {
           onOpenLightbox={openLightbox}
           onRefresh={fetchPost}
           isDetailsView={true}
-          onRequireLogin={() => {
-            setAuthModalMode("login");
-            setAuthModalOpen(true);
-          }}
+          onRequireLogin={handleLoginClick}
         />
       </div>
 

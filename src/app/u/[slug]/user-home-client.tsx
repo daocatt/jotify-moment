@@ -23,7 +23,7 @@ interface ProfileUserFull {
   theme: string | null;
 }
 
-export function UserHomeClient({ slug, isCustomDomain = false }: { slug: string; isCustomDomain?: boolean }) {
+export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slug: string; isCustomDomain?: boolean; mainHost?: string }) {
   const [profileUser, setProfileUser] = useState<ProfileUserFull | null>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -113,6 +113,8 @@ export function UserHomeClient({ slug, isCustomDomain = false }: { slug: string;
       onProfileUpdated={fetchUser}
       showBackButton={!isCustomDomain}
       showPostEditor="own"
+      isCustomDomain={isCustomDomain}
+      mainHost={mainHost}
     />
   );
 }
