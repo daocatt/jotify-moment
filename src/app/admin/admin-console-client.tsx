@@ -52,7 +52,9 @@ import {
   LockOpen,
   HardDrive,
   ImagePlus,
+  MessageSquare,
 } from "lucide-react";
+import { getAdminCommentsAction, toggleCommentVisibilityAction, deleteCommentAction } from "@/app/actions/comments";
 
 interface AdminConsoleClientProps {
   currentUser: {
@@ -116,6 +118,12 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [s3Region, setS3Region] = useState("auto");
   const [s3PublicUrl, setS3PublicUrl] = useState("");
   const [storageActionLoading, setStorageActionLoading] = useState(false);
+
+  // Comments tab states
+  const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [commentsTotal, setCommentsTotal] = useState(0);
+  const [commentsPage, setCommentsPage] = useState(1);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const isSuperAdmin = currentUser.role === "super_admin";
 
@@ -186,6 +194,51 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       setLoading(false);
     }
   }, []);
+
+  const fetchComments = useCallback(async (pageToLoad: number) => {
+    setCommentsLoading(true);
+    const res = await getAdminCommentsAction(pageToLoad, 20);
+    setCommentsLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else if (res.comments) {
+      setCommentsList(res.comments);
+      setCommentsTotal(res.total || 0);
+      setCommentsPage(pageToLoad);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "comments") {
+      fetchComments(1);
+    }
+  }, [activeTab, fetchComments]);
+
+  const handleAdminToggleCommentVisibility = async (commentId: string, currentStatus: string) => {
+    const isHidden = currentStatus === "hidden";
+    const res = await toggleCommentVisibilityAction(commentId, !isHidden);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(isHidden ? "已取消隐藏" : "已隐藏该评论");
+      fetchComments(commentsPage);
+    }
+  };
+
+  const handleAdminDeleteComment = async (commentId: string) => {
+    if (!confirm("确定要删除这条评论吗？")) return;
+    const res = await deleteCommentAction(commentId);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("评论已彻底删除");
+      if (commentsList.length === 1 && commentsPage > 1) {
+        fetchComments(commentsPage - 1);
+      } else {
+        fetchComments(commentsPage);
+      }
+    }
+  };
 
   const loadMoreUsers = useCallback(async () => {
     if (usersLoadingMore || !usersHasMore) return;
@@ -564,6 +617,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
             >
               <ShieldAlert size={13} />
               <span>用户管理</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="comments"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <MessageSquare size={13} />
+              <span>评论管理</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1218,6 +1278,135 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
               )}
               <div ref={usersSentinelRef} className="h-1" />
             </div>
+          </TabsContent>
+
+          {/* Comments Tab */}
+          <TabsContent value="comments" className="space-y-3 mt-0">
+            {commentsLoading && commentsList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="size-6 animate-spin mb-2" />
+                <span className="text-xs">加载评论中...</span>
+              </div>
+            ) : commentsList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-muted-foreground text-xs">
+                <span>暂无任何评论</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {commentsList.map((comment) => (
+                  <div key={comment.id} className="flex flex-col p-3 border border-border rounded-lg bg-muted/10 text-sm gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-8 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border border-border">
+                          {comment.author?.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={comment.author.avatar} alt={comment.author.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="font-semibold text-xs">{comment.author?.name?.charAt(0) || "U"}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{comment.author?.name || "未知用户"}</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                              comment.author?.role === "super_admin"
+                                ? "bg-red-500/10 text-red-500"
+                                : comment.author?.role === "admin"
+                                ? "bg-blue-500/10 text-blue-500"
+                                : "bg-neutral-500/10 text-neutral-500"
+                            }`}>
+                              {comment.author?.role === "super_admin" ? "超级管理员" : comment.author?.role === "admin" ? "管理员" : "普通用户"}
+                            </span>
+                            {comment.status === "hidden" && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded font-medium">
+                                已隐藏
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(comment.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAdminToggleCommentVisibility(comment.id, comment.status)}
+                          className="h-7 text-xs px-2.5 gap-1.5"
+                        >
+                          {comment.status === "hidden" ? (
+                            <>
+                              <Eye size={12} />
+                              <span>取消隐藏</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff size={12} />
+                              <span>隐藏</span>
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleAdminDeleteComment(comment.id)}
+                          className="h-7 text-xs px-2.5 gap-1.5"
+                        >
+                          <Trash2 size={12} />
+                          <span>删除</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded border border-border/40 text-xs text-foreground/80 break-all">
+                      {comment.content}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>来自日志 ID: <code className="bg-muted px-1 py-0.5 rounded">{comment.postId}</code></span>
+                      <a
+                        href={`/mo/${comment.postId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline font-medium"
+                      >
+                        查看原日志 →
+                      </a>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Pagination Controls */}
+                {commentsTotal > 20 && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs">
+                    <span className="text-muted-foreground">
+                      共 {commentsTotal} 条评论，第 {commentsPage} / {Math.ceil(commentsTotal / 20)} 页
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={commentsPage <= 1 || commentsLoading}
+                        onClick={() => fetchComments(commentsPage - 1)}
+                        className="h-7 px-2"
+                      >
+                        上一页
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={commentsPage >= Math.ceil(commentsTotal / 20) || commentsLoading}
+                        onClick={() => fetchComments(commentsPage + 1)}
+                        className="h-7 px-2"
+                      >
+                        下一页
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </div>
       </Tabs>

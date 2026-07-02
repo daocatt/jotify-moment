@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -10,8 +10,9 @@ import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2 } from "lucide-react";
-import { toggleReactionAction, addCommentAction, deleteCommentAction, deletePostAction, pinPostAction, unpinPostAction } from "@/app/actions/posts";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff } from "lucide-react";
+import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction } from "@/app/actions/posts";
+import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ interface MomentPostProps {
       id: string;
       content: string;
       createdAt: Date;
+      status?: string;
       userId: {
         id: string;
         name: string;
@@ -73,6 +75,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [loading, setLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
   const [reacting, setReacting] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>("");
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -170,6 +174,31 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     }
   };
 
+  const handleSaveEditComment = async (commentId: string) => {
+    if (!editingContent.trim()) return;
+    setLoading(true);
+    const res = await updateCommentAction(commentId, editingContent);
+    setLoading(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("评论修改成功");
+      setEditingCommentId(null);
+      onRefresh();
+    }
+  };
+
+  const handleToggleHideComment = async (commentId: string, currentStatus: string) => {
+    const isHidden = currentStatus === "hidden";
+    const res = await toggleCommentVisibilityAction(commentId, !isHidden);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(isHidden ? "已取消隐藏" : "已隐藏该评论");
+      onRefresh();
+    }
+  };
+
   const handleDeletePost = async () => {
     if (!confirm("确定要删除这条日志吗？")) return;
     const res = await deletePostAction(post.id);
@@ -207,14 +236,6 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     if (post.user.slug) router.push(`/u/${post.user.slug}`);
   };
 
-  // Group reactions by emoji
-  const groupedReactions: Record<string, string[]> = {};
-  post.reactions.forEach((r) => {
-    if (!groupedReactions[r.emoji]) {
-      groupedReactions[r.emoji] = [];
-    }
-    groupedReactions[r.emoji].push(r.userId.name);
-  });
 
   return (
     <div className="flex gap-4 p-4 border-b border-border bg-card">
@@ -495,40 +516,132 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
           <div className="bg-[#F7F7F7] dark:bg-muted/40 rounded-lg border border-border/40 p-2.5 space-y-2 mt-2 max-w-lg">
             {/* Reactions (Likes & Emojis) */}
             {post.reactions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#576B95] dark:text-blue-400 border-b border-border/30 pb-2 last:border-b-0 last:pb-0">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#576B95] dark:text-blue-400 border-b border-border/30 pb-2 last:border-b-0 last:pb-0 transition-all duration-300">
                 <Heart size={12} className="text-[#576B95] dark:text-blue-400 shrink-0" />
-                {Object.entries(groupedReactions).map(([emoji, names], idx) => (
-                  <span key={idx} className="font-semibold">
-                    {emoji} {names.join(", ")}
-                  </span>
-                ))}
+                {(() => {
+                  if (post.reactions.length > 3) {
+                    const firstPersonName = post.reactions[0].userId.name;
+                    const totalCount = post.reactions.length;
+                    
+                    const emojiCounts: Record<string, number> = {};
+                    post.reactions.forEach(r => {
+                      emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
+                    });
+                    
+                    const emojiSummary = Object.entries(emojiCounts)
+                      .map(([emoji, count]) => `${emoji} ${count}人`)
+                      .join("  ");
+                    
+                    return (
+                      <span className="font-semibold">
+                        {firstPersonName}等{totalCount}人 {emojiSummary}
+                      </span>
+                    );
+                  } else {
+                    return (
+                      <span className="font-semibold flex flex-wrap gap-x-2">
+                        {post.reactions.map((r) => (
+                          <span key={r.id} className="inline-block transition-transform hover:scale-110">
+                            {r.userId.name} {r.emoji}
+                          </span>
+                        ))}
+                      </span>
+                    );
+                  }
+                })()}
               </div>
             )}
 
             {/* Comments List */}
             {post.comments.length > 0 && (
               <div className="space-y-1.5">
-                {(isDetailsView ? post.comments : post.comments.slice(-5)).map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="group flex items-start justify-between text-xs sm:text-sm text-foreground leading-relaxed"
-                  >
-                    <div className="flex-1">
-                      <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
-                        {comment.userId.name}
-                      </span>
-                      ：{comment.content}
+                {(isDetailsView ? post.comments : post.comments.slice(-5)).map((comment) => {
+                  const isCommentOwner = currentUser && comment.userId.id === currentUser.id;
+                  const isEditable = isCommentOwner && (Date.now() - new Date(comment.createdAt).getTime() <= 5 * 60 * 1000);
+                  const isCommentHidden = comment.status === "hidden";
+
+                  return (
+                    <div
+                      key={comment.id}
+                      className={`group flex items-start justify-between text-xs sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
+                    >
+                      <div className="flex-1 min-w-0 pr-2">
+                        <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
+                          {comment.userId.name}
+                        </span>
+                        {isCommentHidden && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 rounded ml-1 select-none">
+                            已隐藏
+                          </span>
+                        )}
+                        {editingCommentId === comment.id ? (
+                          <div className="mt-1 flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              className="flex-1 text-xs px-2 py-1 border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                              maxLength={500}
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              className="h-6 text-[10px] px-2"
+                              onClick={() => handleSaveEditComment(comment.id)}
+                            >
+                              保存
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-[10px] px-2 text-muted-foreground"
+                              onClick={() => setEditingCommentId(null)}
+                            >
+                              取消
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-foreground">：{comment.content}</span>
+                        )}
+                      </div>
+                      
+                      {editingCommentId !== comment.id && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                          {isEditable && (
+                            <button
+                              onClick={() => {
+                                setEditingCommentId(comment.id);
+                                setEditingContent(comment.content);
+                              }}
+                              title="编辑评论"
+                              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                            >
+                              <Edit2 size={11} />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleToggleHideComment(comment.id, comment.status || "active")}
+                              title={isCommentHidden ? "取消隐藏" : "隐藏评论"}
+                              className="text-muted-foreground hover:text-amber-500 p-0.5 rounded transition-colors"
+                            >
+                              {isCommentHidden ? <Eye size={11} /> : <EyeOff size={11} />}
+                            </button>
+                          )}
+                          {(isCommentOwner || isAdmin) && (
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              title="删除评论"
+                              className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {((currentUser && comment.userId.id === currentUser.id) || isAdmin) && (
-                      <button
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 {!isDetailsView && post.comments.length > 5 && (
                   <Link
                     href={`/mo/${post.id}`}
