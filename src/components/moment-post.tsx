@@ -221,7 +221,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       <button
         type="button"
         onClick={goToUserHome}
-        className="size-10 sm:size-11 rounded bg-muted overflow-hidden shrink-0 cursor-pointer"
+        className="size-10 sm:size-11 rounded-[var(--theme-radius-avatar)] bg-muted overflow-hidden shrink-0 cursor-pointer"
         disabled={!post.user.slug}
       >
         {post.user.avatar ? (

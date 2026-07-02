@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   status: statusEnum("status").default("active").notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  theme: text("theme"),
   loginDisabledAt: timestamp("login_disabled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
