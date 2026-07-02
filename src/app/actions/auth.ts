@@ -597,3 +597,49 @@ export async function guestSendResetPasswordAction(origin: string) {
     return { error: "Internal server error" };
   }
 }
+
+export async function generateSSOTokenAction(callbackUrl?: string) {
+  try {
+    const user = await getSessionUser();
+    if (!user) return { error: "Unauthorized" };
+
+    if (callbackUrl) {
+      let callbackHost: string;
+      try {
+        callbackHost = new URL(callbackUrl).hostname.toLowerCase();
+      } catch {
+        return { error: "Invalid callback URL" };
+      }
+
+      const mainHostEnv = process.env.MAIN_HOST || "";
+      const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+      if (mainHosts.includes(callbackHost)) {
+        return { error: "Callback cannot be a main host domain" };
+      }
+
+      const { users } = await import("@/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const domainUser = await db.query.users.findFirst({
+        where: and(
+          eq(users.customDomain, callbackHost),
+          eq(users.allowCustomDomain, true),
+        ),
+        columns: { id: true },
+      });
+      if (!domainUser) {
+        return { error: "Callback domain is not a registered custom domain" };
+      }
+    }
+
+    const secret = process.env.BETTER_AUTH_SECRET || "sso-secret";
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    const payload = `${user.id}:${expiresAt}`;
+    const hmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    const token = Buffer.from(`${payload}:${hmac}`).toString("base64");
+
+    return { success: true, token };
+  } catch (error) {
+    console.error("generateSSOTokenAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
