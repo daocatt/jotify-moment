@@ -15,8 +15,6 @@ MAIN_HOST=jotify-moment.com,www.jotify-moment.com
 {
     on_demand_tls {
         ask "http://127.0.0.1:3000/api/domains/check?token=your_secure_random_token_here"
-        interval 2m
-        burst 5
     }
 }
 
