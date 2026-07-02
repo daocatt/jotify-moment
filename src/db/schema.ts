@@ -106,6 +106,7 @@ export const comments = pgTable("comments", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   content: text("content").notNull(),
+  status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("comments_post_id_idx").on(table.postId),

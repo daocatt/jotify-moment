@@ -90,6 +90,7 @@ export async function getPostsAction(cursor?: string) {
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
+          where: isAdmin ? undefined : eq(comments.status, "active"),
           with: {
             author: {
               columns: {
@@ -186,6 +187,7 @@ export async function getPinnedPostsAction() {
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
+          where: isAdmin ? undefined : eq(comments.status, "active"),
           with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
         reactions: {
@@ -309,6 +311,7 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
+          where: isAdmin ? undefined : eq(comments.status, "active"),
           with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
         reactions: {
@@ -386,33 +389,6 @@ export async function addCommentAction(postId: string, content: string) {
   }
 }
 
-export async function deleteCommentAction(commentId: string) {
-  const user = await getSessionUser();
-  if (!user) return { error: "Unauthorized" };
-
-  try {
-    const comment = await db.query.comments.findFirst({
-      where: eq(comments.id, commentId),
-    });
-
-    if (!comment) return { error: "Comment not found" };
-
-    const isCommentAdmin = user.role === "super_admin" || user.role === "admin";
-    const isOwner = comment.userId === user.id;
-
-    if (!isCommentAdmin && !isOwner) {
-      return { error: "Unauthorized to delete this comment" };
-    }
-
-    await db.delete(comments).where(eq(comments.id, commentId));
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error("deleteCommentAction error:", error);
-    return { error: "Internal server error" };
-  }
-}
-
 export async function toggleReactionAction(postId: string, emoji: string) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -463,6 +439,7 @@ export async function getPostByIdAction(postId: string) {
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
+          where: isAdmin ? undefined : eq(comments.status, "active"),
           with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
         reactions: {
