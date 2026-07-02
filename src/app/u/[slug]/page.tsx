@@ -56,6 +56,7 @@ export default async function UserHomePage({
   const { slug } = await params;
   const headersList = await headers();
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
+  const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
-  return <UserHomeClient slug={slug} isCustomDomain={isCustomDomain} />;
+  return <UserHomeClient slug={slug} isCustomDomain={isCustomDomain} mainHost={mainHost} />;
 }

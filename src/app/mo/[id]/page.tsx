@@ -43,6 +43,7 @@ export default async function MomentDetailPage({
   const { id } = await params;
   const headersList = await headers();
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
+  const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
-  return <MoClient id={id} isCustomDomain={isCustomDomain} />;
+  return <MoClient id={id} isCustomDomain={isCustomDomain} mainHost={mainHost} />;
 }
