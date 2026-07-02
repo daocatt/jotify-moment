@@ -212,16 +212,31 @@
   --tt-fg: #e5e5e5;
 }
 
+[data-theme] {
+  --background: var(--theme-bg-app);
+  --foreground: var(--theme-text-primary);
+  --card: var(--theme-bg-card);
+  --card-foreground: var(--theme-text-primary);
+  --popover: var(--theme-bg-card);
+  --popover-foreground: var(--theme-text-primary);
+  --primary: var(--theme-color-primary);
+  --primary-foreground: var(--theme-bg-card);
+  --muted: var(--theme-bg-app);
+  --muted-foreground: var(--theme-text-secondary);
+  --border: var(--theme-border-color);
+  --input: var(--theme-border-color);
+  --font-sans: var(--theme-font-sans);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    /* Noto Sans SC first for CJK, Geist for Latin */
-    font-family: 'Noto Sans SC', var(--font-geist-sans), system-ui, sans-serif;
+    font-family: 'Noto Sans SC', var(--theme-font-sans, var(--font-geist-sans)), system-ui, sans-serif;
     font-size: 15px;
-    line-height: 1.6;
+    line-height: var(--theme-line-height, 1.6);
   }
   html {
     @apply font-sans;
