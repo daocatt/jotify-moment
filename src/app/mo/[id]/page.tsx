@@ -33,11 +33,16 @@ export async function generateMetadata({
   };
 }
 
+import { headers } from "next/headers";
+
 export default async function MomentDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <MoClient id={id} />;
+  const headersList = await headers();
+  const isCustomDomain = headersList.get("x-custom-domain") === "true";
+
+  return <MoClient id={id} isCustomDomain={isCustomDomain} />;
 }

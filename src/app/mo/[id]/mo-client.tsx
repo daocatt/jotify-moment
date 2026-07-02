@@ -8,14 +8,18 @@ import { MomentPost } from "@/components/moment-post";
 import { Lightbox } from "@/components/lightbox";
 import { AuthModals } from "@/components/auth-modals";
 import { getPostByIdAction } from "@/app/actions/posts";
+import { useTheme } from "@/components/theme-provider";
+import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { toast } from "sonner";
 
 interface MoClientProps {
   id: string;
+  isCustomDomain?: boolean;
 }
 
-export function MoClient({ id }: MoClientProps) {
+export function MoClient({ id, isCustomDomain = false }: MoClientProps) {
   const router = useRouter();
+  const { setTheme } = useTheme();
 
   const [post, setPost] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -28,6 +32,26 @@ export function MoClient({ id }: MoClientProps) {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const activeThemeId = post?.user?.theme || "default";
+  const resolvedTheme = resolveThemeConfig(activeThemeId);
+
+  useEffect(() => {
+    if (post?.user?.theme) {
+      document.documentElement.setAttribute("data-theme", post.user.theme);
+      
+      const supportedModes = resolvedTheme.features.supportedModes;
+      if (supportedModes && supportedModes.length > 0) {
+        const currentMode = document.documentElement.classList.contains("dark") ? "dark" : "light";
+        if (!supportedModes.includes(currentMode)) {
+          setTheme(supportedModes[0]);
+        }
+      }
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-theme");
+    };
+  }, [post?.user?.theme, resolvedTheme.features.supportedModes, setTheme]);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -89,14 +113,16 @@ export function MoClient({ id }: MoClientProps) {
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm sm:mt-6 sm:rounded-t-xl flex flex-col">
       {/* Header Bar */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border/60 sticky top-0 bg-background/80 backdrop-blur-md z-20">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <span className="font-semibold text-sm sm:text-base text-foreground">日志详情</span>
+        {!isCustomDomain && (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
+        <span className={`font-semibold text-sm sm:text-base text-foreground ${isCustomDomain ? "pl-2" : ""}`}>日志详情</span>
       </div>
 
       {/* Moment Content */}
