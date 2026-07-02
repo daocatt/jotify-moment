@@ -9,7 +9,9 @@ import { MomentPost } from "@/components/moment-post";
 import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { getPublicSettingsAction } from "@/app/actions/admin";
+import { generateSSOTokenAction } from "@/app/actions/auth";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
+import { useSSOCallback } from "@/lib/use-sso";
 import { toast } from "sonner";
 import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
@@ -101,6 +103,8 @@ interface TimelineShellProps {
   showPostEditor?: "always" | "own" | "never";
   pinnedEntry?: React.ReactNode;
   onAvatarClick?: () => void;
+  isCustomDomain?: boolean;
+  mainHost?: string;
 }
 
 export function TimelineShell({
@@ -116,6 +120,8 @@ export function TimelineShell({
   showPostEditor = "never",
   pinnedEntry,
   onAvatarClick,
+  isCustomDomain = false,
+  mainHost,
 }: TimelineShellProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -189,6 +195,32 @@ export function TimelineShell({
     }
   }, [activeThemeId, resolvedTheme.features.supportedModes, setTheme, mounted, sysSettings, theme, profileUser?.theme]);
 
+  useSSOCallback(isCustomDomain);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || isCustomDomain || !mounted) return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const ssoAction = searchParams.get("sso_action");
+    if (!ssoAction) return;
+
+    if (currentUser) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("sso_action");
+      cleanUrl.searchParams.delete("callback");
+      router.replace(cleanUrl.pathname + cleanUrl.search);
+      return;
+    }
+
+    if (ssoAction === "login") {
+      setAuthModalMode("login");
+      setAuthModalOpen(true);
+    } else if (ssoAction === "register") {
+      setAuthModalMode("register");
+      setAuthModalOpen(true);
+    }
+  }, [currentUser, isCustomDomain, mounted, router]);
+
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -198,6 +230,28 @@ export function TimelineShell({
   const coverRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
+
+  const handleLoginClick = useCallback(() => {
+    if (isCustomDomain && mainHost) {
+      const protocol = window.location.protocol;
+      const callback = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/?sso_action=login&callback=${callback}`;
+    } else {
+      setAuthModalMode("login");
+      setAuthModalOpen(true);
+    }
+  }, [isCustomDomain, mainHost]);
+
+  const handleRegisterClick = useCallback(() => {
+    if (isCustomDomain && mainHost) {
+      const protocol = window.location.protocol;
+      const callback = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/?sso_action=register&callback=${callback}`;
+    } else {
+      setAuthModalMode("register");
+      setAuthModalOpen(true);
+    }
+  }, [isCustomDomain, mainHost]);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -467,10 +521,7 @@ export function TimelineShell({
           <>
             <Button
               variant="outline"
-              onClick={() => {
-                setAuthModalMode("login");
-                setAuthModalOpen(true);
-              }}
+              onClick={handleLoginClick}
               className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
             >
               <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
@@ -481,10 +532,7 @@ export function TimelineShell({
             {sysSettings && sysSettings.allow_registration !== "false" && (
               <Button
                 variant="outline"
-                onClick={() => {
-                  setAuthModalMode("register");
-                  setAuthModalOpen(true);
-                }}
+                onClick={handleRegisterClick}
                 className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
               >
                 <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
@@ -732,10 +780,7 @@ export function TimelineShell({
                   currentUser={currentUser}
                   onOpenLightbox={openLightbox}
                   onRefresh={onRefresh}
-                  onRequireLogin={() => {
-                    setAuthModalMode("login");
-                    setAuthModalOpen(true);
-                  }}
+                  onRequireLogin={handleLoginClick}
                 />
               ))}
               {hasMore && (
@@ -766,7 +811,18 @@ export function TimelineShell({
           isOpen={authModalOpen}
           initialMode={authModalMode}
           onClose={() => setAuthModalOpen(false)}
-          onSuccess={() => {
+          onSuccess={async () => {
+            const searchParams = new URLSearchParams(window.location.search);
+            const callback = searchParams.get("callback");
+            if (callback) {
+              const tokenRes = await generateSSOTokenAction(callback);
+              if (tokenRes.success && tokenRes.token) {
+                const callbackUrl = new URL(callback);
+                callbackUrl.searchParams.set("sso_token", tokenRes.token);
+                window.location.href = callbackUrl.toString();
+                return;
+              }
+            }
             fetchSession();
             onRefresh();
           }}
