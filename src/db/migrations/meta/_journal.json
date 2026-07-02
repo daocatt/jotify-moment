@@ -78,6 +78,27 @@
       "when": 1782907061192,
       "tag": "0010_quick_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782910746887,
+      "tag": "0011_add_guest_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782920746887,
+      "tag": "0012_add_user_theme",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782930746887,
+      "tag": "0013_add_custom_domains",
+      "breakpoints": true
     }
   ]
 }

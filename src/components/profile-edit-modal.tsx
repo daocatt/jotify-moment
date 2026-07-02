@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { updateProfileAction, changePasswordAction, getTelegramBotNameAction, generateTelegramBindTokenAction, unbindUserTelegramAction } from "@/app/actions/admin";
+import { checkCustomDomainAvailabilityAction } from "@/app/actions/posts";
+import { THEME_LIST } from "@/lib/theme-resolver";
 import { Camera, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { ImageCropModal } from "@/components/image-crop-modal";
 
@@ -32,6 +34,9 @@ interface ProfileEditModalProps {
     github: string | null;
     x: string | null;
     otherLink: string | null;
+    theme?: string | null;
+    customDomain?: string | null;
+    allowCustomDomain?: boolean;
     role?: string;
   };
   isOpen: boolean;
@@ -50,16 +55,25 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [github, setGithub] = useState(user.github || "");
   const [x, setX] = useState(user.x || "");
   const [otherLink, setOtherLink] = useState(user.otherLink || "");
+  const [selectedTheme, setSelectedTheme] = useState(user.theme || "");
+  const [customDomain, setCustomDomain] = useState(user.customDomain || "");
 
   const [tgBotName, setTgBotName] = useState<string | null>(null);
   const [tgChatId, setTgChatId] = useState(user.telegramChatId || null);
   const [tgBindToken, setTgBindToken] = useState(user.telegramBindToken || null);
   const [tgLoading, setTgLoading] = useState(false);
 
+  const [globalCustomDomainsAllowed, setGlobalCustomDomainsAllowed] = useState(false);
+
   useEffect(() => {
     getTelegramBotNameAction().then((res) => {
       if (res.success && res.botName) {
         setTgBotName(res.botName);
+      }
+    });
+    checkCustomDomainAvailabilityAction().then((res) => {
+      if (res.success) {
+        setGlobalCustomDomainsAllowed(res.allowed);
       }
     });
   }, []);
@@ -118,6 +132,8 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [uploadingCover, setUploadingCover] = useState(false);
 
   const [activeTab, setActiveTab] = useState("profile");
+  const showTelegramTab = !!(tgBotName && user.role !== "guest");
+  const showThemeTab = user.role !== "guest";
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -196,6 +212,8 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       github,
       x,
       otherLink,
+      theme: selectedTheme || "",
+      customDomain: customDomain || "",
     });
     setLoading(false);
 
@@ -261,10 +279,11 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className={`grid ${tgBotName && user.role !== "guest" ? "grid-cols-3" : "grid-cols-2"} w-full`}>
-              <TabsTrigger value="profile">基础资料</TabsTrigger>
-              {tgBotName && user.role !== "guest" && <TabsTrigger value="telegram">启用 Telegram</TabsTrigger>}
-              <TabsTrigger value="password">修改密码</TabsTrigger>
+            <TabsList className="w-full flex flex-wrap gap-1 bg-muted p-1 rounded-lg">
+              <TabsTrigger value="profile" className="flex-1 min-w-[70px]">基础资料</TabsTrigger>
+              {showThemeTab && <TabsTrigger value="theme" className="flex-1 min-w-[70px]">主题</TabsTrigger>}
+              {showTelegramTab && <TabsTrigger value="telegram" className="flex-1 min-w-[70px]">Telegram</TabsTrigger>}
+              <TabsTrigger value="password" className="flex-1 min-w-[70px]">修改密码</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
@@ -365,6 +384,19 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                         </div>
                         <p className="text-[10px] text-muted-foreground">最大 32 位，留空则使用默认。修改后主页地址将变为 /你的路径</p>
                       </div>
+
+                      {globalCustomDomainsAllowed && user.allowCustomDomain === true && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-normal text-muted-foreground">自定义域名</label>
+                          <Input
+                            type="text"
+                            placeholder="例如: moment.yourname.com"
+                            value={customDomain}
+                            onChange={(e) => setCustomDomain(e.target.value)}
+                          />
+                          <p className="text-[10px] text-muted-foreground">绑定并使用您自己的独立域名访问此主页。需提前将该域名 CNAME 解析至本站域名。</p>
+                        </div>
+                      )}
 
                       <div className="border-t border-border/60 pt-3 space-y-2">
                         <p className="text-xs font-medium text-muted-foreground">社交链接</p>
@@ -597,6 +629,71 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                 </DialogFooter>
               </form>
             </TabsContent>
+
+            {showThemeTab && (
+              <TabsContent value="theme">
+                <form onSubmit={handleProfileSubmit} className="space-y-4 py-3">
+                  <div className="space-y-1 text-left">
+                    <label className="text-sm font-medium text-foreground">选择主页个性化主题</label>
+                    <p className="text-xs text-muted-foreground">
+                      默认情况下（未选择）将使用全站设置的全局主题。您可以为自己的个人主页选择一个特定的主题。
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-2.5 max-h-[40vh] overflow-y-auto pr-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTheme("")}
+                      className={`flex items-center justify-between p-3 border rounded text-left transition-colors ${
+                        selectedTheme === ""
+                          ? "border-primary bg-primary/5 text-foreground"
+                          : "border-border hover:border-muted-foreground/30 text-muted-foreground"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-medium text-sm text-foreground">跟随全站默认</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">默认主题配置</div>
+                      </div>
+                    </button>
+
+                    {THEME_LIST.map((themeItem) => (
+                      <button
+                        key={themeItem.id}
+                        type="button"
+                        onClick={() => setSelectedTheme(themeItem.id)}
+                        className={`flex items-center justify-between p-3 border rounded text-left transition-colors ${
+                          selectedTheme === themeItem.id
+                            ? "border-primary bg-primary/5 text-foreground"
+                            : "border-border hover:border-muted-foreground/30 text-muted-foreground"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-foreground">
+                            {themeItem.name} <span className="text-[10px] text-muted-foreground font-normal">v{themeItem.version}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            作者: {themeItem.author} · 支持模式: {themeItem.features.supportedModes.join(", ")}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            顶图: {themeItem.features.showCoverImage ? "显示" : "隐藏"}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                      取消
+                    </Button>
+                    <Button type="submit" disabled={loading}>
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      保存设置
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </TabsContent>
+            )}
           </Tabs>
         </DialogContent>
       </Dialog>

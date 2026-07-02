@@ -14,6 +14,7 @@ import {
   updateSettingAction,
   updateUserStatusAction,
   updateUserRoleAction,
+  updateUserCustomDomainPermissionAction,
   approvePostAction,
   updateUserEmailAction,
   adminChangePasswordAction,
@@ -28,6 +29,7 @@ import {
   updateFaviconAction,
   unlockLoginAction,
 } from "@/app/actions/admin";
+import { THEME_LIST } from "@/lib/theme-resolver";
 import {
   Shield,
   UserX,
@@ -85,6 +87,8 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [sysSettings, setSysSettings] = useState<Record<string, string>>({
     allow_registration: "true",
     require_approval: "false",
+    global_theme: "default",
+    allow_custom_domains: "true",
   });
 
   // Telegram states
@@ -256,6 +260,19 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
+  const handleSaveGlobalTheme = async (themeId: string) => {
+    const prevTheme = sysSettings.global_theme || "default";
+    setSysSettings((prev) => ({ ...prev, global_theme: themeId }));
+
+    const res = await updateSettingAction("global_theme", themeId);
+    if (res.error) {
+      toast.error(res.error);
+      setSysSettings((prev) => ({ ...prev, global_theme: prevTheme }));
+    } else {
+      toast.success("全局默认主题已更新");
+    }
+  };
+
   const handleToggleUserStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === "active" ? "suspended" : "active";
     const res = await updateUserStatusAction(userId, newStatus);
@@ -274,6 +291,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success("已解锁登录");
+      loadData();
+    }
+  };
+
+  const handleToggleUserCustomDomainPermission = async (userId: string, currentAllowed: boolean) => {
+    const res = await updateUserCustomDomainPermissionAction(userId, !currentAllowed);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(!currentAllowed ? "已启用该用户的自定义域名权限" : "已禁用该用户的自定义域名权限");
       loadData();
     }
   };
@@ -564,6 +591,35 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                 <Switch
                   checked={sysSettings.require_approval === "true"}
                   onCheckedChange={() => handleToggleSetting("require_approval", sysSettings.require_approval)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">全局默认主题</h3>
+                  <p className="text-xs text-muted-foreground">设置全站默认使用的显示主题</p>
+                </div>
+                <select
+                  value={sysSettings.global_theme || "default"}
+                  onChange={(e) => handleSaveGlobalTheme(e.target.value)}
+                  className="px-3 py-1.5 rounded-md border border-border bg-background text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {THEME_LIST.map((themeItem) => (
+                    <option key={themeItem.id} value={themeItem.id}>
+                      {themeItem.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">允许自定义域名</h3>
+                  <p className="text-xs text-muted-foreground">开启后，拥有主页的用户可以绑定并使用自己的独立域名访问个人主页</p>
+                </div>
+                <Switch
+                  checked={sysSettings.allow_custom_domains === "true"}
+                  onCheckedChange={() => handleToggleSetting("allow_custom_domains", sysSettings.allow_custom_domains)}
                 />
               </div>
 
@@ -1131,6 +1187,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                             重置密码
                           </Button>
                         </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                        <div className="space-y-0.5">
+                          <label className="text-xs font-semibold">允许使用自定义域名</label>
+                          <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定和配置独立自定义域名的权限</p>
+                        </div>
+                        <Switch
+                          checked={user.allowCustomDomain}
+                          onCheckedChange={() => handleToggleUserCustomDomainPermission(user.id, user.allowCustomDomain)}
+                        />
                       </div>
                     </div>
                   )}
