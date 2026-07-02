@@ -14,6 +14,7 @@ import {
   updateSettingAction,
   updateUserStatusAction,
   updateUserRoleAction,
+  updateUserCustomDomainPermissionAction,
   approvePostAction,
   updateUserEmailAction,
   adminChangePasswordAction,
@@ -87,6 +88,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     allow_registration: "true",
     require_approval: "false",
     global_theme: "default",
+    allow_custom_domains: "true",
   });
 
   // Telegram states
@@ -289,6 +291,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success("已解锁登录");
+      loadData();
+    }
+  };
+
+  const handleToggleUserCustomDomainPermission = async (userId: string, currentAllowed: boolean) => {
+    const res = await updateUserCustomDomainPermissionAction(userId, !currentAllowed);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(!currentAllowed ? "已启用该用户的自定义域名权限" : "已禁用该用户的自定义域名权限");
       loadData();
     }
   };
@@ -598,6 +610,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">允许自定义域名</h3>
+                  <p className="text-xs text-muted-foreground">开启后，拥有主页的用户可以绑定并使用自己的独立域名访问个人主页</p>
+                </div>
+                <Switch
+                  checked={sysSettings.allow_custom_domains === "true"}
+                  onCheckedChange={() => handleToggleSetting("allow_custom_domains", sysSettings.allow_custom_domains)}
+                />
               </div>
 
               <div className="flex items-center justify-between border-t border-border pt-4">
@@ -1164,6 +1187,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                             重置密码
                           </Button>
                         </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                        <div className="space-y-0.5">
+                          <label className="text-xs font-semibold">允许使用自定义域名</label>
+                          <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定和配置独立自定义域名的权限</p>
+                        </div>
+                        <Switch
+                          checked={user.allowCustomDomain}
+                          onCheckedChange={() => handleToggleUserCustomDomainPermission(user.id, user.allowCustomDomain)}
+                        />
                       </div>
                     </div>
                   )}

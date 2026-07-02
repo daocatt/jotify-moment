@@ -1,13 +1,59 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, settings, posts } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+
+const DOMAIN_CACHE_TTL = 30_000;
+const SETTING_CACHE_TTL = 60_000;
+
+const domainCache = new Map<string, { slug: string; expires: number }>();
+const settingCache = new Map<string, { value: string; expires: number }>();
+
+function isValidDomain(domain: string): boolean {
+  return /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain);
+}
+
+function getMainHosts(): string[] {
+  const env = process.env.MAIN_HOST || "";
+  return env.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+}
+
+async function isCustomDomainGloballyAllowed(): Promise<boolean> {
+  const cached = settingCache.get("allow_custom_domains");
+  if (cached && Date.now() < cached.expires) return cached.value === "true";
+
+  const row = await db.query.settings.findFirst({
+    where: eq(settings.key, "allow_custom_domains"),
+  });
+  const value = row?.value || "false";
+  settingCache.set("allow_custom_domains", { value, expires: Date.now() + SETTING_CACHE_TTL });
+  return value === "true";
+}
+
+async function resolveCustomDomain(hostname: string): Promise<string | null> {
+  const cached = domainCache.get(hostname);
+  if (cached && Date.now() < cached.expires) return cached.slug;
+
+  const user = await db.query.users.findFirst({
+    where: and(
+      eq(users.customDomain, hostname),
+      eq(users.allowCustomDomain, true),
+    ),
+    columns: { slug: true },
+  });
+
+  if (user?.slug) {
+    domainCache.set(hostname, { slug: user.slug, expires: Date.now() + DOMAIN_CACHE_TTL });
+    return user.slug;
+  }
+
+  return null;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip static resources, images, and API routes to avoid loops and preserve speed
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -17,8 +63,68 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const host = request.headers.get("host") || "";
+  const hostname = host.split(":")[0].toLowerCase();
+  const mainHosts = getMainHosts();
+  const isMainHost = mainHosts.length > 0 && mainHosts.includes(hostname);
+
+  if (!isMainHost) {
+    if (!isValidDomain(hostname)) {
+      return new NextResponse(null, { status: 404 });
+    }
+
+    try {
+      const isGloballyAllowed = await isCustomDomainGloballyAllowed();
+
+      if (isGloballyAllowed) {
+        const slug = await resolveCustomDomain(hostname);
+
+        if (slug) {
+          if (pathname === "/") {
+            const rewriteUrl = new URL(`/u/${slug}`, request.url);
+            const response = NextResponse.rewrite(rewriteUrl);
+            response.headers.set("x-custom-domain", "true");
+            response.headers.set("x-custom-domain-slug", slug);
+            return response;
+          }
+
+          if (pathname.startsWith("/mo/")) {
+            const segments = pathname.split("/");
+            const postId = segments[2];
+            if (postId) {
+              const post = await db.query.posts.findFirst({
+                where: eq(posts.id, postId),
+                columns: { userId: true },
+              });
+              const owner = await db.query.users.findFirst({
+                where: and(eq(users.slug, slug), eq(users.allowCustomDomain, true)),
+                columns: { id: true },
+              });
+
+              if (post && owner && post.userId === owner.id) {
+                const response = NextResponse.next();
+                response.headers.set("x-custom-domain", "true");
+                response.headers.set("x-custom-domain-slug", slug);
+                return response;
+              }
+            }
+
+            return new NextResponse(null, { status: 404 });
+          }
+
+          const primaryHost = mainHosts[0] || "localhost:3000";
+          const protocol = request.headers.get("x-forwarded-proto") || "https";
+          return NextResponse.redirect(`${protocol}://${primaryHost}${pathname}${request.nextUrl.search}`);
+        }
+      }
+    } catch (err) {
+      console.error("Proxy custom domain routing failed:", err);
+    }
+
+    return new NextResponse(null, { status: 404 });
+  }
+
   try {
-    // Check if system has a super_admin directly via DB query (Proxy defaults to Node.js runtime)
     const adminUser = await db.query.users.findFirst({
       where: eq(users.role, "super_admin"),
       columns: { id: true },
@@ -26,12 +132,10 @@ export async function proxy(request: NextRequest) {
     const hasAdmin = !!adminUser;
 
     if (!hasAdmin && pathname !== "/init") {
-      // Force redirect to system initialization page
       return NextResponse.redirect(new URL("/init", request.url));
     }
 
     if (hasAdmin && pathname === "/init") {
-      // Prevent re-accessing /init if already configured
       return NextResponse.redirect(new URL("/", request.url));
     }
   } catch (err) {
@@ -43,7 +147,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Apply to all routes except API and assets
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

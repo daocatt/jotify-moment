@@ -1,10 +1,12 @@
 {
   "id": "wechat-classic",
   "name": "微信经典",
-  "author": "daocatt",
+  "author": "jotify",
   "version": "1.0.0",
   "features": {
-    "supportedModes": ["light"],
+    "supportedModes": [
+      "light"
+    ],
     "showCoverImage": false,
     "showBio": true
   }

@@ -34,7 +34,7 @@ export const BUILTIN_THEMES: Record<string, ThemeConfig> = {
   "wechat-classic": {
       "id": "wechat-classic",
       "name": "微信经典",
-      "author": "daocatt",
+      "author": "jotify",
       "version": "1.0.0",
       "features": {
         "supportedModes": [

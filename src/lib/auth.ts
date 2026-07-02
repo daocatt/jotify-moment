@@ -22,6 +22,8 @@ export interface SessionUser {
   role: "super_admin" | "admin" | "user" | "guest";
   status: "active" | "suspended";
   theme: string | null;
+  customDomain: string | null;
+  allowCustomDomain: boolean;
   loginDisabledAt: Date | null;
 }
 
@@ -110,6 +112,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       role: (dbUser.role as "super_admin" | "admin" | "user" | "guest") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
       theme: dbUser.theme,
+      customDomain: dbUser.customDomain,
+      allowCustomDomain: dbUser.allowCustomDomain,
       loginDisabledAt: dbUser.loginDisabledAt,
     };
   } catch (error) {
