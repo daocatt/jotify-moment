@@ -24,6 +24,8 @@ export async function GET() {
         x: user.x,
         otherLink: user.otherLink,
         telegramChatId: user.telegramChatId,
+        customDomain: user.customDomain,
+        allowCustomDomain: user.allowCustomDomain,
       },
     });
   } catch {
