@@ -1,0 +1,31 @@
+[data-theme="default"] {
+  --theme-font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --theme-line-height: 1.5;
+
+  --theme-radius-card: 12px;
+  --theme-radius-avatar: 9999px;
+  --theme-card-padding: 16px;
+  --theme-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  --theme-bg-app: #f4f4f5;
+  --theme-bg-card: #ffffff;
+  --theme-border-color: #e4e4e7;
+
+  --theme-text-primary: #09090b;
+  --theme-text-secondary: #71717a;
+
+  --theme-color-primary: #18181b;
+  --theme-color-link: #576b95;
+}
+
+[data-theme="default"].dark {
+  --theme-bg-app: #09090b;
+  --theme-bg-card: #18181b;
+  --theme-border-color: #27272a;
+
+  --theme-text-primary: #fafafa;
+  --theme-text-secondary: #a1a1aa;
+
+  --theme-color-primary: #fafafa;
+  --theme-color-link: #60a5fa;
+}

@@ -11,6 +11,7 @@ interface SuperAdminProfile {
   id: string; name: string; slug: string | null;
   avatar: string | null; bio: string | null; coverImage: string | null;
   wechat: string | null; telegram: string | null; github: string | null; x: string | null; otherLink: string | null;
+  theme: string | null;
 }
 
 interface PinnedPreview {

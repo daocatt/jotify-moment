@@ -1,0 +1,11 @@
+{
+  "id": "wechat-classic",
+  "name": "微信经典",
+  "author": "daocatt",
+  "version": "1.0.0",
+  "features": {
+    "supportedModes": ["light"],
+    "showCoverImage": false,
+    "showBio": true
+  }
+}

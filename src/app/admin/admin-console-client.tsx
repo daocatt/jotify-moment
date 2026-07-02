@@ -28,6 +28,7 @@ import {
   updateFaviconAction,
   unlockLoginAction,
 } from "@/app/actions/admin";
+import { THEME_LIST } from "@/lib/theme-resolver";
 import {
   Shield,
   UserX,
@@ -85,6 +86,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [sysSettings, setSysSettings] = useState<Record<string, string>>({
     allow_registration: "true",
     require_approval: "false",
+    global_theme: "default",
   });
 
   // Telegram states
@@ -253,6 +255,19 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       setSysSettings((prev) => ({ ...prev, [key]: currentValue }));
     } else {
       toast.success("配置已更新");
+    }
+  };
+
+  const handleSaveGlobalTheme = async (themeId: string) => {
+    const prevTheme = sysSettings.global_theme || "default";
+    setSysSettings((prev) => ({ ...prev, global_theme: themeId }));
+
+    const res = await updateSettingAction("global_theme", themeId);
+    if (res.error) {
+      toast.error(res.error);
+      setSysSettings((prev) => ({ ...prev, global_theme: prevTheme }));
+    } else {
+      toast.success("全局默认主题已更新");
     }
   };
 
@@ -565,6 +580,24 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   checked={sysSettings.require_approval === "true"}
                   onCheckedChange={() => handleToggleSetting("require_approval", sysSettings.require_approval)}
                 />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">全局默认主题</h3>
+                  <p className="text-xs text-muted-foreground">设置全站默认使用的显示主题</p>
+                </div>
+                <select
+                  value={sysSettings.global_theme || "default"}
+                  onChange={(e) => handleSaveGlobalTheme(e.target.value)}
+                  className="px-3 py-1.5 rounded-md border border-border bg-background text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {THEME_LIST.map((themeItem) => (
+                    <option key={themeItem.id} value={themeItem.id}>
+                      {themeItem.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center justify-between border-t border-border pt-4">

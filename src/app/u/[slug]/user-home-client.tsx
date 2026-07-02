@@ -20,6 +20,7 @@ interface ProfileUserFull {
   github: string | null;
   x: string | null;
   otherLink: string | null;
+  theme: string | null;
 }
 
 export function UserHomeClient({ slug }: { slug: string }) {

@@ -21,6 +21,7 @@ export interface SessionUser {
   otherLink: string | null;
   role: "super_admin" | "admin" | "user" | "guest";
   status: "active" | "suspended";
+  theme: string | null;
   loginDisabledAt: Date | null;
 }
 
@@ -108,6 +109,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       otherLink: dbUser.otherLink,
       role: (dbUser.role as "super_admin" | "admin" | "user" | "guest") || "user",
       status: (dbUser.status as "active" | "suspended") || "active",
+      theme: dbUser.theme,
       loginDisabledAt: dbUser.loginDisabledAt,
     };
   } catch (error) {

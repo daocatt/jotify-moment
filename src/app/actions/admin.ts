@@ -5,11 +5,12 @@ import { users, posts, settings, verificationCodes, accounts } from "@/db/schema
 import { eq, desc, lt, and } from "drizzle-orm";
 import crypto from "crypto";
 import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
+import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -52,10 +53,11 @@ export async function getPublicSettingsAction() {
     const settingsMap: Record<string, string> = {
       allow_registration: "true",
       require_approval: "false",
+      global_theme: "default",
     };
 
     for (const s of allSettings) {
-      if (s.key === "allow_registration" || s.key === "require_approval") {
+      if (s.key === "allow_registration" || s.key === "require_approval" || s.key === "global_theme") {
         settingsMap[s.key] = s.value;
       }
     }
@@ -76,7 +78,11 @@ export async function updateSettingAction(key: string, value: string) {
   if (!VALID_SETTING_KEYS.includes(key)) {
     return { error: "Invalid setting key" };
   }
-  if (value !== "true" && value !== "false") {
+  if (key === "global_theme") {
+    if (!VALID_THEME_IDS.includes(value)) {
+      return { error: "Invalid theme id" };
+    }
+  } else if (value !== "true" && value !== "false") {
     return { error: "Invalid setting value" };
   }
 
@@ -280,6 +286,7 @@ export async function updateProfileAction(data: {
   github: string;
   x: string;
   otherLink: string;
+  theme?: string;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -307,6 +314,7 @@ export async function updateProfileAction(data: {
   if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
   if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };
   if (data.coverImage && !isValidUrl(data.coverImage)) return { error: "Invalid cover image URL" };
+  if (data.theme && !VALID_THEME_IDS.includes(data.theme)) return { error: "Invalid theme" };
 
   const slug = data.slug.trim();
   if (slug.length > 32) return { error: "主页路径不能超过 32 位" };
@@ -329,6 +337,7 @@ export async function updateProfileAction(data: {
         github: data.github || null,
         x: data.x || null,
         otherLink: data.otherLink || null,
+        theme: data.theme || null,
       })
       .where(eq(users.id, user.id));
 

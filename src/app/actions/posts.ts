@@ -264,7 +264,7 @@ export async function getUserBySlugAction(slug: string) {
       where: eq(users.slug, slug),
       columns: {
         id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, status: true,
-        wechat: true, telegram: true, github: true, x: true, otherLink: true,
+        wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true,
       },
     });
     if (!target) return { error: "用户不存在" };
@@ -340,7 +340,7 @@ export async function getSuperAdminProfileAction() {
   try {
     const admin = await db.query.users.findFirst({
       where: eq(users.role, "super_admin"),
-      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true },
+      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true },
     });
     if (!admin) return { error: "No super admin" };
     let slug = admin.slug;

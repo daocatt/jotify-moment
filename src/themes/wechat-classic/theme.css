@@ -1,0 +1,24 @@
+[data-theme="wechat-classic"] {
+  /* WeChat standard font styling */
+  --theme-font-sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --theme-line-height: 1.6;
+
+  /* Straight angles, tight padding, no shadows */
+  --theme-radius-card: 0px;
+  --theme-radius-avatar: 4px; /* WeChat square avatar is slightly rounded by 4px */
+  --theme-card-padding: 12px;
+  --theme-card-shadow: none;
+
+  /* Classic grey background, white cards, zinc border line */
+  --theme-bg-app: #f7f7f7;
+  --theme-bg-card: #ffffff;
+  --theme-border-color: #ededed;
+
+  /* WeChat text coloring */
+  --theme-text-primary: #191919;
+  --theme-text-secondary: #7f7f7f;
+
+  /* Classic WeChat Green for primary highlight, blue for nickname link */
+  --theme-color-primary: #07c160;
+  --theme-color-link: #576b95;
+}

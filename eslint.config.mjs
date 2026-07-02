@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build scripts (Node.js, not part of app bundle):
+    "scripts/**",
+    // Auto-generated theme registry:
+    "src/lib/theme-registry.gen.ts",
+    "src/lib/theme-css.gen.ts",
   ]),
 ]);
 
