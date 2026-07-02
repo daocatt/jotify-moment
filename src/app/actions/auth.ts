@@ -617,8 +617,6 @@ export async function generateSSOTokenAction(callbackUrl?: string) {
         return { error: "Callback cannot be a main host domain" };
       }
 
-      const { users } = await import("@/db/schema");
-      const { eq, and } = await import("drizzle-orm");
       const domainUser = await db.query.users.findFirst({
         where: and(
           eq(users.customDomain, callbackHost),
