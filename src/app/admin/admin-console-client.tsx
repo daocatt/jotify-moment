@@ -28,8 +28,10 @@ import {
   saveStorageConfigAction,
   updateFaviconAction,
   unlockLoginAction,
+  adminCreateUserAction,
 } from "@/app/actions/admin";
 import { THEME_LIST } from "@/lib/theme-resolver";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import {
   Shield,
   UserX,
@@ -53,14 +55,39 @@ import {
   HardDrive,
   ImagePlus,
   MessageSquare,
+  UserPlus,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { getAdminCommentsAction, toggleCommentVisibilityAction, deleteCommentAction } from "@/app/actions/comments";
+
 
 interface AdminConsoleClientProps {
   currentUser: {
     id: string;
     role: string;
   };
+}
+
+interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  slug: string | null;
+  avatar: string | null;
+  bio: string | null;
+  role: "super_admin" | "admin" | "user" | "guest";
+  status: "active" | "suspended";
+  loginDisabledAt: Date | null;
+  createdAt: Date;
+  customDomain: string | null;
+  allowCustomDomain: boolean;
 }
 
 interface PendingPost {
@@ -78,7 +105,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("settings");
   const [loading, setLoading] = useState(true);
-  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [usersHasMore, setUsersHasMore] = useState(false);
   const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const usersCursorRef = useRef<string | null>(null);
@@ -127,11 +154,20 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
 
   const isSuperAdmin = currentUser.role === "super_admin";
 
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editAllowCustomDomain, setEditAllowCustomDomain] = useState(false);
+  const [editRole, setEditRole] = useState<"admin" | "user" | "guest">("user");
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newAllowDomain, setNewAllowDomain] = useState(false);
+  const [newRole, setNewRole] = useState<"admin" | "user" | "guest">("user");
+  const [createLoading, setCreateLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -380,54 +416,112 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
-  const openEditor = (user: any) => {
-    setEditingUserId(user.id);
+  const openEditor = (user: AdminUser) => {
+    setEditingUser(user);
     setEditEmail(user.email);
     setEditPassword("");
+    setEditAllowCustomDomain(user.allowCustomDomain);
+    setEditRole(user.role === "super_admin" ? "admin" : user.role);
     setShowEditPassword(false);
   };
 
-  const closeEditor = () => {
-    setEditingUserId(null);
-    setEditEmail("");
-    setEditPassword("");
-    setShowEditPassword(false);
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+    setEditLoading(true);
+    try {
+      const errors: string[] = [];
+      const successLabels: string[] = [];
+
+      if (editEmail.trim() && editEmail.trim() !== editingUser.email) {
+        const res = await updateUserEmailAction(editingUser.id, editEmail.trim());
+        if (res.error) {
+          errors.push(`邮箱: ${res.error}`);
+        } else {
+          successLabels.push("邮箱");
+        }
+      }
+
+      if (editPassword) {
+        if (editPassword.length < MIN_PASSWORD_LENGTH) {
+          errors.push(`密码长度至少为 ${MIN_PASSWORD_LENGTH} 位`);
+        } else {
+          const res = await adminChangePasswordAction(editingUser.id, editPassword);
+          if (res.error) {
+            errors.push(`密码: ${res.error}`);
+          } else {
+            successLabels.push("密码");
+          }
+        }
+      }
+
+      if (editAllowCustomDomain !== editingUser.allowCustomDomain) {
+        const res = await updateUserCustomDomainPermissionAction(editingUser.id, editAllowCustomDomain);
+        if (res.error) {
+          errors.push(`自定义域名: ${res.error}`);
+        } else {
+          successLabels.push("自定义域名");
+        }
+      }
+
+      if (editRole !== editingUser.role) {
+        const res = await updateUserRoleAction(editingUser.id, editRole);
+        if (res.error) {
+          errors.push(`角色: ${res.error}`);
+        } else {
+          successLabels.push("角色");
+        }
+      }
+
+      if (errors.length > 0) {
+        toast.error(errors.join("；"));
+      }
+
+      if (successLabels.length > 0) {
+        if (errors.length === 0) {
+          toast.success("用户信息已更新");
+          setEditingUser(null);
+        } else {
+          toast.success(`已更新: ${successLabels.join("、")}`);
+        }
+        loadData();
+      } else if (errors.length === 0) {
+        toast.success("没有需要更新的内容");
+        setEditingUser(null);
+      }
+    } catch {
+      toast.error("更新失败，请稍后重试");
+    } finally {
+      setEditLoading(false);
+    }
   };
 
-  const handleUpdateEmail = async (targetUserId: string) => {
-    if (!editEmail.trim()) {
-      toast.error("邮箱不能为空");
+  const handleCreateUser = async () => {
+    if (!newEmail.trim() || !newPassword) {
+      toast.error("邮箱和密码不能为空");
       return;
     }
-    setEditLoading(true);
-    const res = await updateUserEmailAction(targetUserId, editEmail);
-    setEditLoading(false);
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`密码长度至少为 ${MIN_PASSWORD_LENGTH} 位`);
+      return;
+    }
+    setCreateLoading(true);
+    const res = await adminCreateUserAction({
+      email: newEmail,
+      password: newPassword,
+      allowCustomDomain: newAllowDomain,
+      role: newRole,
+    });
+    setCreateLoading(false);
     if (res.error) {
       toast.error(res.error);
     } else {
-      toast.success("邮箱已更新");
+      toast.success("用户创建成功");
+      setCreateUserOpen(false);
+      setNewEmail("");
+      setNewPassword("");
+      setNewAllowDomain(false);
+      setNewRole("user");
       loadData();
-    }
-  };
-
-  const handleAdminChangePassword = async (targetUserId: string) => {
-    if (!editPassword) {
-      toast.error("请输入新密码");
-      return;
-    }
-    if (editPassword.length < 8) {
-      toast.error("密码长度至少为 8 位");
-      return;
-    }
-    setEditLoading(true);
-    const res = await adminChangePasswordAction(targetUserId, editPassword);
-    setEditLoading(false);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("密码已重置");
-      setEditPassword("");
-      setShowEditPassword(false);
     }
   };
 
@@ -605,18 +699,18 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
               <span>上传配置</span>
             </TabsTrigger>
             <TabsTrigger
-              value="posts"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
-            >
-              <FileText size={13} />
-              <span>发帖审核 ({pendingPosts.length})</span>
-            </TabsTrigger>
-            <TabsTrigger
               value="users"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
             >
               <ShieldAlert size={13} />
               <span>用户管理</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="posts"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <FileText size={13} />
+              <span>发帖审核 ({pendingPosts.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="comments"
@@ -1095,6 +1189,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-3 mt-0">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-sm font-semibold text-foreground">用户列表</h2>
+              {isSuperAdmin && (
+                <Button onClick={() => setCreateUserOpen(true)} size="sm" className="h-8 text-xs gap-1">
+                  <UserPlus size={14} />
+                  <span>新增用户</span>
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-3">
               {usersList.map((user) => (
                 <div key={user.id} className="flex flex-col p-3 border border-border rounded-lg bg-muted/10 text-sm">
@@ -1126,141 +1230,91 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
+                        <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span>自定义域名: </span>
+                          {user.allowCustomDomain ? (
+                            <>
+                              <span className="text-green-600 font-medium">允许</span>
+                              {user.customDomain ? (
+                                <a
+                                  href={`https://${user.customDomain}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline font-mono text-[10px] ml-1 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
+                                >
+                                  {user.customDomain}
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground/50">(未绑定)</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-red-500 font-medium">禁止</span>
+                          )}
+                        </div>
                         {user.loginDisabledAt && (
-                          <span className="text-[10px] text-orange-500 font-medium">登录已禁用</span>
+                          <span className="text-[10px] text-orange-500 font-medium block mt-0.5">登录已禁用</span>
                         )}
                       </div>
                     </div>
 
-                    {user.role !== "super_admin" && user.id !== currentUser.id && (
-                      <div className="flex gap-2 items-center">
-                        {isSuperAdmin && (
-                          <select
-                            value={user.role}
-                            onChange={(e) => handleChangeUserRole(user.id, e.target.value)}
-                            className="h-8 text-xs px-2 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
-                          >
-                            <option value="user">普通用户</option>
-                            <option value="guest">访客</option>
-                            <option value="admin">管理员</option>
-                          </select>
-                        )}
-
-                        <Button
-                          variant={user.status === "active" ? "outline" : "destructive"}
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => handleToggleUserStatus(user.id, user.status)}
-                        >
-                          {user.status === "active" ? (
-                            <span className="flex items-center gap-1 text-red-500 hover:text-red-600">
-                              <UserX size={12} /> 封禁
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <UserCheck size={12} /> 解封
-                            </span>
+                    <div className="flex gap-2 items-center ml-auto">
+                      {user.role !== "super_admin" && user.id !== currentUser.id && (
+                        <>
+                          {isSuperAdmin && (
+                            <select
+                              value={user.role}
+                              onChange={(e) => handleChangeUserRole(user.id, e.target.value)}
+                              className="h-8 text-xs px-2 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                            >
+                              <option value="user">普通用户</option>
+                              <option value="guest">访客</option>
+                              <option value="admin">管理员</option>
+                            </select>
                           )}
-                        </Button>
 
-                        {user.loginDisabledAt && (
                           <Button
-                            variant="outline"
+                            variant={user.status === "active" ? "outline" : "destructive"}
                             size="sm"
-                            className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
-                            onClick={() => handleUnlockLogin(user.id)}
+                            className="h-8 text-xs"
+                            onClick={() => handleToggleUserStatus(user.id, user.status)}
                           >
-                            <LockOpen size={12} className="mr-1" /> 解锁登录
+                            {user.status === "active" ? (
+                              <span className="flex items-center gap-1 text-red-500 hover:text-red-600">
+                                <UserX size={12} /> 封禁
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <UserCheck size={12} /> 解封
+                              </span>
+                            )}
                           </Button>
-                        )}
-                      </div>
-                    )}
 
-                    {isSuperAdmin && user.id !== currentUser.id && (
-                      <div className="flex gap-2 ml-auto sm:ml-0">
+                          {user.loginDisabledAt && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
+                              onClick={() => handleUnlockLogin(user.id)}
+                            >
+                              <LockOpen size={12} className="mr-1" /> 解锁登录
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {user.id !== currentUser.id && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-8 text-xs"
-                          onClick={() => editingUserId === user.id ? closeEditor() : openEditor(user)}
+                          onClick={() => openEditor(user)}
                         >
-                          {editingUserId === user.id ? "收起" : "编辑账号"}
+                          编辑账号
                         </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {editingUserId === user.id && (
-                    <div className="mt-3 pt-3 border-t border-border space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-normal text-muted-foreground">邮箱</label>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                              type="email"
-                              value={editEmail}
-                              onChange={(e) => setEditEmail(e.target.value)}
-                              className="h-8 text-xs pl-8"
-                              placeholder="新邮箱"
-                            />
-                          </div>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs"
-                            disabled={editLoading}
-                            onClick={() => handleUpdateEmail(user.id)}
-                          >
-                            {editLoading ? <Loader2 className="size-3.5 animate-spin" /> : "保存邮箱"}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-normal text-muted-foreground">重置密码</label>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <Key size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                              type={showEditPassword ? "text" : "password"}
-                              value={editPassword}
-                              onChange={(e) => setEditPassword(e.target.value)}
-                              className="h-8 text-xs pl-8 pr-8"
-                              placeholder="新密码（至少 8 位）"
-                              minLength={8}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowEditPassword((v) => !v)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                              tabIndex={-1}
-                            >
-                              {showEditPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs"
-                            disabled={editLoading || !editPassword}
-                            onClick={() => handleAdminChangePassword(user.id)}
-                          >
-                            重置密码
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                        <div className="space-y-0.5">
-                          <label className="text-xs font-semibold">允许使用自定义域名</label>
-                          <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定和配置独立自定义域名的权限</p>
-                        </div>
-                        <Switch
-                          checked={user.allowCustomDomain}
-                          onCheckedChange={() => handleToggleUserCustomDomainPermission(user.id, user.allowCustomDomain)}
-                        />
-                      </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
               {usersLoadingMore && (
@@ -1278,6 +1332,143 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
               )}
               <div ref={usersSentinelRef} className="h-1" />
             </div>
+
+            {/* 新增用户 Dialog */}
+            <Dialog open={createUserOpen} onOpenChange={setCreateUserOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>新增用户</DialogTitle>
+                  <DialogDescription>
+                    手动创建一个新的系统用户。
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-semibold">邮箱</label>
+                    <Input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-semibold">密码</label>
+                    <Input
+                      type="password"
+                      placeholder={`至少 ${MIN_PASSWORD_LENGTH} 位密码`}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-semibold">角色</label>
+                    <select
+                      value={newRole}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewRole(e.target.value as "admin" | "user" | "guest")}
+                      className="w-full h-9 text-xs px-3 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="user">普通用户</option>
+                      <option value="guest">访客</option>
+                      {isSuperAdmin && <option value="admin">管理员</option>}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-semibold">允许使用自定义域名</label>
+                      <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
+                    </div>
+                    <Switch
+                      checked={newAllowDomain}
+                      onCheckedChange={setNewAllowDomain}
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="sm:justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCreateUserOpen(false)} disabled={createLoading}>
+                    取消
+                  </Button>
+                  <Button size="sm" onClick={handleCreateUser} disabled={createLoading}>
+                    {createLoading ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
+                    创建用户
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* 编辑用户 Dialog */}
+            <Dialog open={editingUser !== null} onOpenChange={(open) => { if (!open) setEditingUser(null); }}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>编辑账号</DialogTitle>
+                  <DialogDescription>
+                    修改该用户的账户信息。留空密码表示不重置密码。
+                  </DialogDescription>
+                </DialogHeader>
+                {editingUser && (
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold">邮箱</label>
+                      <Input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold">重置密码 (可选)</label>
+                      <div className="relative">
+                        <Input
+                          type={showEditPassword ? "text" : "password"}
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          placeholder={`新密码（至少 ${MIN_PASSWORD_LENGTH} 位，留空则不修改）`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEditPassword((v) => !v)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                        >
+                          {showEditPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold">角色</label>
+                      <select
+                        value={editRole}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditRole(e.target.value as "admin" | "user" | "guest")}
+                        className="w-full h-9 text-xs px-3 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="user">普通用户</option>
+                        <option value="guest">访客</option>
+                        {isSuperAdmin && <option value="admin">管理员</option>}
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                      <div className="space-y-0.5">
+                        <label className="text-xs font-semibold">允许使用自定义域名</label>
+                        <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
+                      </div>
+                      <Switch
+                        checked={editAllowCustomDomain}
+                        onCheckedChange={setEditAllowCustomDomain}
+                      />
+                    </div>
+                  </div>
+                )}
+                <DialogFooter className="sm:justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditingUser(null)} disabled={editLoading}>
+                    取消
+                  </Button>
+                  <Button size="sm" onClick={handleSaveEdit} disabled={editLoading}>
+                    {editLoading ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
+                    保存修改
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Comments Tab */}

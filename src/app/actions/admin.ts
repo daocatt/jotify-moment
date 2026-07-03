@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
 import crypto from "crypto";
-import { getSessionUser, verifyPassword, hashPassword } from "@/lib/auth";
+import { getSessionUser, verifyPassword, hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { revalidatePath } from "next/cache";
 
@@ -421,7 +421,6 @@ export async function updateProfileAction(data: {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
 export async function updateUserEmailAction(targetUserId: string, email: string) {
   const user = await getSessionUser();
@@ -871,3 +870,84 @@ export async function updateFaviconAction(faviconUrl: string) {
     return { error: "更新图标失败" };
   }
 }
+
+export async function adminCreateUserAction(data: {
+  email: string;
+  password: string;
+  allowCustomDomain: boolean;
+  role: "admin" | "user" | "guest";
+}) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser || sessionUser.role !== "super_admin") {
+    return { error: "Unauthorized" };
+  }
+
+  const { email, password, allowCustomDomain, role } = data;
+  if (!email || !password) {
+    return { error: "邮箱和密码不能为空" };
+  }
+
+  const trimmedEmail = email.trim().toLowerCase();
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { error: `密码长度至少为 ${MIN_PASSWORD_LENGTH} 位` };
+  }
+
+  if (!["admin", "user", "guest"].includes(role)) {
+    return { error: "无效的用户角色" };
+  }
+
+  try {
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, trimmedEmail),
+    });
+
+    if (existingUser) {
+      return { error: "该邮箱已被注册" };
+    }
+
+    const userId = crypto.randomUUID();
+    const passwordHash = await hashPassword(password);
+    const name = trimmedEmail.split("@")[0] || "User";
+
+    let slugCandidate: string | null = null;
+    if (role !== "guest") {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const conflict = await db.query.users.findFirst({ where: eq(users.slug, candidate) });
+        if (!conflict) {
+          slugCandidate = candidate;
+          break;
+        }
+      }
+      if (!slugCandidate) {
+        return { error: "生成用户标识失败，请稍后重试" };
+      }
+    }
+
+    await db.insert(users).values({
+      id: userId,
+      email: trimmedEmail,
+      name,
+      slug: slugCandidate,
+      role,
+      allowCustomDomain,
+      emailVerified: true,
+      status: "active",
+    });
+
+    await db.insert(accounts).values({
+      id: crypto.randomUUID(),
+      accountId: trimmedEmail,
+      providerId: "credential",
+      userId,
+      password: passwordHash,
+    });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("adminCreateUserAction error:", error);
+    return { error: "新增用户失败，请稍后重试" };
+  }
+}
+
