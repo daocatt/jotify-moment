@@ -2,7 +2,6 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/constants";
 
 export { MIN_PASSWORD_LENGTH };
 import { cookies } from "next/headers";
-import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -28,14 +27,6 @@ export interface SessionUser {
   customDomain: string | null;
   allowCustomDomain: boolean;
   loginDisabledAt: Date | null;
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
 }
 
 // Generate a unique 8-digit numeric slug for a user.
