@@ -3,8 +3,8 @@
 import { db } from "@/db";
 import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { hashPassword, verifyPassword, generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
-import { hashPassword as hashPasswordBetter } from "better-auth/crypto";
+import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { hashPassword as hashPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import crypto from "crypto";
 
@@ -370,7 +370,7 @@ export async function resetPasswordAction(data: {
       return { error: "用户不存在" };
     }
 
-    const passwordHash = await hashPasswordBetter(password);
+    const passwordHash = await hashPasswordScrypt(password);
     await db.update(accounts)
       .set({ password: passwordHash })
       .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
