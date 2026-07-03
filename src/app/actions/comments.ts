@@ -132,9 +132,18 @@ export async function deleteCommentAction(commentId: string) {
     }
 
     const isAdmin = user.role === "super_admin" || user.role === "admin";
-    const isOwner = existing.userId === user.id;
+    const isCommentOwner = existing.userId === user.id;
 
-    if (!isAdmin && !isOwner) {
+    let isPostOwner = false;
+    if (!isAdmin && !isCommentOwner) {
+      const post = await db.query.posts.findFirst({
+        where: eq(posts.id, existing.postId),
+        columns: { userId: true },
+      });
+      isPostOwner = !!post && post.userId === user.id;
+    }
+
+    if (!isAdmin && !isCommentOwner && !isPostOwner) {
       return { error: "您没有权限删除此评论" };
     }
 
