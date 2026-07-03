@@ -115,6 +115,7 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
       showPostEditor="own"
       isCustomDomain={isCustomDomain}
       mainHost={mainHost}
+      isUserHomePage
     />
   );
 }
