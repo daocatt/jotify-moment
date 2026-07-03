@@ -2,8 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Pin } from "lucide-react";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
-import { getUserBySlugAction, getUserPostsAction } from "@/app/actions/posts";
+import { getUserBySlugAction, getUserPostsAction, getUserPinnedPostsAction } from "@/app/actions/posts";
 import { toast } from "sonner";
 
 interface ProfileUserFull {
@@ -24,10 +26,12 @@ interface ProfileUserFull {
 }
 
 export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slug: string; isCustomDomain?: boolean; mainHost?: string }) {
+  const router = useRouter();
   const [profileUser, setProfileUser] = useState<ProfileUserFull | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   const [posts, setPosts] = useState<PostData[]>([]);
+  const [pinnedPosts, setPinnedPosts] = useState<PostData[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -37,6 +41,8 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
     const res = await getUserBySlugAction(slug);
     if ("user" in res && res.user) {
       setProfileUser(res.user as ProfileUserFull);
+      const pinnedRes = await getUserPinnedPostsAction(slug);
+      if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p: any) => ({ ...p, user: p.author })) as PostData[]);
     } else {
       setNotFound(true);
     }
@@ -81,6 +87,53 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
     fetchPosts();
   }, [fetchUser, fetchPosts]);
 
+  const pinnedImages: string[] = [];
+  for (const p of pinnedPosts) {
+    for (const m of p.mediaUrls) {
+      if (m.type === "image" && pinnedImages.length < 3) {
+        pinnedImages.push(m.thumbnailUrl || m.url);
+      }
+    }
+  }
+
+  const pinnedEntry = pinnedPosts.length > 0 ? (
+    <div className="flex justify-center px-4 my-3">
+      <button
+        type="button"
+        onClick={() => router.push(`/u/${slug}/pinned`)}
+        className="inline-flex items-center gap-4 rounded-xl border border-primary/30 bg-white dark:bg-primary/5 hover:bg-yellow-50 dark:hover:bg-primary/10 transition-colors p-3 text-left max-w-[420px] w-full"
+      >
+        {pinnedImages.length > 0 ? (
+          <div className="relative h-[54px] w-[120px] shrink-0">
+            {pinnedImages.slice(0, 3).map((img, idx) => (
+              <div
+                key={idx}
+                className="absolute top-0 size-[54px] rounded-lg overflow-hidden border-2 border-background"
+                style={{ left: idx * 30, zIndex: 3 - idx }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="" className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center shrink-0 text-primary/60">
+            <Pin size={21} className="fill-primary/40" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] text-foreground truncate font-normal leading-snug">
+            {pinnedPosts[0].content || `${pinnedPosts[0].user.name} 的动态`}
+          </p>
+          <p className="text-[11px] text-muted-foreground font-normal mt-0.5">
+            <Pin size={13} className="inline fill-primary/50 mr-0.5" />
+            共 {pinnedPosts.length} 条置顶
+          </p>
+        </div>
+      </button>
+    </div>
+  ) : null;
+
   if (notFound) {
     return (
       <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col items-center justify-center gap-3 sm:mt-6 sm:rounded-t-xl">
@@ -116,6 +169,7 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
       isCustomDomain={isCustomDomain}
       mainHost={mainHost}
       isUserHomePage
+      pinnedEntry={pinnedEntry}
     />
   );
 }

@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { posts, comments, reactions, settings, users } from "@/db/schema";
-import { eq, and, desc, asc, lt, isNotNull, isNull } from "drizzle-orm";
+import { posts, comments, reactions, settings, users, userPinned } from "@/db/schema";
+import { eq, and, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { deleteMediaFiles } from "@/lib/storage";
@@ -170,6 +170,28 @@ export async function deletePostAction(postId: string) {
   }
 }
 
+export async function updatePostAction(postId: string, content: string) {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+
+  try {
+    const post = await db.query.posts.findFirst({
+      where: eq(posts.id, postId),
+    });
+
+    if (!post) return { error: "Post not found" };
+    if (post.userId !== user.id) return { error: "Unauthorized" };
+    if (!content.trim()) return { error: "内容不能为空" };
+
+    await db.update(posts).set({ content: content.trim() }).where(eq(posts.id, postId));
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("updatePostAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
 export async function getPinnedPostsAction() {
   const currentUser = await getSessionUser();
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
@@ -257,6 +279,91 @@ export async function unpinPostAction(postId: string) {
   } catch (error) {
     console.error("unpinPostAction error:", error);
     return { error: "Internal server error" };
+  }
+}
+
+export async function pinPostToProfileAction(postId: string) {
+  const user = await getSessionUser();
+  if (!user || user.role === "guest") return { error: "Unauthorized" };
+
+  try {
+    const post = await db.query.posts.findFirst({ where: eq(posts.id, postId) });
+    if (!post) return { error: "Post not found" };
+    if (post.userId !== user.id) return { error: "只能置顶自己的帖子" };
+
+    const existing = await db.query.userPinned.findFirst({
+      where: and(eq(userPinned.userId, user.id), eq(userPinned.postId, postId)),
+    });
+    if (existing) return { error: "该帖子已在主页置顶" };
+
+    const [{ count: pinnedCount }] = await db
+      .select({ count: count() })
+      .from(userPinned)
+      .where(eq(userPinned.userId, user.id));
+    if (pinnedCount >= 5) return { error: "主页置顶最多 5 个" };
+
+    await db.insert(userPinned).values({ userId: user.id, postId });
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("pinPostToProfileAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function unpinPostFromProfileAction(postId: string) {
+  const user = await getSessionUser();
+  if (!user || user.role === "guest") return { error: "Unauthorized" };
+
+  try {
+    await db.delete(userPinned)
+      .where(and(eq(userPinned.userId, user.id), eq(userPinned.postId, postId)));
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("unpinPostFromProfileAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function getUserPinnedPostsAction(slug: string) {
+  try {
+    const target = await db.query.users.findFirst({
+      where: eq(users.slug, slug),
+      columns: { id: true },
+    });
+    if (!target) return { posts: [] };
+
+    const pinnedRows = await db.query.userPinned.findMany({
+      where: eq(userPinned.userId, target.id),
+      orderBy: [asc(userPinned.createdAt)],
+      columns: { postId: true },
+    });
+
+    if (pinnedRows.length === 0) return { posts: [] };
+
+    const postIds = pinnedRows.map((r) => r.postId);
+    const pinnedPosts = await db.query.posts.findMany({
+      where: and(eq(posts.status, "approved"), inArray(posts.id, postIds)),
+      orderBy: [asc(posts.createdAt)],
+      with: {
+        author: { columns: { id: true, name: true, avatar: true, role: true, slug: true } },
+        comments: {
+          with: { author: { columns: { id: true, name: true, avatar: true } } },
+          orderBy: [asc(comments.createdAt)],
+        },
+        reactions: { with: { author: { columns: { id: true, name: true } } } },
+      },
+    });
+
+    const sorted = postIds
+      .map((id) => pinnedPosts.find((p) => p.id === id))
+      .filter(Boolean);
+
+    return { posts: sorted };
+  } catch (error) {
+    console.error("getUserPinnedPostsAction error:", error);
+    return { posts: [] };
   }
 }
 
