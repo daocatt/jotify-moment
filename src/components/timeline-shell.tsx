@@ -105,6 +105,7 @@ interface TimelineShellProps {
   onAvatarClick?: () => void;
   isCustomDomain?: boolean;
   mainHost?: string;
+  isUserHomePage?: boolean;
 }
 
 export function TimelineShell({
@@ -122,6 +123,7 @@ export function TimelineShell({
   onAvatarClick,
   isCustomDomain = false,
   mainHost,
+  isUserHomePage = false,
 }: TimelineShellProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -452,7 +454,25 @@ export function TimelineShell({
       <div className="fixed bottom-10 left-0 md:left-[calc(50%-320px)] md:bottom-16 z-40 flex flex-col gap-2">
         {currentUser ? (
           <>
-            {currentUser.role !== "super_admin" && (currentUser.role === "guest" ? (
+            {isUserHomePage ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (isCustomDomain && mainHost) {
+                    window.location.href = `${window.location.protocol}//${mainHost}/`;
+                  } else {
+                    router.push("/");
+                  }
+                }}
+                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
+              >
+                <ArrowLeft size={13} className="shrink-0" />
+                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
+                  <span>返</span>
+                  <span>回</span>
+                </span>
+              </Button>
+            ) : currentUser.role === "guest" ? (
               <Button
                 variant="outline"
                 onClick={() => router.push("/guest-profile")}
@@ -482,7 +502,7 @@ export function TimelineShell({
                   <span>的</span>
                 </span>
               </Button>
-            ) : null)}
+            ) : null}
             {renderEditor && (
               <Button
                 variant={editorOpen ? "default" : "outline"}
@@ -849,9 +869,21 @@ export function TimelineShell({
           user={currentUser}
           isOpen={profileModalOpen}
           onClose={() => setProfileModalOpen(false)}
-          onSuccess={() => {
+          onSuccess={(newSlug?: string) => {
             fetchSession();
             onProfileUpdated?.();
+            if (newSlug !== undefined) {
+              if (isCustomDomain) {
+                window.location.reload();
+              } else {
+                const slugValue = newSlug || currentUser?.slug || "";
+                if (slugValue) {
+                  router.replace(`/u/${slugValue}`);
+                } else {
+                  router.replace("/");
+                }
+              }
+            }
           }}
         />
       )}
