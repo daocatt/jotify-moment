@@ -31,7 +31,9 @@ import {
   adminCreateUserAction,
 } from "@/app/actions/admin";
 import { THEME_LIST } from "@/lib/theme-resolver";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth";
+
+const MIN_PASSWORD_LENGTH = 8;
+
 import {
   Shield,
   UserX,
