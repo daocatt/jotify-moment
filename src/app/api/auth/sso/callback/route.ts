@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { sessions } from "@/db/schema";
+import { sessions, users } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
 
 const SSO_TOKEN_EXPIRY_MS = 5 * 60 * 1000;
@@ -65,7 +66,29 @@ export async function GET(request: NextRequest) {
       updatedAt: now,
     });
 
-    const redirectUrl = new URL(callback, request.url);
+    let redirectUrl: URL;
+    if (callback.startsWith("http://") || callback.startsWith("https://")) {
+      redirectUrl = new URL(callback);
+      const callbackHost = redirectUrl.hostname.toLowerCase();
+      const mainHostEnv = process.env.MAIN_HOST || "";
+      const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+
+      const isAllowed = mainHosts.includes(callbackHost) || !!(await db.query.users.findFirst({
+        where: and(
+          eq(users.customDomain, callbackHost),
+          eq(users.allowCustomDomain, true)
+        ),
+        columns: { id: true },
+      }));
+
+      if (!isAllowed) {
+        return new NextResponse("Forbidden redirect domain", { status: 400 });
+      }
+    } else {
+      const proto = request.headers.get("x-forwarded-proto") || "https";
+      const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || new URL(request.url).host;
+      redirectUrl = new URL(callback, `${proto}://${host}`);
+    }
     redirectUrl.searchParams.delete("sso_token");
 
     const response = NextResponse.redirect(redirectUrl);
