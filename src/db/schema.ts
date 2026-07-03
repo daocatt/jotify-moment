@@ -129,6 +129,20 @@ export const reactions = pgTable("reactions", {
   uniqueIndex("reactions_post_user_emoji_idx").on(table.postId, table.userId, table.emoji),
 ]);
 
+export const userPinned = pgTable("user_pinned", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  postId: text("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("user_pinned_user_id_idx").on(table.userId),
+  uniqueIndex("user_pinned_user_post_idx").on(table.userId, table.postId),
+]);
+
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
