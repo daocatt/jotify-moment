@@ -13,7 +13,7 @@ import { generateSSOTokenAction } from "@/app/actions/auth";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useSSOCallback } from "@/lib/use-sso";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { APP_VERSION } from "@/lib/version";
@@ -358,10 +358,6 @@ export function TimelineShell({
   };
 
   const goToOwnHome = () => {
-    if (currentUser?.customDomain) {
-      window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
-      return;
-    }
     if (currentUser?.slug) {
       router.push(`/u/${currentUser.slug}`);
     } else {
@@ -488,11 +484,7 @@ export function TimelineShell({
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (currentUser.customDomain) {
-                    window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
-                  } else {
-                    router.push(`/u/${currentUser.slug}`);
-                  }
+                  router.push(`/u/${currentUser.slug}`);
                 }}
                 className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
               >
@@ -503,6 +495,21 @@ export function TimelineShell({
                 </span>
               </Button>
             ) : null}
+            {isUserHomePage && isOwnPage && currentUser.customDomain && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
+                }}
+                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
+              >
+                <Globe size={13} className="shrink-0" />
+                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
+                  <span>主</span>
+                  <span>页</span>
+                </span>
+              </Button>
+            )}
             {renderEditor && (
               <Button
                 variant={editorOpen ? "default" : "outline"}
