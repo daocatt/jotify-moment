@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+export const MIN_PASSWORD_LENGTH = 8;
+
 export interface SessionUser {
   id: string;
   email: string;
