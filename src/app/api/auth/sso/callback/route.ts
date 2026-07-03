@@ -65,7 +65,9 @@ export async function GET(request: NextRequest) {
       updatedAt: now,
     });
 
-    const redirectUrl = new URL(callback, request.url);
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || new URL(request.url).host;
+    const redirectUrl = new URL(callback, `${proto}://${host}`);
     redirectUrl.searchParams.delete("sso_token");
 
     const response = NextResponse.redirect(redirectUrl);
