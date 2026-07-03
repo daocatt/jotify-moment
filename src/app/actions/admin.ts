@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
 import crypto from "crypto";
-import { getSessionUser, verifyPassword, hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/auth";
+import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
+import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { revalidatePath } from "next/cache";
 
@@ -468,7 +469,7 @@ export async function adminChangePasswordAction(targetUserId: string, newPasswor
     const target = await db.query.users.findFirst({ where: eq(users.id, targetUserId) });
     if (!target) return { error: "User not found" };
 
-    const passwordHash = await hashPassword(newPassword);
+    const passwordHash = await hashPasswordScrypt(newPassword);
     await db
       .update(accounts)
       .set({ password: passwordHash })
@@ -512,12 +513,12 @@ export async function changePasswordAction(data: {
       return { error: "当前账户不支持密码修改" };
     }
 
-    const valid = await verifyPassword(currentPassword, account.password);
+    const valid = await verifyPasswordScrypt({ hash: account.password, password: currentPassword });
     if (!valid) {
       return { error: "当前密码不正确" };
     }
 
-    const passwordHash = await hashPassword(newPassword);
+    const passwordHash = await hashPasswordScrypt(newPassword);
     await db
       .update(accounts)
       .set({ password: passwordHash })
@@ -906,7 +907,7 @@ export async function adminCreateUserAction(data: {
     }
 
     const userId = crypto.randomUUID();
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await hashPasswordScrypt(password);
     const name = trimmedEmail.split("@")[0] || "User";
 
     let slugCandidate: string | null = null;
