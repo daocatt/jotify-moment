@@ -10,8 +10,8 @@ import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff } from "lucide-react";
-import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction } from "@/app/actions/posts";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ interface MomentPostProps {
     ytVideoId: string | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
+    profilePinned?: boolean;
     createdAt: Date;
     user: {
       id: string;
@@ -77,6 +78,10 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [reacting, setReacting] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>("");
+  const [editingPost, setEditingPost] = useState(false);
+  const [editPostContent, setEditPostContent] = useState("");
+  const [showPinMenu, setShowPinMenu] = useState(false);
+  const [profilePinLoading, setProfilePinLoading] = useState(false);
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -210,6 +215,37 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     }
   };
 
+  const handleStartEditPost = () => {
+    setEditPostContent(post.content);
+    setEditingPost(true);
+  };
+
+  const handleSaveEditPost = async () => {
+    if (!editPostContent.trim()) {
+      toast.error("内容不能为空");
+      return;
+    }
+    const res = await updatePostAction(post.id, editPostContent);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("日志已更新");
+      setEditingPost(false);
+      onRefresh();
+    }
+  };
+
+  const handleToggleProfilePin = async () => {
+    setProfilePinLoading(true);
+    setShowPinMenu(false);
+    const res = post.profilePinned
+      ? await unpinPostFromProfileAction(post.id)
+      : await pinPostToProfileAction(post.id);
+    setProfilePinLoading(false);
+    if (res.error) { toast.error(res.error); }
+    else { toast.success(post.profilePinned ? "已取消主页置顶" : "已主页置顶"); onRefresh(); }
+  };
+
   const handleApprovePost = async () => {
     const res = await approvePostAction(post.id);
     if (res.error) {
@@ -294,7 +330,20 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
         </div>
 
         {/* Content Body (Markdown) */}
-        {post.content && (
+        {editingPost ? (
+          <div className="space-y-2">
+            <textarea
+              value={editPostContent}
+              onChange={(e) => setEditPostContent(e.target.value)}
+              className="w-full min-h-[80px] text-sm p-2 border border-border bg-background rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="outline" onClick={() => setEditingPost(false)} className="h-7 text-xs">取消</Button>
+              <Button size="sm" onClick={handleSaveEditPost} className="h-7 text-xs">保存</Button>
+            </div>
+          </div>
+        ) : post.content && (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkBreaks]}
@@ -445,27 +494,93 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
 
 
 
-          {/* Pin/Unpin for admin */}
-          {isAdmin && post.status === "approved" && (
+          {/* Edit Button for owner */}
+          {isOwner && !editingPost && (
             <div className="relative">
               <button
-                onClick={handleTogglePin}
-                disabled={pinLoading}
+                onClick={handleStartEditPost}
                 className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
                 onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                 onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
               >
-                {pinLoading ? (
-                  <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
-                ) : (
-                  <span className="t-icon-swap" data-state={post.pinnedAt ? "a" : "b"}>
-                    <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" /></span>
-                    <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-blue-500 group-hover:fill-blue-100 dark:group-hover:fill-blue-950/40" /></span>
-                  </span>
-                )}
+                <Edit2 size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-amber-500" />
               </button>
-              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.pinnedAt ? "取消置顶" : "置顶"}</span>
+              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">编辑</span>
             </div>
+          )}
+
+          {/* Pin buttons */}
+          {post.status === "approved" && (
+            isOwner && isAdmin ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowPinMenu((v) => !v)}
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                >
+                  <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
+                  <ChevronDown size={10} className="absolute -bottom-0.5 -right-0.5" />
+                </button>
+                {showPinMenu && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-[10px] font-medium z-50 overflow-hidden min-w-[80px]">
+                    <button
+                      onClick={handleToggleProfilePin}
+                      disabled={profilePinLoading}
+                      className="w-full px-3 py-1.5 hover:bg-background/10 text-left disabled:opacity-50"
+                    >
+                      {post.profilePinned ? "取消主页置顶" : "主页置顶"}
+                    </button>
+                    <button
+                      onClick={() => { setShowPinMenu(false); handleTogglePin(); }}
+                      disabled={pinLoading}
+                      className="w-full px-3 py-1.5 hover:bg-background/10 text-left disabled:opacity-50"
+                    >
+                      {post.pinnedAt ? "取消全局置顶" : "全局置顶"}
+                    </button>
+                  </div>
+                )}
+                {showPinMenu && <div className="fixed inset-0 z-40" onClick={() => setShowPinMenu(false)} />}
+              </div>
+            ) : isOwner ? (
+              <div className="relative">
+                <button
+                  onClick={handleToggleProfilePin}
+                  disabled={profilePinLoading}
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                  onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
+                  onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
+                >
+                  {profilePinLoading ? (
+                    <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+                  ) : (
+                    <span className="t-icon-swap" data-state={post.profilePinned ? "a" : "b"}>
+                      <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                    </span>
+                  )}
+                </button>
+                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.profilePinned ? "取消主页置顶" : "主页置顶"}</span>
+              </div>
+            ) : isAdmin ? (
+              <div className="relative">
+                <button
+                  onClick={handleTogglePin}
+                  disabled={pinLoading}
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                  onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
+                  onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
+                >
+                  {pinLoading ? (
+                    <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+                  ) : (
+                    <span className="t-icon-swap" data-state={post.pinnedAt ? "a" : "b"}>
+                      <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                    </span>
+                  )}
+                </button>
+                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.pinnedAt ? "取消全局置顶" : "全局置顶"}</span>
+              </div>
+            ) : null
           )}
 
           {/* Delete Button */}
@@ -628,7 +743,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                               {isCommentHidden ? <Eye size={11} /> : <EyeOff size={11} />}
                             </button>
                           )}
-                          {(isCommentOwner || isAdmin) && (
+                          {(isCommentOwner || isOwner || isAdmin) && (
                             <button
                               onClick={() => handleDeleteComment(comment.id)}
                               title="删除评论"
