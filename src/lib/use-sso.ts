@@ -11,7 +11,7 @@ export function useSSOCallback(isCustomDomain: boolean) {
     if (ssoToken) {
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete("sso_token");
-      const callback = cleanUrl.pathname + cleanUrl.search;
+      const callback = cleanUrl.toString();
       window.location.href = `/api/auth/sso/callback?token=${encodeURIComponent(ssoToken)}&callback=${encodeURIComponent(callback)}`;
     }
   }, [isCustomDomain]);

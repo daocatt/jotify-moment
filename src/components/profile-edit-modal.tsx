@@ -41,7 +41,7 @@ interface ProfileEditModalProps {
   };
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newSlug?: string) => void;
 }
 
 export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEditModalProps) {
@@ -221,7 +221,9 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       toast.error(res.error);
     } else {
       toast.success("个人资料已更新");
-      onSuccess();
+      const newSlug = slug.trim();
+      const oldSlug = user.slug;
+      onSuccess(newSlug !== oldSlug ? newSlug : undefined);
       onClose();
     }
   };
