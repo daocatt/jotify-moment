@@ -105,8 +105,12 @@ export async function POST(req: Request) {
     const chatId = message.chat.id;
     const chatIdStr = chatId.toString();
 
-    // Handle /start <token> - bind account
+    // Handle /start <token> - bind account (private chat only)
     if (message.text && message.text.startsWith("/start")) {
+      if (message.chat.type !== "private") {
+        return NextResponse.json({ ok: true });
+      }
+
       const parts = message.text.trim().split(" ");
       const token = parts[1]?.trim();
 
@@ -143,9 +147,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // Handle /help command
+    // Handle /help command (private chat only)
     if (message.text && message.text.trim() === "/help") {
-      await sendTelegramMessage(botToken, chatId, HELP_TEXT);
+      if (message.chat.type === "private") {
+        await sendTelegramMessage(botToken, chatId, HELP_TEXT);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Only process post creation in private chat
+    if (message.chat.type !== "private") {
       return NextResponse.json({ ok: true });
     }
 
@@ -156,7 +167,9 @@ export async function POST(req: Request) {
     });
 
     if (!authorUser) {
-      await sendTelegramMessage(botToken, chatId, `⚠️ 你还没有绑定 Moment 账户。\n请先在 Moment 个人主页生成绑定 Token，然后发送 /start <token>`);
+      if (message.chat.type === "private") {
+        await sendTelegramMessage(botToken, chatId, `⚠️ 你还没有绑定 Moment 账户。\n请先在 Moment 个人主页生成绑定 Token，然后发送 /start <token>`);
+      }
       return NextResponse.json({ error: "Sender not bound" }, { status: 403 });
     }
 
