@@ -30,6 +30,7 @@ interface ProfileEditModalProps {
     wechat: string | null;
     telegram: string | null;
     telegramChatId?: string | null;
+    telegramBound?: boolean;
     telegramBindToken?: string | null;
     github: string | null;
     x: string | null;
@@ -59,7 +60,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [customDomain, setCustomDomain] = useState(user.customDomain || "");
 
   const [tgBotName, setTgBotName] = useState<string | null>(null);
-  const [tgChatId, setTgChatId] = useState(user.telegramChatId || null);
+  const [tgBound, setTgBound] = useState(!!user.telegramChatId || !!user.telegramBound);
   const [tgBindToken, setTgBindToken] = useState(user.telegramBindToken || null);
   const [tgLoading, setTgLoading] = useState(false);
 
@@ -99,7 +100,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       toast.error(res.error);
     } else {
       toast.success("解绑成功");
-      setTgChatId(null);
+      setTgBound(false);
       setTelegram("");
       onSuccess();
     }
@@ -111,8 +112,8 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       const res = await fetch("/api/auth/me");
       if (res.ok) {
         const data = await res.json();
-        if (data.user?.telegramChatId) {
-          setTgChatId(data.user.telegramChatId);
+        if (data.user?.telegramBound) {
+          setTgBound(true);
           setTelegram(data.user.telegram || "");
           toast.success("绑定成功！已检测到 Telegram 连接。");
           onSuccess();
@@ -476,14 +477,13 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                     </p>
                   </div>
 
-                  {tgChatId ? (
+                  {tgBound ? (
                     <div className="space-y-3 pt-2">
                       <div className="text-xs text-green-600 font-semibold flex items-center gap-1">
                         <CheckCircle size={14} /> 已绑定成功
                       </div>
                       <div className="bg-zinc-50 dark:bg-zinc-950 border border-border p-3 rounded text-xs font-mono space-y-1">
                         <p>账号: @{telegram || "已绑定"}</p>
-                        <p>Chat ID: {tgChatId}</p>
                       </div>
                       <Button
                         variant="outline"

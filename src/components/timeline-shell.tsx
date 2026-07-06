@@ -30,7 +30,8 @@ export interface CurrentUser {
   coverImage: string | null;
   wechat: string | null;
   telegram: string | null;
-  telegramChatId: string | null;
+  telegramChatId?: string | null;
+  telegramBound?: boolean;
   telegramBindToken: string | null;
   github: string | null;
   x: string | null;
