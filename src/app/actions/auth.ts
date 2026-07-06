@@ -52,6 +52,7 @@ const MAX_LOGIN_ATTEMPTS = 10;
 const LOGIN_WINDOW = 15 * 60_000;
 
 function checkLoginRateLimit(email: string): boolean {
+  maybePurge();
   const now = Date.now();
   const entry = LOGIN_RATE_LIMITS.get(email);
   if (!entry || now > entry.resetAt) {
