@@ -20,6 +20,7 @@ export async function GET() {
         coverImage: user.coverImage,
         wechat: user.wechat,
         telegram: user.telegram,
+        telegramBound: !!user.telegramChatId,
         github: user.github,
         x: user.x,
         otherLink: user.otherLink,
