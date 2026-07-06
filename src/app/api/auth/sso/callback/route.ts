@@ -40,7 +40,11 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Invalid token expiry", { status: 400 });
     }
 
-    const secret = process.env.BETTER_AUTH_SECRET || "sso-secret";
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret) {
+      console.error("BETTER_AUTH_SECRET is not set");
+      return new NextResponse("Server configuration error", { status: 500 });
+    }
     const payload = `${userId}:${expiresAtStr}`;
     const expectedHmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
@@ -85,6 +89,9 @@ export async function GET(request: NextRequest) {
         return new NextResponse("Forbidden redirect domain", { status: 400 });
       }
     } else {
+      if (!callback.startsWith("/") || callback.startsWith("//")) {
+        return new NextResponse("Invalid callback path", { status: 400 });
+      }
       const proto = request.headers.get("x-forwarded-proto") || "https";
       const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || new URL(request.url).host;
       redirectUrl = new URL(callback, `${proto}://${host}`);

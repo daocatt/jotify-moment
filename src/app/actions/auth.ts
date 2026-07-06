@@ -629,7 +629,8 @@ export async function generateSSOTokenAction(callbackUrl?: string) {
       }
     }
 
-    const secret = process.env.BETTER_AUTH_SECRET || "sso-secret";
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret) return { error: "Server configuration error" };
     const expiresAt = Date.now() + 5 * 60 * 1000;
     const payload = `${user.id}:${expiresAt}`;
     const hmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
