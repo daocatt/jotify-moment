@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "verification_codes_type_code_idx" ON "verification_codes" USING btree ("type","code");

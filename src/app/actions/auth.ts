@@ -15,7 +15,29 @@ function hashToken(token: string): string {
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
 
+function purgeExpiredRateLimits() {
+  const now = Date.now();
+  for (const [k, v] of CODE_RATE_LIMITS) {
+    if (now - v >= CODE_RATE_WINDOW) CODE_RATE_LIMITS.delete(k);
+  }
+  for (const [k, v] of LOGIN_RATE_LIMITS) {
+    if (now > v.resetAt) LOGIN_RATE_LIMITS.delete(k);
+  }
+  for (const [k, v] of RESET_PASSWORD_SEND_LIMITS) {
+    if (now > v.resetAt) RESET_PASSWORD_SEND_LIMITS.delete(k);
+  }
+}
+
+let lastPurgeAt = 0;
+function maybePurge() {
+  const now = Date.now();
+  if (now - lastPurgeAt < 60_000) return;
+  lastPurgeAt = now;
+  purgeExpiredRateLimits();
+}
+
 function checkRateLimit(key: string): boolean {
+  maybePurge();
   const now = Date.now();
   const lastSent = CODE_RATE_LIMITS.get(key);
   if (lastSent && now - lastSent < CODE_RATE_WINDOW) {
@@ -30,6 +52,7 @@ const MAX_LOGIN_ATTEMPTS = 10;
 const LOGIN_WINDOW = 15 * 60_000;
 
 function checkLoginRateLimit(email: string): boolean {
+  maybePurge();
   const now = Date.now();
   const entry = LOGIN_RATE_LIMITS.get(email);
   if (!entry || now > entry.resetAt) {
@@ -76,6 +99,7 @@ export async function sendVerificationCodeAction(email: string, type: "register"
   }
 
   const code = crypto.randomInt(100000, 1000000).toString();
+  const codeHash = hashToken(code);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   try {
@@ -85,7 +109,7 @@ export async function sendVerificationCodeAction(email: string, type: "register"
 
     await db.insert(verificationCodes).values({
       email,
-      code,
+      code: codeHash,
       type,
       expiresAt,
     });
@@ -128,10 +152,11 @@ export async function registerAction(data: {
   }
 
   try {
+    const codeHash = hashToken(code);
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
         eq(verificationCodes.email, email),
-        eq(verificationCodes.code, code),
+        eq(verificationCodes.code, codeHash),
         eq(verificationCodes.type, "register"),
         gt(verificationCodes.expiresAt, new Date())
       ),
@@ -398,6 +423,7 @@ const RESET_PASSWORD_24H = 24 * 60 * 60 * 1000;
 const RESET_PASSWORD_SEND_LIMITS = new Map<string, { count: number; resetAt: number }>();
 
 function checkResetPasswordSendLimit(email: string): { allowed: boolean; count: number } {
+  maybePurge();
   const now = Date.now();
   const entry = RESET_PASSWORD_SEND_LIMITS.get(email);
   if (!entry || now > entry.resetAt) {

@@ -112,7 +112,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     };
   } catch (error) {
     console.error("getSessionUser error:", error);
-    return null;
+    throw new Error("Session lookup failed");
   }
 }
 
