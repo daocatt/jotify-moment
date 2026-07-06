@@ -98,6 +98,7 @@ export async function sendVerificationCodeAction(email: string, type: "register"
   }
 
   const code = crypto.randomInt(100000, 1000000).toString();
+  const codeHash = hashToken(code);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   try {
@@ -107,7 +108,7 @@ export async function sendVerificationCodeAction(email: string, type: "register"
 
     await db.insert(verificationCodes).values({
       email,
-      code,
+      code: codeHash,
       type,
       expiresAt,
     });
@@ -150,10 +151,11 @@ export async function registerAction(data: {
   }
 
   try {
+    const codeHash = hashToken(code);
     const validCode = await db.query.verificationCodes.findFirst({
       where: and(
         eq(verificationCodes.email, email),
-        eq(verificationCodes.code, code),
+        eq(verificationCodes.code, codeHash),
         eq(verificationCodes.type, "register"),
         gt(verificationCodes.expiresAt, new Date())
       ),
