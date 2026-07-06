@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { sessions, users, verificationCodes } from "@/db/schema";
+import { and, eq, gt } from "drizzle-orm";
 import crypto from "crypto";
 
 const SSO_TOKEN_EXPIRY_MS = 5 * 60 * 1000;
@@ -40,12 +40,28 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Invalid token expiry", { status: 400 });
     }
 
-    const secret = process.env.BETTER_AUTH_SECRET || "sso-secret";
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret) {
+      console.error("BETTER_AUTH_SECRET is not set");
+      return new NextResponse("Server configuration error", { status: 500 });
+    }
     const payload = `${userId}:${expiresAtStr}`;
     const expectedHmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
     if (!timingSafeEqual(hmac, expectedHmac)) {
       return new NextResponse("Invalid SSO signature", { status: 400 });
+    }
+
+    const deleted = await db.delete(verificationCodes).where(
+      and(
+        eq(verificationCodes.code, hmac),
+        eq(verificationCodes.type, "sso_token"),
+        gt(verificationCodes.expiresAt, new Date())
+      )
+    ).returning();
+
+    if (deleted.length === 0) {
+      return new NextResponse("SSO token has already been used or expired", { status: 400 });
     }
 
     const sessionToken = crypto.randomUUID();
@@ -85,6 +101,9 @@ export async function GET(request: NextRequest) {
         return new NextResponse("Forbidden redirect domain", { status: 400 });
       }
     } else {
+      if (!callback.startsWith("/") || callback.startsWith("//")) {
+        return new NextResponse("Invalid callback path", { status: 400 });
+      }
       const proto = request.headers.get("x-forwarded-proto") || "https";
       const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || new URL(request.url).host;
       redirectUrl = new URL(callback, `${proto}://${host}`);

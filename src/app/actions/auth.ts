@@ -75,7 +75,7 @@ export async function sendVerificationCodeAction(email: string, type: "register"
     return { error: "请稍后再试，验证码发送过于频繁" };
   }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = crypto.randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   try {
@@ -629,11 +629,19 @@ export async function generateSSOTokenAction(callbackUrl?: string) {
       }
     }
 
-    const secret = process.env.BETTER_AUTH_SECRET || "sso-secret";
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret) return { error: "Server configuration error" };
     const expiresAt = Date.now() + 5 * 60 * 1000;
     const payload = `${user.id}:${expiresAt}`;
     const hmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
     const token = Buffer.from(`${payload}:${hmac}`).toString("base64");
+
+    await db.insert(verificationCodes).values({
+      email: user.email || "",
+      code: hmac,
+      type: "sso_token",
+      expiresAt: new Date(expiresAt),
+    });
 
     return { success: true, token };
   } catch (error) {
