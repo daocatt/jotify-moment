@@ -23,7 +23,6 @@ export async function GET() {
         github: user.github,
         x: user.x,
         otherLink: user.otherLink,
-        telegramChatId: user.telegramChatId,
         customDomain: user.customDomain,
         allowCustomDomain: user.allowCustomDomain,
       },
