@@ -52,19 +52,17 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Invalid SSO signature", { status: 400 });
     }
 
-    const dbToken = await db.query.verificationCodes.findFirst({
-      where: and(
+    const deleted = await db.delete(verificationCodes).where(
+      and(
         eq(verificationCodes.code, hmac),
         eq(verificationCodes.type, "sso_token"),
         gt(verificationCodes.expiresAt, new Date())
       )
-    });
+    ).returning();
 
-    if (!dbToken) {
+    if (deleted.length === 0) {
       return new NextResponse("SSO token has already been used or expired", { status: 400 });
     }
-
-    await db.delete(verificationCodes).where(eq(verificationCodes.id, dbToken.id));
 
     const sessionToken = crypto.randomUUID();
     const now = new Date();
