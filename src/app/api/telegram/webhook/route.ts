@@ -6,11 +6,24 @@ import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 
 const MEDIA_GROUP_WINDOW_MS = 2000;
+const MAX_MEDIA_GROUP_CACHE = 500;
 
 const mediaGroupCache = new Map<string, {
   messages: any[];
   timer: ReturnType<typeof setTimeout>;
 }>();
+
+function trimMediaGroupCache() {
+  if (mediaGroupCache.size <= MAX_MEDIA_GROUP_CACHE) return;
+  const keys = [...mediaGroupCache.keys()];
+  for (let i = 0; i < keys.length - MAX_MEDIA_GROUP_CACHE; i++) {
+    const entry = mediaGroupCache.get(keys[i]);
+    if (entry) {
+      clearTimeout(entry.timer);
+      mediaGroupCache.delete(keys[i]);
+    }
+  }
+}
 
 const HELP_TEXT = `📖 Moment Bot 使用指南
 
@@ -186,6 +199,7 @@ export async function POST(req: Request) {
       if (cached) {
         cached.messages.push(message);
       } else {
+        trimMediaGroupCache();
         mediaGroupCache.set(groupId, {
           messages: [message],
           timer: setTimeout(() => processMediaGroup(botToken, groupId, authorUser), MEDIA_GROUP_WINDOW_MS),
