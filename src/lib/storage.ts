@@ -256,9 +256,10 @@ export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: str
             await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
           }
         } else {
-          if (url.startsWith("/uploads/")) {
-            const filePath = path.join(process.cwd(), "public", url);
-            if (fs.existsSync(filePath)) {
+          if (url.startsWith("/uploads/") && !url.includes("..")) {
+            const publicDir = path.resolve(process.cwd(), "public");
+            const filePath = path.resolve(process.cwd(), "public", url);
+            if (filePath.startsWith(publicDir + path.sep) && fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
             }
           }

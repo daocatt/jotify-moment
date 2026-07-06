@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, posts, settings, verificationCodes, accounts } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
 import crypto from "crypto";
+import path from "path";
 import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
@@ -15,7 +16,11 @@ const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_th
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
-  if (url.startsWith("/uploads/")) return true;
+  if (url.startsWith("/uploads/")) {
+    if (url.includes("..")) return false;
+    const resolved = path.resolve("/", url);
+    return resolved.startsWith("/uploads/");
+  }
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" || parsed.protocol === "http:";
@@ -856,6 +861,10 @@ export async function updateFaviconAction(faviconUrl: string) {
   const user = await getSessionUser();
   if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
     return { error: "Unauthorized" };
+  }
+
+  if (!isValidUrl(faviconUrl)) {
+    return { error: "Invalid favicon URL" };
   }
 
   try {
