@@ -15,7 +15,29 @@ function hashToken(token: string): string {
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
 
+function purgeExpiredRateLimits() {
+  const now = Date.now();
+  for (const [k, v] of CODE_RATE_LIMITS) {
+    if (now - v >= CODE_RATE_WINDOW) CODE_RATE_LIMITS.delete(k);
+  }
+  for (const [k, v] of LOGIN_RATE_LIMITS) {
+    if (now > v.resetAt) LOGIN_RATE_LIMITS.delete(k);
+  }
+  for (const [k, v] of RESET_PASSWORD_SEND_LIMITS) {
+    if (now > v.resetAt) RESET_PASSWORD_SEND_LIMITS.delete(k);
+  }
+}
+
+let lastPurgeAt = 0;
+function maybePurge() {
+  const now = Date.now();
+  if (now - lastPurgeAt < 60_000) return;
+  lastPurgeAt = now;
+  purgeExpiredRateLimits();
+}
+
 function checkRateLimit(key: string): boolean {
+  maybePurge();
   const now = Date.now();
   const lastSent = CODE_RATE_LIMITS.get(key);
   if (lastSent && now - lastSent < CODE_RATE_WINDOW) {
@@ -398,6 +420,7 @@ const RESET_PASSWORD_24H = 24 * 60 * 60 * 1000;
 const RESET_PASSWORD_SEND_LIMITS = new Map<string, { count: number; resetAt: number }>();
 
 function checkResetPasswordSendLimit(email: string): { allowed: boolean; count: number } {
+  maybePurge();
   const now = Date.now();
   const entry = RESET_PASSWORD_SEND_LIMITS.get(email);
   if (!entry || now > entry.resetAt) {
