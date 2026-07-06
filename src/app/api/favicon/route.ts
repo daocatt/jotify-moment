@@ -15,9 +15,10 @@ export async function GET() {
 
     if (row?.value) {
       const faviconUrl = row.value;
-      if (faviconUrl.startsWith("/uploads/")) {
-        const filePath = path.join(process.cwd(), "public", faviconUrl);
-        if (fs.existsSync(filePath)) {
+      if (faviconUrl.startsWith("/uploads/") && !faviconUrl.includes("..")) {
+        const publicDir = path.resolve(process.cwd(), "public");
+        const filePath = path.resolve(process.cwd(), "public", faviconUrl);
+        if (filePath.startsWith(publicDir + path.sep) && fs.existsSync(filePath)) {
           const buffer = fs.readFileSync(filePath);
           const ext = path.extname(filePath).toLowerCase();
           const contentType = ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".svg" ? "image/svg+xml" : ext === ".ico" ? "image/x-icon" : "image/png";
