@@ -29,6 +29,7 @@ const HELP_TEXT = `📖 Moment Bot 使用指南
 
 🔹 发帖：直接发送文字、图片、语音、视频（或组合发送）
 🔹 绑定：在 Moment 个人主页的资料编辑中生成绑定 Token，然后发送 /start <token>
+🔹 个人信息：/me
 🔹 帮助：/help
 
 📌 多张图片请作为相册发送，会合并到一条动态中
@@ -170,6 +171,55 @@ export async function POST(req: Request) {
       if (message.chat.type === "private") {
         await sendTelegramMessage(botToken, chatId, HELP_TEXT);
       }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Handle /me command (private chat only)
+    if (message.text && message.text.trim() === "/me") {
+      if (message.chat.type !== "private") {
+        return NextResponse.json({ ok: true });
+      }
+
+      const authorUser = await db.query.users.findFirst({
+        where: eq(users.telegramChatId, chatIdStr),
+      });
+
+      if (!authorUser) {
+        await sendTelegramMessage(
+          botToken,
+          chatId,
+          `⚠️ 你还没有绑定 Moment 账户。\n请先在 Moment 个人主页生成绑定 Token，然后发送 /start <token>`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      const regTime = new Date(authorUser.createdAt).toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        hour12: false,
+      });
+
+      const roleMap: Record<string, string> = {
+        super_admin: "超级管理员 (super_admin)",
+        admin: "管理员 (admin)",
+        user: "普通用户 (user)",
+        guest: "访客 (guest)",
+      };
+
+      const roleStr = roleMap[authorUser.role] || authorUser.role;
+      const statusStr = authorUser.status === "active" ? "正常" : "被封禁/挂起";
+
+      const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+      const homePageUrl = authorUser.slug ? `${baseUrl}/u/${authorUser.slug}` : `${baseUrl}`;
+
+      const replyText = `👤 你的个人注册信息：\n\n` +
+        `昵称：${authorUser.name}\n` +
+        `邮箱：${authorUser.email}\n` +
+        `角色：${roleStr}\n` +
+        `状态：${statusStr}\n` +
+        `注册时间：${regTime}\n\n` +
+        `🏠 个人主页地址：\n${homePageUrl}`;
+
+      await sendTelegramMessage(botToken, chatId, replyText);
       return NextResponse.json({ ok: true });
     }
 
