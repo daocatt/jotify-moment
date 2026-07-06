@@ -211,9 +211,11 @@ export async function POST(req: Request) {
       const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
       const homePageUrl = authorUser.slug ? `${baseUrl}/u/${authorUser.slug}` : `${baseUrl}`;
 
+      const maskedEmail = authorUser.email.replace(/^(.{1,2})(.*)(@.*)$/, (_, a, b, c) => a + "*".repeat(b.length) + c);
+
       const replyText = `👤 你的个人注册信息：\n\n` +
         `昵称：${authorUser.name}\n` +
-        `邮箱：${authorUser.email}\n` +
+        `邮箱：${maskedEmail}\n` +
         `角色：${roleStr}\n` +
         `状态：${statusStr}\n` +
         `注册时间：${regTime}\n\n` +
