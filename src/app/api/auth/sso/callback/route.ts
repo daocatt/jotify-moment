@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { sessions, users, verificationCodes } from "@/db/schema";
+import { and, eq, gt } from "drizzle-orm";
 import crypto from "crypto";
 
 const SSO_TOKEN_EXPIRY_MS = 5 * 60 * 1000;
@@ -51,6 +51,20 @@ export async function GET(request: NextRequest) {
     if (!timingSafeEqual(hmac, expectedHmac)) {
       return new NextResponse("Invalid SSO signature", { status: 400 });
     }
+
+    const dbToken = await db.query.verificationCodes.findFirst({
+      where: and(
+        eq(verificationCodes.code, hmac),
+        eq(verificationCodes.type, "sso_token"),
+        gt(verificationCodes.expiresAt, new Date())
+      )
+    });
+
+    if (!dbToken) {
+      return new NextResponse("SSO token has already been used or expired", { status: 400 });
+    }
+
+    await db.delete(verificationCodes).where(eq(verificationCodes.id, dbToken.id));
 
     const sessionToken = crypto.randomUUID();
     const now = new Date();
