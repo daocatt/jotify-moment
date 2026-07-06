@@ -9,7 +9,20 @@ const INIT_STATUS_LIMITS = new Map<string, { count: number; resetAt: number }>()
 const MAX_INIT_STATUS_REQUESTS = 10;
 const INIT_STATUS_WINDOW = 60_000;
 
+let lastPurgeAt = 0;
+function purgeExpiredInitStatusLimits() {
+  const now = Date.now();
+  if (now - lastPurgeAt < 60_000) return;
+  lastPurgeAt = now;
+  for (const [k, v] of INIT_STATUS_LIMITS) {
+    if (now > v.resetAt) {
+      INIT_STATUS_LIMITS.delete(k);
+    }
+  }
+}
+
 function checkInitStatusRateLimit(ip: string): boolean {
+  purgeExpiredInitStatusLimits();
   const now = Date.now();
   const entry = INIT_STATUS_LIMITS.get(ip);
   if (!entry || now > entry.resetAt) {
@@ -17,9 +30,6 @@ function checkInitStatusRateLimit(ip: string): boolean {
     return true;
   }
   entry.count++;
-  if (now - entry.resetAt + INIT_STATUS_WINDOW > INIT_STATUS_WINDOW * 10) {
-    INIT_STATUS_LIMITS.delete(ip);
-  }
   return entry.count <= MAX_INIT_STATUS_REQUESTS;
 }
 
