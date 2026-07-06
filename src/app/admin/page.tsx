@@ -7,6 +7,8 @@ export const metadata = {
   description: "系统设置、待审核发布与用户管理",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminConsolePage() {
   const currentUser = await getSessionUser();
 
