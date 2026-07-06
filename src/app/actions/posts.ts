@@ -182,6 +182,9 @@ export async function updatePostAction(postId: string, content: string) {
     if (!post) return { error: "Post not found" };
     if (post.userId !== user.id) return { error: "Unauthorized" };
     if (!content.trim()) return { error: "内容不能为空" };
+    if (content.length > MAX_POST_LENGTH) {
+      return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
+    }
 
     await db.update(posts).set({ content: content.trim() }).where(eq(posts.id, postId));
     revalidatePath("/");
