@@ -473,6 +473,7 @@ export async function addCommentAction(postId: string, content: string) {
   if (!user) return { error: "Unauthorized" };
   if (user.status === "suspended") return { error: "Your account is suspended" };
   if (!content.trim()) return { error: "Comment content cannot be empty" };
+  if (content.length > 500) return { error: "评论内容不能超过 500 字" };
 
   try {
     const post = await db.query.posts.findFirst({
