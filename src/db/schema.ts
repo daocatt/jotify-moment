@@ -159,6 +159,7 @@ export const verificationCodes = pgTable("verification_codes", {
 }, (table) => [
   index("verification_codes_email_idx").on(table.email),
   index("verification_codes_lookup_idx").on(table.email, table.code, table.type),
+  uniqueIndex("verification_codes_type_code_idx").on(table.type, table.code),
 ]);
 
 // Relations

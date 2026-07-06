@@ -4,10 +4,29 @@ import { settings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import dns from "dns/promises";
 
 export const dynamic = "force-dynamic";
 
+function isPrivateIP(ip: string): boolean {
+  return /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|::1|fe80:|fc00:|fd)/.test(ip);
+}
+
+async function isResolvedToPrivateIP(hostname: string): Promise<boolean> {
+  try {
+    const result = await dns.resolve4(hostname);
+    if (result.some(isPrivateIP)) return true;
+    const result6 = await dns.resolve6(hostname).catch(() => [] as string[]);
+    if (result6.some(isPrivateIP)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 async function isAllowedFaviconHost(hostname: string): Promise<boolean> {
+  if (await isResolvedToPrivateIP(hostname)) return false;
+
   const mainHostEnv = process.env.MAIN_HOST || "";
   const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
   if (mainHosts.includes(hostname.toLowerCase())) return true;
