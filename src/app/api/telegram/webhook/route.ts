@@ -223,6 +223,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // Handle unknown commands (any message starting with /)
+    if (message.text && message.text.startsWith("/")) {
+      if (message.chat.type === "private") {
+        await sendTelegramMessage(botToken, chatId, `❌ 未知命令。发送 /help 查看可用命令。`);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     // Only process post creation in private chat
     if (message.chat.type !== "private") {
       return NextResponse.json({ ok: true });
