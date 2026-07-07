@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface TurnstileProps {
   sitekey: string;
   onVerify: (token: string) => void;
   onExpire?: () => void;
+  onError?: (error: string) => void;
   languageOverride?: string;
 }
 
@@ -18,6 +19,7 @@ declare global {
           sitekey: string;
           callback: (token: string) => void;
           "expired-callback"?: () => void;
+          "error-callback"?: (error: string) => void;
           language?: string;
         }
       ) => string;
@@ -26,9 +28,26 @@ declare global {
   }
 }
 
-export function Turnstile({ sitekey, onVerify, onExpire, languageOverride }: TurnstileProps) {
+const SCRIPT_LOAD_TIMEOUT = 15_000;
+const POLL_INTERVAL = 100;
+
+export function Turnstile({ sitekey, onVerify, onExpire, onError, languageOverride }: TurnstileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+
+  onVerifyRef.current = onVerify;
+  onExpireRef.current = onExpire;
+  onErrorRef.current = onError;
+
+  const removeWidget = useCallback(() => {
+    if (widgetIdRef.current && window.turnstile) {
+      window.turnstile.remove(widgetIdRef.current);
+      widgetIdRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const scriptId = "cloudflare-turnstile-script";
@@ -48,12 +67,14 @@ export function Turnstile({ sitekey, onVerify, onExpire, languageOverride }: Tur
         try {
           widgetIdRef.current = window.turnstile.render(containerRef.current, {
             sitekey,
-            callback: onVerify,
-            "expired-callback": onExpire,
+            callback: (token: string) => onVerifyRef.current(token),
+            "expired-callback": () => onExpireRef.current?.(),
+            "error-callback": (error: string) => onErrorRef.current?.(error),
             language: languageOverride || "zh-cn",
           });
         } catch (err) {
           console.error("Failed to render Cloudflare Turnstile:", err);
+          onErrorRef.current?.(err instanceof Error ? err.message : "render_failed");
         }
       }
     };
@@ -61,28 +82,28 @@ export function Turnstile({ sitekey, onVerify, onExpire, languageOverride }: Tur
     if (window.turnstile) {
       renderWidget();
     } else {
+      let elapsed = 0;
       const interval = setInterval(() => {
+        elapsed += POLL_INTERVAL;
         if (window.turnstile) {
           clearInterval(interval);
           renderWidget();
+        } else if (elapsed >= SCRIPT_LOAD_TIMEOUT) {
+          clearInterval(interval);
+          onErrorRef.current?.("script_load_timeout");
         }
-      }, 100);
+      }, POLL_INTERVAL);
+
       return () => {
         clearInterval(interval);
-        if (widgetIdRef.current && window.turnstile) {
-          window.turnstile.remove(widgetIdRef.current);
-          widgetIdRef.current = null;
-        }
+        removeWidget();
       };
     }
 
     return () => {
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
-        widgetIdRef.current = null;
-      }
+      removeWidget();
     };
-  }, [sitekey, onVerify, onExpire, languageOverride]);
+  }, [sitekey, languageOverride, removeWidget]);
 
   return <div ref={containerRef} />;
 }

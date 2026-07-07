@@ -73,6 +73,9 @@ async function verifyTurnstile(token: string): Promise<boolean> {
       body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
     });
     const data = await res.json();
+    if (!data.success) {
+      console.warn("Turnstile verification failed:", data["error-codes"]);
+    }
     return data.success === true;
   } catch {
     return false;
