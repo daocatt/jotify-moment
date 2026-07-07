@@ -8,13 +8,6 @@ import { getSessionUser } from "@/lib/auth";
 const CODE_EXPIRY_MS = 60_000;
 const CODE_LENGTH = 32;
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const bufA = Buffer.from(a, "utf-8");
-  const bufB = Buffer.from(b, "utf-8");
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
 async function validateClient(clientId: string): Promise<boolean> {
   const mainHostEnv = process.env.MAIN_HOST || "";
   const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);

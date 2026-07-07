@@ -7,10 +7,9 @@ import crypto from "crypto";
 const CODE_EXPIRY_MS = 60_000;
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const bufA = Buffer.from(a, "utf-8");
-  const bufB = Buffer.from(b, "utf-8");
-  return crypto.timingSafeEqual(bufA, bufB);
+  const hashA = crypto.createHash("sha256").update(a).digest();
+  const hashB = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
 }
 
 async function validateClient(clientId: string): Promise<boolean> {
