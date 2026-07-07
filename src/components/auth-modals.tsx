@@ -226,6 +226,11 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
                 sitekey={TURNSTILE_SITE_KEY}
                 onVerify={(token) => setTurnstileToken(token)}
                 onExpire={() => setTurnstileToken("")}
+                onError={() => {
+                  setTurnstileToken("");
+                  toast.error("人机验证加载失败，请刷新页面重试");
+                }}
+                languageOverride="zh"
               />
             </div>
           )}
