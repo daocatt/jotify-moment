@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Turnstile } from "@/components/ui/turnstile";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isTurnstileEnabledAction } from "@/app/actions/auth";
+import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction } from "@/app/actions/auth";
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+const TURNSTILE_ENABLED = !!TURNSTILE_SITE_KEY;
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -26,24 +28,13 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
-  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string>("");
   const [resetKey, setResetKey] = useState(0);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-
-  useEffect(() => {
-    isTurnstileEnabledAction().then((res) => {
-      if (res.enabled) {
-        setTurnstileEnabled(true);
-        setTurnstileSiteKey(res.siteKey || "");
-      }
-    });
-  }, []);
 
   const resetCaptcha = () => {
     setTurnstileToken("");
@@ -73,7 +64,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
       toast.error("请输入电子邮箱");
       return;
     }
-    if (turnstileEnabled && !turnstileToken) {
+    if (TURNSTILE_ENABLED && !turnstileToken) {
       toast.error("请完成人机验证");
       return;
     }
@@ -95,7 +86,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (turnstileEnabled && !turnstileToken) {
+    if (TURNSTILE_ENABLED && !turnstileToken) {
       toast.error("请完成人机验证");
       return;
     }
@@ -222,11 +213,11 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
-          {turnstileEnabled && turnstileSiteKey && (
+          {TURNSTILE_ENABLED && TURNSTILE_SITE_KEY && (
             <div className="flex justify-center">
               <Turnstile
                 key={`${mode}-${resetKey}`}
-                sitekey={turnstileSiteKey}
+                sitekey={TURNSTILE_SITE_KEY}
                 onVerify={(token) => setTurnstileToken(token)}
                 onExpire={() => setTurnstileToken("")}
                 onError={() => {
