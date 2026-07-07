@@ -63,33 +63,36 @@ function checkLoginRateLimit(email: string): boolean {
   return entry.count <= MAX_LOGIN_ATTEMPTS;
 }
 
-async function verifyHcaptcha(token: string): Promise<boolean> {
-  const secret = process.env.HCAPTCHA_SECRET;
+async function verifyTurnstile(token: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET;
   if (!secret) return true;
   try {
-    const res = await fetch("https://api.hcaptcha.com/siteverify", {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
     });
     const data = await res.json();
+    if (!data.success) {
+      console.warn("Turnstile verification failed:", data["error-codes"]);
+    }
     return data.success === true;
   } catch {
     return false;
   }
 }
 
-export async function isHcaptchaEnabledAction() {
-  return { enabled: !!process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY };
+export async function isTurnstileEnabledAction() {
+  return { enabled: !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY };
 }
 
-export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password", hcaptchaToken?: string) {
+export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password", turnstileToken?: string) {
   if (!email) return { error: "Email is required" };
 
-  const hcaptchaSiteKey = process.env.HCAPTCHA_SECRET;
-  if (hcaptchaSiteKey) {
-    if (!hcaptchaToken) return { error: "请完成人机验证" };
-    const valid = await verifyHcaptcha(hcaptchaToken);
+  const turnstileSecret = process.env.TURNSTILE_SECRET;
+  if (turnstileSecret) {
+    if (!turnstileToken) return { error: "请完成人机验证" };
+    const valid = await verifyTurnstile(turnstileToken);
     if (!valid) return { error: "人机验证失败，请重试" };
   }
 
@@ -131,18 +134,18 @@ export async function registerAction(data: {
   name: string;
   code: string;
   password?: string;
-  hcaptchaToken?: string;
+  turnstileToken?: string;
 }) {
-  const { email, name, code, password, hcaptchaToken } = data;
+  const { email, name, code, password, turnstileToken } = data;
 
   if (!email || !name || !code || !password) {
     return { error: "All fields are required" };
   }
 
-  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
-  if (hcaptchaSecret) {
-    if (!hcaptchaToken) return { error: "请完成人机验证" };
-    const valid = await verifyHcaptcha(hcaptchaToken);
+  const turnstileSecret = process.env.TURNSTILE_SECRET;
+  if (turnstileSecret) {
+    if (!turnstileToken) return { error: "请完成人机验证" };
+    const valid = await verifyTurnstile(turnstileToken);
     if (!valid) return { error: "人机验证失败，请重试" };
   }
 
@@ -264,17 +267,17 @@ export async function registerAction(data: {
   }
 }
 
-export async function loginAction(data: { email: string; password?: string; hcaptchaToken?: string }) {
-  const { email, password, hcaptchaToken } = data;
+export async function loginAction(data: { email: string; password?: string; turnstileToken?: string }) {
+  const { email, password, turnstileToken } = data;
 
   if (!email || !password) {
     return { error: "Email and password are required" };
   }
 
-  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
-  if (hcaptchaSecret) {
-    if (!hcaptchaToken) return { error: "请完成人机验证" };
-    const valid = await verifyHcaptcha(hcaptchaToken);
+  const turnstileSecret = process.env.TURNSTILE_SECRET;
+  if (turnstileSecret) {
+    if (!turnstileToken) return { error: "请完成人机验证" };
+    const valid = await verifyTurnstile(turnstileToken);
     if (!valid) return { error: "人机验证失败，请重试" };
   }
 
@@ -437,13 +440,13 @@ function checkResetPasswordSendLimit(email: string): { allowed: boolean; count: 
   return { allowed: true, count: entry.count };
 }
 
-export async function sendResetPasswordLinkAction(email: string, origin: string, hcaptchaToken?: string) {
+export async function sendResetPasswordLinkAction(email: string, origin: string, turnstileToken?: string) {
   if (!email) return { error: "邮箱不能为空" };
 
-  const hcaptchaSecret = process.env.HCAPTCHA_SECRET;
-  if (hcaptchaSecret) {
-    if (!hcaptchaToken) return { error: "请完成人机验证" };
-    const valid = await verifyHcaptcha(hcaptchaToken);
+  const turnstileSecret = process.env.TURNSTILE_SECRET;
+  if (turnstileSecret) {
+    if (!turnstileToken) return { error: "请完成人机验证" };
+    const valid = await verifyTurnstile(turnstileToken);
     if (!valid) return { error: "人机验证失败，请重试" };
   }
 
@@ -624,54 +627,4 @@ export async function guestSendResetPasswordAction(origin: string) {
   }
 }
 
-export async function generateSSOTokenAction(callbackUrl?: string) {
-  try {
-    const user = await getSessionUser();
-    if (!user) return { error: "Unauthorized" };
-
-    if (callbackUrl) {
-      let callbackHost: string;
-      try {
-        callbackHost = new URL(callbackUrl).hostname.toLowerCase();
-      } catch {
-        return { error: "Invalid callback URL" };
-      }
-
-      const mainHostEnv = process.env.MAIN_HOST || "";
-      const mainHosts = mainHostEnv.split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
-      if (mainHosts.includes(callbackHost)) {
-        return { error: "Callback cannot be a main host domain" };
-      }
-
-      const domainUser = await db.query.users.findFirst({
-        where: and(
-          eq(users.customDomain, callbackHost),
-          eq(users.allowCustomDomain, true),
-        ),
-        columns: { id: true },
-      });
-      if (!domainUser) {
-        return { error: "Callback domain is not a registered custom domain" };
-      }
-    }
-
-    const secret = process.env.BETTER_AUTH_SECRET;
-    if (!secret) return { error: "Server configuration error" };
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    const payload = `${user.id}:${expiresAt}`;
-    const hmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-    const token = Buffer.from(`${payload}:${hmac}`).toString("base64");
-
-    await db.insert(verificationCodes).values({
-      email: user.email || "",
-      code: hmac,
-      type: "sso_token",
-      expiresAt: new Date(expiresAt),
-    });
-
-    return { success: true, token };
-  } catch (error) {
-    console.error("generateSSOTokenAction error:", error);
-    return { error: "Internal server error" };
-  }
-}
+    
