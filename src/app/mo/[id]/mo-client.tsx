@@ -10,7 +10,7 @@ import { AuthModals } from "@/components/auth-modals";
 import { getPostByIdAction } from "@/app/actions/posts";
 import { useTheme } from "@/components/theme-provider";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
-import { useSSOCallback } from "@/lib/use-sso";
+import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
 
 interface MoClientProps {
@@ -34,15 +34,17 @@ export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps
   const handleLoginClick = useCallback(() => {
     if (isCustomDomain && mainHost) {
       const protocol = window.location.protocol;
-      const callback = encodeURIComponent(window.location.href);
-      window.location.href = `${protocol}//${mainHost}/?sso_action=login&callback=${callback}`;
+      const clientId = encodeURIComponent(window.location.hostname);
+      const redirectUri = encodeURIComponent(`${protocol}//${window.location.hostname}/api/auth/oauth2/callback`);
+      const state = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/api/auth/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
     } else {
       setAuthModalMode("login");
       setAuthModalOpen(true);
     }
   }, [isCustomDomain, mainHost]);
 
-  useSSOCallback(isCustomDomain);
+  useOAuthCallback(isCustomDomain);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);

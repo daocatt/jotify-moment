@@ -9,9 +9,8 @@ import { MomentPost } from "@/components/moment-post";
 import { Lightbox } from "@/components/lightbox";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { getPublicSettingsAction } from "@/app/actions/admin";
-import { generateSSOTokenAction } from "@/app/actions/auth";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
-import { useSSOCallback } from "@/lib/use-sso";
+import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
 import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
@@ -198,45 +197,35 @@ export function TimelineShell({
     }
   }, [activeThemeId, resolvedTheme.features.supportedModes, setTheme, mounted, sysSettings, theme, profileUser?.theme]);
 
-  useSSOCallback(isCustomDomain);
+  useOAuthCallback(isCustomDomain);
 
   useEffect(() => {
     if (typeof window === "undefined" || isCustomDomain || !mounted) return;
 
     const searchParams = new URLSearchParams(window.location.search);
-    const ssoAction = searchParams.get("sso_action");
-    if (!ssoAction) return;
+    const oauthAction = searchParams.get("oauth_action");
+    if (!oauthAction) return;
 
-    if (currentUser) {
-      const callback = searchParams.get("callback");
-      if (callback) {
-        generateSSOTokenAction(callback).then((tokenRes) => {
-          if (tokenRes.success && tokenRes.token) {
-            const callbackUrl = new URL(callback);
-            callbackUrl.searchParams.set("sso_token", tokenRes.token);
-            window.location.href = callbackUrl.toString();
-          } else {
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete("sso_action");
-            cleanUrl.searchParams.delete("callback");
-            router.replace(cleanUrl.pathname + cleanUrl.search);
-          }
-        });
+    if (oauthAction === "authorize") {
+      const oauthReturn = searchParams.get("oauth_return");
+      if (currentUser && oauthReturn) {
+        window.location.href = oauthReturn;
+      } else if (!currentUser) {
+        setAuthModalMode("login");
+        setAuthModalOpen(true);
       } else {
         const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete("sso_action");
+        cleanUrl.searchParams.delete("oauth_action");
+        cleanUrl.searchParams.delete("oauth_return");
         router.replace(cleanUrl.pathname + cleanUrl.search);
       }
       return;
     }
 
-    if (ssoAction === "login") {
-      setAuthModalMode("login");
-      setAuthModalOpen(true);
-    } else if (ssoAction === "register") {
-      setAuthModalMode("register");
-      setAuthModalOpen(true);
-    }
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("oauth_action");
+    cleanUrl.searchParams.delete("oauth_return");
+    router.replace(cleanUrl.pathname + cleanUrl.search);
   }, [currentUser, isCustomDomain, mounted, router]);
 
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -252,8 +241,10 @@ export function TimelineShell({
   const handleLoginClick = useCallback(() => {
     if (isCustomDomain && mainHost) {
       const protocol = window.location.protocol;
-      const callback = encodeURIComponent(window.location.href);
-      window.location.href = `${protocol}//${mainHost}/?sso_action=login&callback=${callback}`;
+      const clientId = encodeURIComponent(window.location.hostname);
+      const redirectUri = encodeURIComponent(`${protocol}//${window.location.hostname}/api/auth/oauth2/callback`);
+      const state = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/api/auth/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
     } else {
       setAuthModalMode("login");
       setAuthModalOpen(true);
@@ -263,8 +254,10 @@ export function TimelineShell({
   const handleRegisterClick = useCallback(() => {
     if (isCustomDomain && mainHost) {
       const protocol = window.location.protocol;
-      const callback = encodeURIComponent(window.location.href);
-      window.location.href = `${protocol}//${mainHost}/?sso_action=register&callback=${callback}`;
+      const clientId = encodeURIComponent(window.location.hostname);
+      const redirectUri = encodeURIComponent(`${protocol}//${window.location.hostname}/api/auth/oauth2/callback`);
+      const state = encodeURIComponent(window.location.href);
+      window.location.href = `${protocol}//${mainHost}/api/auth/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
     } else {
       setAuthModalMode("register");
       setAuthModalOpen(true);
@@ -403,6 +396,16 @@ export function TimelineShell({
           >
             <Info size={16} />
           </Button>
+        )}
+        {isCustomDomain && (
+          <a
+            href="https://jotify.me"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center justify-center h-8 px-3 rounded-full text-xs font-semibold select-none cursor-pointer outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+          >
+            Jotify
+          </a>
         )}
       </div>
 
@@ -856,15 +859,10 @@ export function TimelineShell({
           onClose={() => setAuthModalOpen(false)}
           onSuccess={async () => {
             const searchParams = new URLSearchParams(window.location.search);
-            const callback = searchParams.get("callback");
-            if (callback) {
-              const tokenRes = await generateSSOTokenAction(callback);
-              if (tokenRes.success && tokenRes.token) {
-                const callbackUrl = new URL(callback);
-                callbackUrl.searchParams.set("sso_token", tokenRes.token);
-                window.location.href = callbackUrl.toString();
-                return;
-              }
+            const oauthReturn = searchParams.get("oauth_return");
+            if (oauthReturn) {
+              window.location.href = oauthReturn;
+              return;
             }
             fetchSession();
             onRefresh();
