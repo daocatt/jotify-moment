@@ -82,13 +82,6 @@ async function verifyTurnstile(token: string): Promise<boolean> {
   }
 }
 
-export async function isTurnstileEnabledAction() {
-  return {
-    enabled: !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
-    siteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
-  };
-}
-
 export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password", turnstileToken?: string) {
   if (!email) return { error: "Email is required" };
 

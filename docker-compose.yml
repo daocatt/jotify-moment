@@ -24,6 +24,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        - NEXT_PUBLIC_GA_ID=${NEXT_PUBLIC_GA_ID:-}
     container_name: jotify-moment-web
     restart: always
     env_file:
