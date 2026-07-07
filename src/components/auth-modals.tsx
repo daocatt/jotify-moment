@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isTurnstileEnabledAction } from "@/app/actions/auth";
 
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -29,6 +28,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [countdown, setCountdown] = useState(0);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string>("");
   const [resetKey, setResetKey] = useState(0);
 
   const [email, setEmail] = useState("");
@@ -38,7 +38,10 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
 
   useEffect(() => {
     isTurnstileEnabledAction().then((res) => {
-      if (res.enabled) setTurnstileEnabled(true);
+      if (res.enabled) {
+        setTurnstileEnabled(true);
+        setTurnstileSiteKey(res.siteKey || "");
+      }
     });
   }, []);
 
@@ -219,11 +222,11 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
-          {turnstileEnabled && TURNSTILE_SITE_KEY && (
+          {turnstileEnabled && turnstileSiteKey && (
             <div className="flex justify-center">
               <Turnstile
                 key={`${mode}-${resetKey}`}
-                sitekey={TURNSTILE_SITE_KEY}
+                sitekey={turnstileSiteKey}
                 onVerify={(token) => setTurnstileToken(token)}
                 onExpire={() => setTurnstileToken("")}
                 onError={() => {
