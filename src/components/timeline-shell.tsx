@@ -404,6 +404,16 @@ export function TimelineShell({
             <Info size={16} />
           </Button>
         )}
+        {isCustomDomain && (
+          <a
+            href="https://jotify.me"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center justify-center h-8 px-3 rounded-full text-xs font-semibold select-none cursor-pointer outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+          >
+            Jotify
+          </a>
+        )}
       </div>
 
       {/* Sticky Top Bar */}
