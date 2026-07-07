@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { useState, useEffect } from "react";
+import { Turnstile } from "@/components/ui/turnstile";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isHcaptchaEnabledAction } from "@/app/actions/auth";
+import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction, isTurnstileEnabledAction } from "@/app/actions/auth";
 
-const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "";
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -27,9 +27,9 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [hcaptchaEnabled, setHcaptchaEnabled] = useState(false);
-  const [hcaptchaToken, setHcaptchaToken] = useState<string>("");
-  const captchaRef = useRef<HCaptcha>(null);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const [resetKey, setResetKey] = useState(0);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -37,14 +37,14 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [code, setCode] = useState("");
 
   useEffect(() => {
-    isHcaptchaEnabledAction().then((res) => {
-      if (res.enabled) setHcaptchaEnabled(true);
+    isTurnstileEnabledAction().then((res) => {
+      if (res.enabled) setTurnstileEnabled(true);
     });
   }, []);
 
   const resetCaptcha = () => {
-    setHcaptchaToken("");
-    captchaRef.current?.resetCaptcha();
+    setTurnstileToken("");
+    setResetKey((prev) => prev + 1);
   };
 
   const switchMode = (newMode: "login" | "register" | "forgot") => {
@@ -70,13 +70,13 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
       toast.error("请输入电子邮箱");
       return;
     }
-    if (hcaptchaEnabled && !hcaptchaToken) {
+    if (turnstileEnabled && !turnstileToken) {
       toast.error("请完成人机验证");
       return;
     }
     setLoading(true);
     const type = mode === "register" ? "register" : "forgot_password";
-    const res = await sendVerificationCodeAction(email, type, hcaptchaToken || undefined);
+    const res = await sendVerificationCodeAction(email, type, turnstileToken || undefined);
     setLoading(false);
 
     if (res.error) {
@@ -92,7 +92,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (hcaptchaEnabled && !hcaptchaToken) {
+    if (turnstileEnabled && !turnstileToken) {
       toast.error("请完成人机验证");
       return;
     }
@@ -100,7 +100,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
 
     try {
       if (mode === "login") {
-        const res = await loginAction({ email, password, hcaptchaToken: hcaptchaToken || undefined });
+        const res = await loginAction({ email, password, turnstileToken: turnstileToken || undefined });
         if (res.error) {
           toast.error(res.error);
           resetCaptcha();
@@ -110,7 +110,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           onClose();
         }
       } else if (mode === "register") {
-        const res = await registerAction({ email, name, code, password, hcaptchaToken: hcaptchaToken || undefined });
+        const res = await registerAction({ email, name, code, password, turnstileToken: turnstileToken || undefined });
         if (res.error) {
           toast.error(res.error);
           resetCaptcha();
@@ -121,7 +121,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           setPassword("");
         }
       } else {
-        const res = await sendResetPasswordLinkAction(email, window.location.origin, hcaptchaToken || undefined);
+        const res = await sendResetPasswordLinkAction(email, window.location.origin, turnstileToken || undefined);
         if (res.error) {
           toast.error(res.error);
           resetCaptcha();
@@ -219,14 +219,13 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
             </div>
           )}
 
-          {hcaptchaEnabled && HCAPTCHA_SITE_KEY && (
+          {turnstileEnabled && TURNSTILE_SITE_KEY && (
             <div className="flex justify-center">
-              <HCaptcha
-                ref={captchaRef}
-                sitekey={HCAPTCHA_SITE_KEY}
-                onVerify={(token) => setHcaptchaToken(token)}
-                onExpire={() => setHcaptchaToken("")}
-                languageOverride="zh"
+              <Turnstile
+                key={`${mode}-${resetKey}`}
+                sitekey={TURNSTILE_SITE_KEY}
+                onVerify={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
               />
             </div>
           )}
