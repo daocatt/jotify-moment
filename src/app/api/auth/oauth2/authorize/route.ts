@@ -57,9 +57,10 @@ export async function GET(request: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
     const returnTo = `/api/auth/oauth2/authorize?${searchParams.toString()}`;
-    const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("oauth_action", "authorize");
-    loginUrl.searchParams.set("oauth_return", returnTo);
+    const mainHostEnv = process.env.MAIN_HOST || "";
+    const primaryHost = mainHostEnv.split(",").map(h => h.trim()).filter(Boolean)[0] || request.headers.get("host") || "localhost:3000";
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    const loginUrl = new URL(`/?oauth_action=authorize&oauth_return=${encodeURIComponent(returnTo)}`, `${proto}://${primaryHost}`);
     return NextResponse.redirect(loginUrl);
   }
 
