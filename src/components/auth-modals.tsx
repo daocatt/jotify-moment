@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Turnstile } from "@/components/ui/turnstile";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction } from "@/app/actions/auth";
+import { getPublicSettingsAction } from "@/app/actions/admin";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const TURNSTILE_ENABLED = !!TURNSTILE_SITE_KEY;
@@ -22,9 +23,10 @@ interface AuthModalsProps {
   onClose: () => void;
   initialMode?: "login" | "register" | "forgot";
   onSuccess: () => void;
+  allowRegistration?: boolean;
 }
 
-export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }: AuthModalsProps) {
+export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, allowRegistration }: AuthModalsProps) {
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -36,12 +38,45 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
 
+  const [allowRegState, setAllowRegState] = useState<boolean | null>(
+    allowRegistration !== undefined ? allowRegistration : null
+  );
+
+  useEffect(() => {
+    if (allowRegistration !== undefined) {
+      setAllowRegState(allowRegistration);
+      if (!allowRegistration && mode === "register") {
+        setMode("login");
+      }
+      return;
+    }
+
+    if (isOpen) {
+      getPublicSettingsAction().then((res) => {
+        if (res.success && res.settings) {
+          const allowed = res.settings.allow_registration !== "false";
+          setAllowRegState(allowed);
+          if (!allowed && mode === "register") {
+            setMode("login");
+            toast.error("管理员已关闭注册通道");
+          }
+        } else {
+          setAllowRegState(true);
+        }
+      });
+    }
+  }, [isOpen, allowRegistration, mode]);
+
   const resetCaptcha = () => {
     setTurnstileToken("");
     setResetKey((prev) => prev + 1);
   };
 
   const switchMode = (newMode: "login" | "register" | "forgot") => {
+    if (newMode === "register" && allowRegState === false) {
+      toast.error("注册通道已关闭，暂时无法注册");
+      return;
+    }
     setMode(newMode);
     resetCaptcha();
   };
@@ -236,20 +271,32 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess }
           <div className="flex justify-between text-xs mt-4 text-muted-foreground">
             {mode === "login" ? (
               <>
-                <button
-                  type="button"
-                  onClick={() => switchMode("register")}
-                  className="hover:underline hover:text-primary"
-                >
-                  注册新账号
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode("forgot")}
-                  className="hover:underline hover:text-primary"
-                >
-                  忘记密码？
-                </button>
+                {allowRegState !== false ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => switchMode("register")}
+                      className="hover:underline hover:text-primary"
+                    >
+                      注册新账号
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchMode("forgot")}
+                      className="hover:underline hover:text-primary"
+                    >
+                      忘记密码？
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    className="hover:underline hover:text-primary mx-auto"
+                  >
+                    忘记密码？
+                  </button>
+                )}
               </>
             ) : (
               <button

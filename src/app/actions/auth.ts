@@ -85,6 +85,18 @@ async function verifyTurnstile(token: string): Promise<boolean> {
 export async function sendVerificationCodeAction(email: string, type: "register" | "forgot_password", turnstileToken?: string) {
   if (!email) return { error: "Email is required" };
 
+  if (type === "register") {
+    const isFirstUser = (await db.query.users.findFirst({ columns: { id: true } })) === undefined;
+    if (!isFirstUser) {
+      const allowReg = await db.query.settings.findFirst({
+        where: eq(settings.key, "allow_registration"),
+      });
+      if (allowReg && allowReg.value !== "true") {
+        return { error: "注册通道已关闭，暂时无法注册" };
+      }
+    }
+  }
+
   const turnstileSecret = process.env.TURNSTILE_SECRET;
   if (turnstileSecret) {
     if (!turnstileToken) return { error: "请完成人机验证" };

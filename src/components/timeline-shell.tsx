@@ -856,6 +856,7 @@ export function TimelineShell({
         <AuthModals
           isOpen={authModalOpen}
           initialMode={authModalMode}
+          allowRegistration={sysSettings?.allow_registration !== "false"}
           onClose={() => setAuthModalOpen(false)}
           onSuccess={async () => {
             const searchParams = new URLSearchParams(window.location.search);
