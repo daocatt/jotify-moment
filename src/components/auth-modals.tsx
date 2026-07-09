@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Turnstile } from "@/components/ui/turnstile";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,34 +38,40 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
 
-  const [allowRegState, setAllowRegState] = useState<boolean | null>(
-    allowRegistration !== undefined ? allowRegistration : null
+  const [allowRegState, setAllowRegState] = useState<boolean | undefined>(
+    allowRegistration
   );
 
   useEffect(() => {
     if (allowRegistration !== undefined) {
       setAllowRegState(allowRegistration);
-      if (!allowRegistration && mode === "register") {
-        setMode("login");
-      }
       return;
     }
 
-    if (isOpen) {
-      getPublicSettingsAction().then((res) => {
-        if (res.success && res.settings) {
-          const allowed = res.settings.allow_registration !== "false";
-          setAllowRegState(allowed);
-          if (!allowed && mode === "register") {
-            setMode("login");
-            toast.error("管理员已关闭注册通道");
-          }
-        } else {
-          setAllowRegState(true);
-        }
-      });
+    if (!isOpen) return;
+
+    let cancelled = false;
+    getPublicSettingsAction().then((res) => {
+      if (cancelled) return;
+      if (res.success && res.settings) {
+        setAllowRegState(res.settings.allow_registration !== "false");
+      } else {
+        setAllowRegState(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, allowRegistration]);
+
+  const enforceRegRestriction = useCallback(() => {
+    if (allowRegState === false && mode === "register") {
+      setMode("login");
+      toast.error("管理员已关闭注册通道");
     }
-  }, [isOpen, allowRegistration, mode]);
+  }, [allowRegState, mode]);
+
+  useEffect(() => {
+    enforceRegRestriction();
+  }, [enforceRegRestriction]);
 
   const resetCaptcha = () => {
     setTurnstileToken("");
@@ -73,7 +79,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
   };
 
   const switchMode = (newMode: "login" | "register" | "forgot") => {
-    if (newMode === "register" && allowRegState === false) {
+    if (newMode === "register" && !allowRegState) {
       toast.error("注册通道已关闭，暂时无法注册");
       return;
     }
@@ -271,32 +277,22 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
           <div className="flex justify-between text-xs mt-4 text-muted-foreground">
             {mode === "login" ? (
               <>
-                {allowRegState !== false ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => switchMode("register")}
-                      className="hover:underline hover:text-primary"
-                    >
-                      注册新账号
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => switchMode("forgot")}
-                      className="hover:underline hover:text-primary"
-                    >
-                      忘记密码？
-                    </button>
-                  </>
-                ) : (
+                {allowRegState !== false && (
                   <button
                     type="button"
-                    onClick={() => switchMode("forgot")}
-                    className="hover:underline hover:text-primary mx-auto"
+                    onClick={() => switchMode("register")}
+                    className="hover:underline hover:text-primary"
                   >
-                    忘记密码？
+                    注册新账号
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className={`hover:underline hover:text-primary ${allowRegState === false ? "mx-auto" : ""}`}
+                >
+                  忘记密码？
+                </button>
               </>
             ) : (
               <button
