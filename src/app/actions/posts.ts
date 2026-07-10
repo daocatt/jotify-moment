@@ -37,6 +37,10 @@ export async function createPostAction(data: {
     return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
   }
 
+  if (data.ytVideoId && !/^[a-zA-Z0-9_-]{11}$/.test(data.ytVideoId)) {
+    return { error: "Invalid YouTube video ID" };
+  }
+
   try {
     const requireApprovalRow = await db.query.settings.findFirst({
       where: eq(settings.key, "require_approval"),
