@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+const MAX_INIT_STATUS_ENTRIES = 10000;
+
 const INIT_STATUS_LIMITS = new Map<string, { count: number; resetAt: number }>();
 const MAX_INIT_STATUS_REQUESTS = 10;
 const INIT_STATUS_WINDOW = 60_000;
@@ -17,6 +19,12 @@ function purgeExpiredInitStatusLimits() {
   for (const [k, v] of INIT_STATUS_LIMITS) {
     if (now > v.resetAt) {
       INIT_STATUS_LIMITS.delete(k);
+    }
+  }
+  if (INIT_STATUS_LIMITS.size > MAX_INIT_STATUS_ENTRIES) {
+    const keys = [...INIT_STATUS_LIMITS.keys()];
+    for (let i = 0; i < keys.length - MAX_INIT_STATUS_ENTRIES; i++) {
+      INIT_STATUS_LIMITS.delete(keys[i]);
     }
   }
 }
