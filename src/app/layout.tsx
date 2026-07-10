@@ -44,7 +44,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
-        {/* SAFE: hardcoded theme-switching script, no user input */}
+        {/* SECURITY: hardcoded theme-switching script only — no user input ever interpolated. Do NOT add dynamic values here. */}
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("active-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}` }} />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground relative">
