@@ -253,10 +253,14 @@ export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: str
 
           const publicUrl = config.s3PublicUrl
             ? `${config.s3PublicUrl}`
-            : `${config.s3Endpoint}/${config.s3BucketName}`;
-          if (url.startsWith(publicUrl)) {
+            : config.s3Endpoint
+              ? `${config.s3Endpoint}/${config.s3BucketName}`
+              : null;
+          if (publicUrl && url.startsWith(publicUrl)) {
             const key = url.slice(publicUrl.length + 1);
-            await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
+            if (key && !key.startsWith("/") && !key.includes("..")) {
+              await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
+            }
           }
         } else {
           if (url.startsWith("/uploads/") && !url.includes("..")) {
