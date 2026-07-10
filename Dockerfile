@@ -31,7 +31,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/db/migrations ./src/db/migrations
 COPY --from=builder /app/src/db/migrate.js ./src/db/migrate.js
 
-RUN mkdir -p public/uploads && chmod 755 public/uploads
+RUN mkdir -p public/uploads && chmod 750 public/uploads
 
 EXPOSE 3000
 
