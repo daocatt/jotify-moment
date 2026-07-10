@@ -346,8 +346,9 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
         ) : post.content && (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
             <ReactMarkdown
-              // SECURITY: Never add rehype-raw or any plugin that renders raw HTML,
-              // as post.content is user-generated and would enable XSS.
+              // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw HTML.
+              // post.content is user-generated — enabling raw HTML would allow XSS attacks.
+              // If you need HTML rendering, sanitize with DOMPurify first.
               remarkPlugins={[remarkGfm, remarkBreaks]}
               components={{
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
