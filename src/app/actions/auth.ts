@@ -12,8 +12,18 @@ function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+const MAX_RATE_LIMIT_ENTRIES = 10000;
+
 const CODE_RATE_LIMITS = new Map<string, number>();
 const CODE_RATE_WINDOW = 60_000;
+
+function trimMap<K, V>(map: Map<K, V>, maxSize: number) {
+  if (map.size <= maxSize) return;
+  const keys = [...map.keys()];
+  for (let i = 0; i < keys.length - maxSize; i++) {
+    map.delete(keys[i]);
+  }
+}
 
 function purgeExpiredRateLimits() {
   const now = Date.now();
@@ -26,6 +36,9 @@ function purgeExpiredRateLimits() {
   for (const [k, v] of RESET_PASSWORD_SEND_LIMITS) {
     if (now > v.resetAt) RESET_PASSWORD_SEND_LIMITS.delete(k);
   }
+  trimMap(CODE_RATE_LIMITS, MAX_RATE_LIMIT_ENTRIES);
+  trimMap(LOGIN_RATE_LIMITS, MAX_RATE_LIMIT_ENTRIES);
+  trimMap(RESET_PASSWORD_SEND_LIMITS, MAX_RATE_LIMIT_ENTRIES);
 }
 
 let lastPurgeAt = 0;
