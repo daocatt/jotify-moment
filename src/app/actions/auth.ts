@@ -552,7 +552,7 @@ export async function verifyResetTokenAction(token: string) {
     });
 
     if (!validCode) return { valid: false };
-    return { valid: true, email: validCode.email };
+    return { valid: true };
   } catch {
     return { valid: false };
   }

@@ -13,7 +13,6 @@ export function ResetPasswordClient() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
 
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,6 @@ export function ResetPasswordClient() {
     verifyResetTokenAction(token).then((res) => {
       if (res.valid) {
         setTokenValid(true);
-        setEmail(res.email || "");
       } else {
         setTokenValid(false);
       }
@@ -124,7 +122,7 @@ export function ResetPasswordClient() {
           </div>
           <h2 className="text-lg font-bold text-foreground">重置您的密码</h2>
           <p className="text-xs text-muted-foreground">
-            正在重置账户 <span className="font-semibold text-foreground">{email}</span> 的登录密码
+            请输入您的新密码
           </p>
         </div>
 
