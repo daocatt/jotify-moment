@@ -18,6 +18,7 @@ export const auth = betterAuth({
       generateId: () => crypto.randomUUID(),
     },
   },
+  trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:3000"],
   emailAndPassword: {
     enabled: true,
     autoSignIn: false,
