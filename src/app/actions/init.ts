@@ -76,7 +76,7 @@ export async function initializeSystemAction(data: {
       });
 
       const sessionToken = crypto.randomUUID().replace(/-/g, "");
-      const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const sessionExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
       // 3. Directly create a session record in the database sessions table
       await tx.insert(sessions).values({
