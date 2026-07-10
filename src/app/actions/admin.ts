@@ -55,17 +55,18 @@ export async function getSettingsAction() {
 
 export async function getPublicSettingsAction() {
   try {
-    const allSettings = await db.query.settings.findMany();
+    const PUBLIC_KEYS = ["allow_registration", "require_approval", "global_theme"];
+    const publicSettings = await db.query.settings.findMany({
+      where: (s, { inArray }) => inArray(s.key, PUBLIC_KEYS),
+    });
     const settingsMap: Record<string, string> = {
       allow_registration: "true",
       require_approval: "false",
       global_theme: "default",
     };
 
-    for (const s of allSettings) {
-      if (s.key === "allow_registration" || s.key === "require_approval" || s.key === "global_theme") {
-        settingsMap[s.key] = s.value;
-      }
+    for (const s of publicSettings) {
+      settingsMap[s.key] = s.value;
     }
 
     return { success: true, settings: settingsMap };
