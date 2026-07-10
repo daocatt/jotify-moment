@@ -65,6 +65,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/uploads/")) {
+    if (pathname.includes("..") || pathname.endsWith("/")) {
+      return new NextResponse(null, { status: 403 });
+    }
+    const response = NextResponse.next();
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Cache-Control", "private, max-age=3600");
+    return response;
+  }
+
   const host = request.headers.get("host") || "";
   const hostname = host.split(":")[0].toLowerCase();
   const mainHosts = getMainHosts();
