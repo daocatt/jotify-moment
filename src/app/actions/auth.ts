@@ -469,7 +469,7 @@ export async function sendResetPasswordLinkAction(email: string, origin: string,
     });
 
     if (!user) {
-      return { error: "该邮箱未注册账户" };
+      return { success: true };
     }
 
     const existingToken = await db.query.verificationCodes.findFirst({
