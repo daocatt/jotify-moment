@@ -182,13 +182,13 @@ export async function proxy(request: NextRequest) {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
-      "media-src 'self' blob:",
-      "frame-src https://www.youtube.com",
-      "connect-src 'self'",
+      "media-src 'self' blob: https:",
+      "frame-src https://www.youtube.com https://challenges.cloudflare.com",
+      "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com",
     ].join("; ")
   );
 
