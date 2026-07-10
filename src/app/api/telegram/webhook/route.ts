@@ -4,6 +4,7 @@ import { posts, users, settings } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
+import crypto from "crypto";
 
 const MEDIA_GROUP_WINDOW_MS = 2000;
 const MAX_MEDIA_GROUP_CACHE = 500;
@@ -100,8 +101,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Webhook secret not configured" }, { status: 403 });
     }
 
-    const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-    if (secretHeader !== webhookSecretSetting.value) {
+    const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
+    const expectedSecret = webhookSecretSetting.value;
+    const headerBuf = Buffer.from(secretHeader);
+    const expectedBuf = Buffer.from(expectedSecret);
+    if (headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
       return NextResponse.json({ error: "Invalid secret token" }, { status: 403 });
     }
 
