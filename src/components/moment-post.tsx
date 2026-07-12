@@ -23,6 +23,9 @@ interface MomentPostProps {
     content: string;
     mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
     ytVideoId: string | null;
+    embedType?: string | null;
+    embedId?: string | null;
+    embedMeta?: { thumbnailUrl?: string; title?: string } | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
     profilePinned?: boolean;

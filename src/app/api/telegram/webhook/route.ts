@@ -4,6 +4,7 @@ import { posts, users, settings } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
+import { parseEmbedUrl } from "@/lib/embed-parser";
 import crypto from "crypto";
 
 const MEDIA_GROUP_WINDOW_MS = 2000;
@@ -406,14 +407,44 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       }
     }
 
-    let ytVideoId: string | null = null;
-    const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const ytMatch = content.match(ytRegex);
-    if (ytMatch) {
-      ytVideoId = ytMatch[1];
+    // Parse any embed URL from text (YouTube, Bilibili, TikTok, Spotify, etc.)
+    let embedType: string | null = null;
+    let embedId: string | null = null;
+    let embedMeta: { thumbnailUrl?: string; title?: string } | null = null;
+
+    // Find first URL in content and try to parse it as an embed
+    const urlMatch = content.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) {
+      const parsed = parseEmbedUrl(urlMatch[0]);
+      if (parsed) {
+        embedType = parsed.embedType;
+        embedId = parsed.embedId;
+        // Attempt to prefetch meta (non-fatal)
+        try {
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 4000);
+          if (embedType === "youtube") {
+            const r = await fetch(`https://www.youtube.com/oembed?url=https://youtu.be/${embedId}&format=json`, { signal: ctrl.signal });
+            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+          } else if (embedType === "bilibili") {
+            const isBV = embedId.toUpperCase().startsWith("BV");
+            const param = isBV ? `bvid=${embedId}` : `aid=${embedId.slice(2)}`;
+            const r = await fetch(`https://api.bilibili.com/x/web-interface/view?${param}`, { signal: ctrl.signal });
+            if (r.ok) { const j = await r.json() as { data?: { title?: string; pic?: string } }; embedMeta = { title: j.data?.title, thumbnailUrl: j.data?.pic }; }
+          } else if (embedType === "tiktok") {
+            const vu = embedId.length > 15 ? `https://www.tiktok.com/video/${embedId}` : `https://vm.tiktok.com/${embedId}`;
+            const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(vu)}`, { signal: ctrl.signal });
+            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+          } else if (embedType === "spotify" || embedType === "spotify-podcast") {
+            const su = `https://open.spotify.com/${embedId}`;
+            const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(su)}`, { signal: ctrl.signal });
+            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+          }
+        } catch { /* non-fatal */ }
+      }
     }
 
-    if (!content && mediaUrls.length === 0 && !ytVideoId) {
+    if (!content && mediaUrls.length === 0 && !embedType) {
       await sendTelegramMessage(botToken, chatId, `💡 请发送文字、图片、语音或视频来发布动态。\n发送 /help 查看使用指南。`);
       return NextResponse.json({ ok: true });
     }
@@ -431,7 +462,10 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       userId: authorUser.id,
       content: content || "",
       mediaUrls,
-      ytVideoId,
+      ytVideoId: embedType === "youtube" ? embedId : null,
+      embedType,
+      embedId,
+      embedMeta,
       status: postStatus,
     });
 
