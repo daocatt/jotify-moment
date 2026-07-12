@@ -148,7 +148,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const [storageActionLoading, setStorageActionLoading] = useState(false);
 
   // Comments tab states
-  const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [commentsList, setCommentsList] = useState<AdminComment[]>([]);
   const [commentsTotal, setCommentsTotal] = useState(0);
   const [commentsPage, setCommentsPage] = useState(1);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -1604,4 +1604,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       </Tabs>
     </div>
   );
+}
+
+interface AdminComment {
+  id: string;
+  content: string;
+  status: string;
+  createdAt: Date;
+  author: { id: string; name: string; avatar: string | null; role: string };
+  postId: string;
 }

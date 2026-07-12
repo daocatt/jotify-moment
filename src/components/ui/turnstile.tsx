@@ -73,7 +73,6 @@ export function Turnstile({ sitekey, onVerify, onExpire, onError, languageOverri
             language: languageOverride || "zh-cn",
           });
         } catch (err) {
-          console.error("Failed to render Cloudflare Turnstile:", err);
           onErrorRef.current?.(err instanceof Error ? err.message : "render_failed");
         }
       }

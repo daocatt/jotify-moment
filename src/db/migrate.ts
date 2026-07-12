@@ -2,7 +2,10 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
-const connectionString = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/jotify_moment";
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+const connectionString = process.env.DATABASE_URL;
 
 async function run() {
   console.log("Running migrations...");

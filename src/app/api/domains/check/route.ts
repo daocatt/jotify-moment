@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/db";
 import { users, settings } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,7 +11,13 @@ export async function GET(request: NextRequest) {
 
   // 1. Authenticate check request using token
   const expectedToken = process.env.CADDY_ASK_TOKEN;
-  if (!expectedToken || token !== expectedToken) {
+  if (!expectedToken || !token) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const tokenBuf = Buffer.from(token);
+  const expectedBuf = Buffer.from(expectedToken);
+  if (tokenBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(tokenBuf, expectedBuf)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

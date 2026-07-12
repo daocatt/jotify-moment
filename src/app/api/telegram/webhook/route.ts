@@ -10,7 +10,7 @@ const MEDIA_GROUP_WINDOW_MS = 2000;
 const MAX_MEDIA_GROUP_CACHE = 500;
 
 const mediaGroupCache = new Map<string, {
-  messages: any[];
+  messages: TelegramMessage[];
   timer: ReturnType<typeof setTimeout>;
 }>();
 
@@ -115,13 +115,13 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const message = body.message;
+    const message: TelegramMessage | undefined = body.message;
 
     if (!message) {
       return NextResponse.json({ message: "No message payload" });
     }
 
-    if (message.from.is_bot) {
+    if (!message.from || message.from.is_bot) {
       return NextResponse.json({ message: "Bot messages are not allowed" });
     }
 
@@ -298,7 +298,7 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
 
   for (const msg of messages) {
     if (msg.photo && msg.photo.length > 0) {
-      const largestPhoto = msg.photo.reduce((prev: any, current: any) => prev.file_size > current.file_size ? prev : current);
+      const largestPhoto = msg.photo.reduce((prev: TelegramPhotoSize, current: TelegramPhotoSize) => (prev.file_size ?? 0) > (current.file_size ?? 0) ? prev : current);
       const { buffer, name, mimeType } = await downloadTelegramFile(botToken, largestPhoto.file_id);
       const uploadRes = await uploadFile(buffer, name, mimeType);
       mediaUrls.push({ type: "image", url: uploadRes.url, name: uploadRes.name, thumbnailUrl: uploadRes.thumbnailUrl });
@@ -336,14 +336,14 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
   }
 }
 
-async function processSingleMessage(botToken: string, message: any, authorUser: { id: string; role: string }): Promise<NextResponse> {
+async function processSingleMessage(botToken: string, message: TelegramMessage, authorUser: { id: string; role: string }): Promise<NextResponse> {
   try {
     const chatId = message.chat.id;
     const content = message.text || message.caption || "";
     const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
 
     if (message.photo && message.photo.length > 0) {
-      const largestPhoto = message.photo.reduce((prev: any, current: any) => prev.file_size > current.file_size ? prev : current);
+      const largestPhoto = message.photo.reduce((prev: TelegramPhotoSize, current: TelegramPhotoSize) => (prev.file_size ?? 0) > (current.file_size ?? 0) ? prev : current);
       const { buffer, name, mimeType } = await downloadTelegramFile(botToken, largestPhoto.file_id);
       const uploadRes = await uploadFile(buffer, name, mimeType);
       mediaUrls.push({ type: "image", url: uploadRes.url, name: uploadRes.name, thumbnailUrl: uploadRes.thumbnailUrl });
@@ -448,3 +448,4 @@ async function processSingleMessage(botToken: string, message: any, authorUser: 
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+import type { TelegramMessage, TelegramPhotoSize } from "@/lib/telegram-types";
