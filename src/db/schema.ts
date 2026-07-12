@@ -85,9 +85,15 @@ export const posts = pgTable("posts", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   content: text("content").notNull(),
-  // mediaUrls is a JSON array: Array<{ type: 'image' | 'video' | 'audio', url: string, name: string, duration?: number }>
+  // mediaUrls is a JSON array: Array<{ type: 'image' | 'video' | 'audio', url: string, name: string, duration?: number, thumbnailUrl?: string }>
   mediaUrls: jsonb("media_urls").default("[]").notNull(),
+  // @deprecated: use embedType/embedId instead. Kept for backward compat.
   ytVideoId: text("yt_video_id"),
+  // embedType: 'youtube' | 'bilibili' | 'tiktok' | 'spotify' | 'netease' | 'apple-music' | 'apple-podcast' | 'spotify-podcast'
+  embedType: text("embed_type"),
+  embedId: text("embed_id"),
+  // embedMeta: { thumbnailUrl?: string; title?: string } — cached at post-creation to avoid runtime external fetches
+  embedMeta: jsonb("embed_meta"),
   status: postStatusEnum("status").default("approved").notNull(),
   pinnedAt: timestamp("pinned_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
