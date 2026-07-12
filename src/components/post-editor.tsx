@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
+import { parseEmbedUrl } from "@/lib/embed-parser";
 
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -66,10 +67,11 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
     });
   };
 
-  const ytVideoId = useMemo(() => {
-    const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = content.match(ytRegex);
-    return match ? match[1] : null;
+  // Detect any supported embed URL in content
+  const embedInfo = useMemo(() => {
+    const urlMatch = content.match(/https?:\/\/[^\s]+/);
+    if (!urlMatch) return null;
+    return parseEmbedUrl(urlMatch[0]);
   }, [content]);
 
   // Voice recording state
@@ -231,7 +233,8 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
     const res = await createPostAction({
       content,
       mediaUrls: mediaFiles,
-      ytVideoId,
+      embedType: embedInfo?.embedType ?? null,
+      embedId: embedInfo?.embedId ?? null,
     });
     setLoading(false);
 
@@ -315,20 +318,17 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         </div>
       )}
 
-      {/* YouTube Preview */}
-      {ytVideoId && (
+      {/* Embed Preview */}
+      {embedInfo && (
         <div className="border border-border rounded-lg p-2 bg-muted flex items-center gap-3">
-          <div className="relative aspect-video w-32 bg-black rounded overflow-hidden flex items-center justify-center">
-            <img
-              src={`https://img.youtube.com/vi/${ytVideoId}/0.jpg`}
-              alt="YouTube Thumbnail"
-              className="absolute inset-0 w-full h-full object-cover opacity-80"
-            />
-            <Youtube className="relative size-8 text-red-600 z-10" />
+          <div className="flex items-center justify-center size-10 rounded-lg bg-background border border-border">
+            <Youtube className="size-5 text-muted-foreground" />
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-muted-foreground">已检测到 YouTube 链接</p>
-            <p className="text-xs text-muted-foreground mt-1 truncate">视频ID: {ytVideoId}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground">
+              已检测到嵌入链接 · {embedInfo.embedType}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">{embedInfo.embedId}</p>
           </div>
         </div>
       )}
