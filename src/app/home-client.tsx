@@ -79,6 +79,7 @@ export function HomeClient({
 
   useEffect(() => {
     // Only fetch pinned on mount; initial posts come from SSR
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     fetchPinned();
   }, [fetchPinned]);
 

@@ -44,6 +44,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
 
   useEffect(() => {
     if (allowRegistration !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       setAllowRegState(allowRegistration);
       return;
     }
@@ -70,6 +71,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
   }, [allowRegState, mode]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     enforceRegRestriction();
   }, [enforceRegRestriction]);
 

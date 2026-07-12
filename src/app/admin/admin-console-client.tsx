@@ -247,6 +247,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
 
   useEffect(() => {
     if (activeTab === "comments") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       fetchComments(1);
     }
   }, [activeTab, fetchComments]);
@@ -322,6 +323,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     loadData();
   }, [loadData]);
 

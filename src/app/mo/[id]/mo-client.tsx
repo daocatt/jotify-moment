@@ -98,6 +98,7 @@ export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     fetchSession();
     fetchPost();
   }, [fetchSession, fetchPost]);

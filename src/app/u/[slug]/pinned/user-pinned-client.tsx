@@ -25,6 +25,7 @@ export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { s
   }, [slug]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     loadData();
   }, [loadData]);
 
