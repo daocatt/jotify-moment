@@ -133,13 +133,13 @@ export function getEmbedIframeSrc(embedType: EmbedType, embedId: string): string
     case "youtube":
       return `https://www.youtube.com/embed/${embedId}?autoplay=1`;
     case "bilibili":
-      if (embedId.startsWith("BV") || embedId.startsWith("bv")) {
+      if (embedId.toUpperCase().startsWith("BV")) {
         return `https://player.bilibili.com/player.html?bvid=${embedId}&high_quality=1&autoplay=0`;
       }
       if (embedId.toLowerCase().startsWith("av")) {
         return `https://player.bilibili.com/player.html?aid=${embedId.slice(2)}&high_quality=1&autoplay=0`;
       }
-      // short link — already resolved to BV by server
+      // Unresolved short code — should have been resolved at post creation, fallback to bvid param
       return `https://player.bilibili.com/player.html?bvid=${embedId}&high_quality=1&autoplay=0`;
     case "tiktok":
       return `https://www.tiktok.com/embed/v2/${embedId}`;
@@ -223,5 +223,30 @@ export function isValidEmbedId(embedType: EmbedType, embedId: string): boolean {
       return /^[a-z]{2}\/id\d{1,20}$/.test(embedId);
     default:
       return false;
+  }
+}
+
+/**
+ * Resolves a b23.tv short link to a full BV ID by following the HTTP redirect.
+ * Returns the BV ID (e.g. "BV1xx411c7mD") or null on failure.
+ * Should only be called server-side.
+ */
+export async function resolveBilibiliShortLink(shortCode: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://b23.tv/${shortCode}`, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(4000),
+    });
+    // b23.tv returns a 302 to the full bilibili.com URL
+    if (res.status === 301 || res.status === 302) {
+      const location = res.headers.get("location") || "";
+      const bvMatch = location.match(/\/video\/(BV[A-Za-z0-9]+)/i);
+      if (bvMatch) return bvMatch[1];
+      const avMatch = location.match(/\/video\/(av\d+)/i);
+      if (avMatch) return avMatch[1];
+    }
+    return null;
+  } catch {
+    return null;
   }
 }

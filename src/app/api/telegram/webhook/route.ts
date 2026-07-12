@@ -4,7 +4,7 @@ import { posts, users, settings } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
-import { parseEmbedUrl, isValidEmbedId, type EmbedType } from "@/lib/embed-parser";
+import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import crypto from "crypto";
 
 const MEDIA_GROUP_WINDOW_MS = 2000;
@@ -419,6 +419,15 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       if (parsed && isValidEmbedId(parsed.embedType, parsed.embedId)) {
         embedType = parsed.embedType;
         embedId = parsed.embedId;
+        // Resolve b23.tv short links to full BV IDs
+        if (embedType === "bilibili") {
+          const isBV = embedId.toUpperCase().startsWith("BV");
+          const isAV = embedId.toLowerCase().startsWith("av");
+          if (!isBV && !isAV) {
+            const resolved = await resolveBilibiliShortLink(embedId);
+            if (resolved) embedId = resolved;
+          }
+        }
         // Attempt to prefetch meta (non-fatal)
         try {
           const ctrl = new AbortController();
