@@ -468,12 +468,9 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                 onClick={() => onOpenLightbox(imageUrls, idx)}
                 onContextMenu={(e) => e.preventDefault()}
               >
-                <img
+                <LazyImage
                   src={img.thumbnailUrl || img.url}
                   alt={`Log file ${idx}`}
-                  className="w-full h-full object-cover pointer-events-none"
-                  loading="lazy"
-                  decoding="async"
                 />
               </div>
             ))}
@@ -838,6 +835,24 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function LazyImage({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className={`relative w-full h-full bg-neutral-100 dark:bg-zinc-900 transition-all duration-300 ${!loaded ? "animate-pulse" : ""}`}>
+      <img
+        src={src}
+        alt={alt}
+        onLoad={() => setLoaded(true)}
+        className={`w-full h-full object-cover pointer-events-none transition-all duration-500 ${
+          loaded ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-sm scale-95"
+        }`}
+        loading="lazy"
+        decoding="async"
+      />
     </div>
   );
 }
