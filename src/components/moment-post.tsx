@@ -88,7 +88,14 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [profilePinLoading, setProfilePinLoading] = useState(false);
 
   // Lazy loaded comments state
-  const [localComments, setLocalComments] = useState<any[]>([]);
+  interface LocalComment {
+    id: string;
+    content: string;
+    createdAt: Date;
+    status: string;
+    userId: { id: string; name: string; avatar: string | null };
+  }
+  const [localComments, setLocalComments] = useState<LocalComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(isDetailsView);
 
