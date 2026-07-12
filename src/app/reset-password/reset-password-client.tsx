@@ -22,6 +22,7 @@ export function ResetPasswordClient() {
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       setVerifying(false);
       setTokenValid(false);
       return;

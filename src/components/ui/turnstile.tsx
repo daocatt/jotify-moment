@@ -38,9 +38,12 @@ export function Turnstile({ sitekey, onVerify, onExpire, onError, languageOverri
   const onExpireRef = useRef(onExpire);
   const onErrorRef = useRef(onError);
 
-  onVerifyRef.current = onVerify;
-  onExpireRef.current = onExpire;
-  onErrorRef.current = onError;
+  // Sync refs inside effect to avoid accessing refs during render
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  });
 
   const removeWidget = useCallback(() => {
     if (widgetIdRef.current && window.turnstile) {

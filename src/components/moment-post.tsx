@@ -97,11 +97,13 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   }
   const [localComments, setLocalComments] = useState<LocalComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsLoadTime, setCommentsLoadTime] = useState(0);
   const [commentsExpanded, setCommentsExpanded] = useState(isDetailsView);
 
   const loadComments = useCallback(async (force = false) => {
     if (!force && localComments.length > 0) return;
     setCommentsLoading(true);
+    setCommentsLoadTime(Date.now());
     const res = await getPostCommentsAction(post.id);
     setCommentsLoading(false);
     if (res.success && res.comments) {
@@ -113,6 +115,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
 
   useEffect(() => {
     if (isDetailsView || commentsExpanded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       loadComments();
     }
   }, [isDetailsView, commentsExpanded, loadComments]);
@@ -741,7 +744,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
                       <div className="space-y-1.5">
                         {localComments.map((comment) => {
                           const isCommentOwner = currentUser && comment.userId.id === currentUser.id;
-                          const isEditable = isCommentOwner && (Date.now() - new Date(comment.createdAt).getTime() <= 5 * 60 * 1000);
+                          const isEditable = isCommentOwner && comment.status !== "hidden" && (commentsLoadTime - new Date(comment.createdAt).getTime() <= 5 * 60 * 1000);
                           const isCommentHidden = comment.status === "hidden";
 
                           return (

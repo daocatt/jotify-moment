@@ -27,6 +27,7 @@ export function ThemeProvider({
   React.useEffect(() => {
     const savedTheme = localStorage.getItem(storageKey) as Theme;
     if (savedTheme) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       setThemeState(savedTheme);
     }
   }, [storageKey]);

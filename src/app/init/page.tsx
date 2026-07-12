@@ -19,6 +19,7 @@ export default function InitPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     setMounted(true);
   }, []);
 

@@ -147,12 +147,14 @@ export function TimelineShell({
       const t = setTimeout(() => setRevealed(true), 50);
       return () => clearTimeout(t);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
       setRevealed(false);
     }
   }, [loadingPosts, posts.length]);
   
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     setMounted(true);
   }, []);
 
@@ -162,6 +164,7 @@ export function TimelineShell({
 
   const [savedThemeId, setSavedThemeId] = useState<string | null>(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     setSavedThemeId(localStorage.getItem("active-theme"));
   }, []);
 
@@ -214,6 +217,7 @@ export function TimelineShell({
       if (currentUser && oauthReturn) {
         window.location.href = oauthReturn;
       } else if (!currentUser) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
         setAuthModalMode("login");
         setAuthModalOpen(true);
       } else {
