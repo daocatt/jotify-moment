@@ -26,10 +26,23 @@ export async function generateMetadata({
 
   const post = res.post;
   const excerpt = plainExcerpt(post.content);
+  const firstImage = post.mediaUrls.find((m) => m.type === "image")?.url;
 
   return {
     title: `${post.user.name} 的 Moment`,
     description: excerpt || "查看 Moment 详情",
+    openGraph: {
+      title: `${post.user.name} 的 Moment`,
+      description: excerpt || "查看 Moment 详情",
+      type: "article",
+      images: firstImage ? [{ url: firstImage }] : undefined,
+    },
+    twitter: {
+      card: firstImage ? "summary_large_image" : "summary",
+      title: `${post.user.name} 的 Moment`,
+      description: excerpt || "查看 Moment 详情",
+      images: firstImage ? [firstImage] : undefined,
+    },
   };
 }
 
