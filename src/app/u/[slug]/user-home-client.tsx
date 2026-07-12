@@ -42,7 +42,7 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
     if ("user" in res && res.user) {
       setProfileUser(res.user as ProfileUserFull);
       const pinnedRes = await getUserPinnedPostsAction(slug);
-      if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p: any) => ({ ...p, user: p.author })) as PostData[]);
+      if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[]);
     } else {
       setNotFound(true);
     }

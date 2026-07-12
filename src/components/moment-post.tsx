@@ -17,7 +17,7 @@ import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { toast } from "sonner";
 
-interface MomentPostProps {
+export interface MomentPostProps {
   post: {
     id: string;
     userId: string;
