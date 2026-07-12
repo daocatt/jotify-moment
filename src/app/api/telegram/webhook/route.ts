@@ -4,7 +4,7 @@ import { posts, users, settings } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
-import { parseEmbedUrl } from "@/lib/embed-parser";
+import { parseEmbedUrl, isValidEmbedId, type EmbedType } from "@/lib/embed-parser";
 import crypto from "crypto";
 
 const MEDIA_GROUP_WINDOW_MS = 2000;
@@ -416,7 +416,7 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
     if (urlMatch) {
       const parsed = parseEmbedUrl(urlMatch[0]);
-      if (parsed) {
+      if (parsed && isValidEmbedId(parsed.embedType, parsed.embedId)) {
         embedType = parsed.embedType;
         embedId = parsed.embedId;
         // Attempt to prefetch meta (non-fatal)

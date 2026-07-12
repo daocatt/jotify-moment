@@ -5,6 +5,7 @@ import { posts, comments, reactions, settings, users, userPinned } from "@/db/sc
 import { eq, and, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { isValidEmbedId, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles } from "@/lib/storage";
 
 const PAGE_SIZE = 15;
@@ -50,6 +51,9 @@ export async function createPostAction(data: {
   // Validate embed ID format
   if (embedType && !embedId) {
     return { error: "嵌入内容 ID 不能为空" };
+  }
+  if (embedType && embedId && !isValidEmbedId(embedType as EmbedType, embedId)) {
+    return { error: "嵌入内容 ID 格式无效" };
   }
 
   // Fetch embed meta server-side (thumbnail + title) so the client never needs to call external APIs
@@ -100,6 +104,10 @@ async function fetchEmbedMeta(
   embedType: string,
   embedId: string
 ): Promise<{ thumbnailUrl?: string; title?: string }> {
+  // Guard: reject malformed IDs before making any external request
+  if (!isValidEmbedId(embedType as EmbedType, embedId)) {
+    return {};
+  }
   const timeout = 4000;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
