@@ -297,6 +297,7 @@ export async function getPinnedPostsAction() {
     const mapped = pinnedPosts.map((post) => ({
       ...post,
       user: post.author,
+      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
       comments: post.comments.map((c) => ({
         id: c.id,
         content: "",
@@ -444,6 +445,7 @@ export async function getUserPinnedPostsAction(slug: string) {
     const mapped = sorted.map((post) => ({
       ...post,
       user: post.author,
+      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
       comments: post.comments.map((c) => ({
         id: c.id,
         content: "",
@@ -532,6 +534,7 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
     const mapped = items.map((post) => ({
       ...post,
       user: post.author,
+      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
       comments: post.comments.map((c) => ({
         id: c.id,
         content: "",
