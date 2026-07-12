@@ -54,6 +54,9 @@ export async function getPostsQuery(isAdmin: boolean, cursor?: string) {
   const mapped = items.map((post) => ({
     ...post,
     user: post.author,
+    // NOTE: Comments are lazy-loaded. These stubs provide the count for
+    // "N 条评论" display only — content and userId are intentionally empty.
+    // Real data is fetched via getPostCommentsAction when user expands comments.
     comments: post.comments.map((c) => ({
       id: c.id,
       content: "",
