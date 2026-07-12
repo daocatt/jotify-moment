@@ -25,8 +25,10 @@ export async function generateUniquePostId(): Promise<string> {
 
 export async function createPostAction(data: {
   content: string;
-  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number }>;
-  ytVideoId: string | null;
+  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
+  ytVideoId?: string | null;
+  embedType?: string | null;
+  embedId?: string | null;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -37,8 +39,27 @@ export async function createPostAction(data: {
     return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
   }
 
-  if (data.ytVideoId && !/^[a-zA-Z0-9_-]{11}$/.test(data.ytVideoId)) {
-    return { error: "Invalid YouTube video ID" };
+  // Backward compat: if caller still passes ytVideoId, convert to embedType/embedId
+  let embedType = data.embedType ?? null;
+  let embedId = data.embedId ?? null;
+  if (!embedType && data.ytVideoId) {
+    embedType = "youtube";
+    embedId = data.ytVideoId;
+  }
+
+  // Validate embed ID format
+  if (embedType && !embedId) {
+    return { error: "嵌入内容 ID 不能为空" };
+  }
+
+  // Fetch embed meta server-side (thumbnail + title) so the client never needs to call external APIs
+  let embedMeta: { thumbnailUrl?: string; title?: string } | null = null;
+  if (embedType && embedId) {
+    try {
+      embedMeta = await fetchEmbedMeta(embedType, embedId);
+    } catch {
+      // non-fatal — render will still work, just without cached thumbnail
+    }
   }
 
   try {
@@ -55,7 +76,11 @@ export async function createPostAction(data: {
       userId: user.id,
       content: data.content,
       mediaUrls: data.mediaUrls,
-      ytVideoId: data.ytVideoId,
+      // Keep ytVideoId populated for backward compat with existing data
+      ytVideoId: embedType === "youtube" ? embedId : null,
+      embedType,
+      embedId,
+      embedMeta,
       status,
     });
 
@@ -66,6 +91,86 @@ export async function createPostAction(data: {
     return { error: "Internal server error" };
   }
 }
+
+/**
+ * Fetch thumbnail + title for an embed from its platform API.
+ * Called once at post-creation time; result stored in embedMeta.
+ */
+async function fetchEmbedMeta(
+  embedType: string,
+  embedId: string
+): Promise<{ thumbnailUrl?: string; title?: string }> {
+  const timeout = 4000;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+
+  try {
+    switch (embedType) {
+      case "youtube": {
+        // YouTube oEmbed — no API key needed
+        const url = `https://www.youtube.com/oembed?url=https://youtu.be/${embedId}&format=json`;
+        const res = await fetch(url, { signal: ctrl.signal });
+        if (res.ok) {
+          const json = await res.json() as { title?: string; thumbnail_url?: string };
+          return { title: json.title, thumbnailUrl: json.thumbnail_url };
+        }
+        break;
+      }
+      case "bilibili": {
+        // Bilibili public API — resolves BV/AV to cover image
+        const isBV = embedId.toUpperCase().startsWith("BV");
+        const param = isBV ? `bvid=${embedId}` : `aid=${embedId.slice(2)}`;
+        const res = await fetch(
+          `https://api.bilibili.com/x/web-interface/view?${param}`,
+          { signal: ctrl.signal }
+        );
+        if (res.ok) {
+          const json = await res.json() as { data?: { title?: string; pic?: string } };
+          return {
+            title: json.data?.title,
+            thumbnailUrl: json.data?.pic,
+          };
+        }
+        break;
+      }
+      case "tiktok": {
+        // TikTok oEmbed
+        const videoUrl = embedId.length > 15
+          ? `https://www.tiktok.com/video/${embedId}`
+          : `https://vm.tiktok.com/${embedId}`;
+        const res = await fetch(
+          `https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`,
+          { signal: ctrl.signal }
+        );
+        if (res.ok) {
+          const json = await res.json() as { title?: string; thumbnail_url?: string };
+          return { title: json.title, thumbnailUrl: json.thumbnail_url };
+        }
+        break;
+      }
+      case "spotify":
+      case "spotify-podcast": {
+        // Spotify oEmbed
+        const spotifyUrl = `https://open.spotify.com/${embedId}`;
+        const res = await fetch(
+          `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`,
+          { signal: ctrl.signal }
+        );
+        if (res.ok) {
+          const json = await res.json() as { title?: string; thumbnail_url?: string };
+          return { title: json.title, thumbnailUrl: json.thumbnail_url };
+        }
+        break;
+      }
+      // Netease / Apple Music / Apple Podcast don't have easy public oEmbed APIs
+      // — leave embedMeta null, render will use platform logo as placeholder
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+  return {};
+}
+
 
 export async function getPostsAction(cursor?: string) {
   const currentUser = await getSessionUser();
