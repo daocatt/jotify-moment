@@ -198,17 +198,11 @@ export async function getPostsAction(cursor?: string) {
           },
         },
         comments: {
-          orderBy: [asc(comments.createdAt)],
-          where: isAdmin ? undefined : eq(comments.status, "active"),
-          with: {
-            author: {
-              columns: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
+          columns: {
+            id: true,
+            status: true,
           },
+          where: isAdmin ? undefined : eq(comments.status, "active"),
         },
         reactions: {
           with: {
@@ -233,8 +227,11 @@ export async function getPostsAction(cursor?: string) {
       ...post,
       user: post.author,
       comments: post.comments.map((c) => ({
-        ...c,
-        userId: c.author,
+        id: c.id,
+        content: "",
+        createdAt: post.createdAt, // dummy
+        status: c.status,
+        userId: { id: "", name: "", avatar: null },
       })),
       reactions: post.reactions.map((r) => ({
         ...r,
@@ -320,9 +317,11 @@ export async function getPinnedPostsAction() {
           columns: { id: true, name: true, avatar: true, role: true, slug: true },
         },
         comments: {
-          orderBy: [asc(comments.createdAt)],
+          columns: {
+            id: true,
+            status: true,
+          },
           where: isAdmin ? undefined : eq(comments.status, "active"),
-          with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
         reactions: {
           with: { author: { columns: { id: true, name: true } } },
@@ -333,7 +332,13 @@ export async function getPinnedPostsAction() {
     const mapped = pinnedPosts.map((post) => ({
       ...post,
       user: post.author,
-      comments: post.comments.map((c) => ({ ...c, userId: c.author })),
+      comments: post.comments.map((c) => ({
+        id: c.id,
+        content: "",
+        createdAt: post.createdAt, // dummy
+        status: c.status,
+        userId: { id: "", name: "", avatar: null },
+      })),
       reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
     }));
 
@@ -461,8 +466,7 @@ export async function getUserPinnedPostsAction(slug: string) {
       with: {
         author: { columns: { id: true, name: true, avatar: true, role: true, slug: true } },
         comments: {
-          with: { author: { columns: { id: true, name: true, avatar: true } } },
-          orderBy: [asc(comments.createdAt)],
+          columns: { id: true, status: true },
         },
         reactions: { with: { author: { columns: { id: true, name: true } } } },
       },
@@ -470,9 +474,22 @@ export async function getUserPinnedPostsAction(slug: string) {
 
     const sorted = postIds
       .map((id) => pinnedPosts.find((p) => p.id === id))
-      .filter(Boolean);
+      .filter((p): p is NonNullable<typeof p> => !!p);
 
-    return { posts: sorted };
+    const mapped = sorted.map((post) => ({
+      ...post,
+      user: post.author,
+      comments: post.comments.map((c) => ({
+        id: c.id,
+        content: "",
+        createdAt: post.createdAt,
+        status: c.status,
+        userId: { id: "", name: "", avatar: null },
+      })),
+      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
+    }));
+
+    return { posts: mapped };
   } catch (error) {
     console.error("getUserPinnedPostsAction error:", error);
     return { posts: [] };
@@ -529,9 +546,11 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
           columns: { id: true, name: true, avatar: true, role: true, slug: true },
         },
         comments: {
-          orderBy: [asc(comments.createdAt)],
+          columns: {
+            id: true,
+            status: true,
+          },
           where: isAdmin ? undefined : eq(comments.status, "active"),
-          with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
         reactions: {
           with: { author: { columns: { id: true, name: true } } },
@@ -548,7 +567,13 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
     const mapped = items.map((post) => ({
       ...post,
       user: post.author,
-      comments: post.comments.map((c) => ({ ...c, userId: c.author })),
+      comments: post.comments.map((c) => ({
+        id: c.id,
+        content: "",
+        createdAt: post.createdAt,
+        status: c.status,
+        userId: { id: "", name: "", avatar: null },
+      })),
       reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
     }));
 
