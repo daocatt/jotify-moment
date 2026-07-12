@@ -5,7 +5,7 @@ import { posts, comments, reactions, settings, users, userPinned } from "@/db/sc
 import { eq, and, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { isValidEmbedId, type EmbedType } from "@/lib/embed-parser";
+import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles } from "@/lib/storage";
 
 const PAGE_SIZE = 15;
@@ -54,6 +54,16 @@ export async function createPostAction(data: {
   }
   if (embedType && embedId && !isValidEmbedId(embedType as EmbedType, embedId)) {
     return { error: "嵌入内容 ID 格式无效" };
+  }
+
+  // Resolve b23.tv short links to full BV IDs before storing in DB
+  if (embedType === "bilibili" && embedId) {
+    const isBV = embedId.toUpperCase().startsWith("BV");
+    const isAV = embedId.toLowerCase().startsWith("av");
+    if (!isBV && !isAV) {
+      const resolved = await resolveBilibiliShortLink(embedId);
+      if (resolved) embedId = resolved;
+    }
   }
 
   // Fetch embed meta server-side (thumbnail + title) so the client never needs to call external APIs
@@ -126,8 +136,14 @@ async function fetchEmbedMeta(
       }
       case "bilibili": {
         // Bilibili public API — resolves BV/AV to cover image
-        const isBV = embedId.toUpperCase().startsWith("BV");
-        const param = isBV ? `bvid=${embedId}` : `aid=${embedId.slice(2)}`;
+        // If embedId is a b23.tv short code (not BV/av), resolve it first
+        let biliId = embedId;
+        if (!biliId.toUpperCase().startsWith("BV") && !biliId.toLowerCase().startsWith("av")) {
+          const resolved = await resolveBilibiliShortLink(biliId);
+          if (resolved) biliId = resolved;
+        }
+        const isBV = biliId.toUpperCase().startsWith("BV");
+        const param = isBV ? `bvid=${biliId}` : `aid=${biliId.slice(2)}`;
         const res = await fetch(
           `https://api.bilibili.com/x/web-interface/view?${param}`,
           { signal: ctrl.signal }
