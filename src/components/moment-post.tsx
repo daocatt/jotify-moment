@@ -87,6 +87,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [ytActive, setYtActive] = useState(false);
 
   const mediaFiles = post.mediaUrls;
   const images = mediaFiles.filter((f) => f.type === "image");
@@ -393,17 +394,44 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
           </div>
         )}
 
-        {/* YouTube Video Embed */}
+        {/* YouTube Video Embed — facade: show thumbnail until user clicks */}
         {post.ytVideoId && (
           <div className="relative aspect-video max-w-md w-full rounded-lg overflow-hidden border border-border bg-black mt-2">
-            <iframe
-              src={`https://www.youtube.com/embed/${post.ytVideoId}`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full"
-            ></iframe>
+            {ytActive ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${post.ytVideoId}?autoplay=1`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            ) : (
+              <button
+                type="button"
+                className="w-full h-full relative block group"
+                onClick={() => setYtActive(true)}
+                aria-label="播放 YouTube 视频"
+              >
+                {/* YouTube thumbnail from CDN — no YouTube JS loaded */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://i.ytimg.com/vi/${post.ytVideoId}/hqdefault.jpg`}
+                  alt="YouTube video thumbnail"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+                {/* Play button overlay */}
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex items-center justify-center size-14 rounded-full bg-black/70 group-hover:bg-red-600 transition-colors duration-200">
+                    <svg viewBox="0 0 24 24" className="size-6 fill-white ml-1" aria-hidden>
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </span>
+                </span>
+              </button>
+            )}
           </div>
         )}
 
