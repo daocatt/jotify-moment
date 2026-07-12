@@ -156,3 +156,39 @@ export async function deleteCommentAction(commentId: string) {
     return { error: "Internal server error" };
   }
 }
+
+/**
+ * Fetch comments for a single post. Done asynchronously when expanding comments.
+ */
+export async function getPostCommentsAction(postId: string) {
+  try {
+    const user = await getSessionUser();
+    const isAdmin = user && (user.role === "super_admin" || user.role === "admin");
+
+    const list = await db.query.comments.findMany({
+      where: isAdmin 
+        ? eq(comments.postId, postId)
+        : and(eq(comments.postId, postId), eq(comments.status, "active")),
+      orderBy: [desc(comments.createdAt)],
+      with: {
+        author: {
+          columns: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    const mapped = list.map((c) => ({
+      ...c,
+      userId: c.author,
+    }));
+
+    return { success: true, comments: mapped };
+  } catch (error) {
+    console.error("getPostCommentsAction error:", error);
+    return { error: "Failed to fetch comments" };
+  }
+}
