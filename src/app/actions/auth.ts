@@ -282,7 +282,7 @@ export async function registerAction(data: {
         slug: slugCandidate,
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("registerAction error:", error);
     return { error: "注册失败，请重试" };
   }
@@ -360,7 +360,7 @@ export async function loginAction(data: { email: string; password?: string; turn
         role: user.role,
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("loginAction error:", error);
     return { error: "邮箱或密码错误" };
   }

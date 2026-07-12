@@ -20,7 +20,7 @@ export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { s
       getUserPinnedPostsAction(slug),
     ]);
     if (userRes.user) setProfileUser(userRes.user as typeof profileUser);
-    if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p: any) => ({ ...p, user: p.author })) as PostData[]);
+    if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[]);
     setLoading(false);
   }, [slug]);
 

@@ -23,7 +23,9 @@ export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps
   const router = useRouter();
   const { setTheme } = useTheme();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- post shape from server action extends MomentPostProps (adds user.theme etc.)
   const [post, setPost] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- currentUser shape from /api/auth/me is dynamic
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
