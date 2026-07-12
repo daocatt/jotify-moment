@@ -393,7 +393,13 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
         {/* Videos Display */}
         {videoFile && (
           <div className="relative aspect-video max-w-md w-full rounded-lg overflow-hidden border border-border bg-black mt-2">
-            <video src={videoFile.url} controls className="w-full h-full object-contain" />
+          <video
+              src={videoFile.url}
+              controls
+              preload="none"
+              poster={videoFile.thumbnailUrl}
+              className="w-full h-full object-contain"
+            />
           </div>
         )}
 
