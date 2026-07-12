@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
-import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction } from "@/app/actions/comments";
+import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { toast } from "sonner";
@@ -86,6 +86,29 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [editPostContent, setEditPostContent] = useState("");
   const [showPinMenu, setShowPinMenu] = useState(false);
   const [profilePinLoading, setProfilePinLoading] = useState(false);
+
+  // Lazy loaded comments state
+  const [localComments, setLocalComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(isDetailsView);
+
+  const loadComments = useCallback(async (force = false) => {
+    if (!force && localComments.length > 0) return;
+    setCommentsLoading(true);
+    const res = await getPostCommentsAction(post.id);
+    setCommentsLoading(false);
+    if (res.success && res.comments) {
+      setLocalComments(res.comments);
+    } else if (res.error) {
+      toast.error(res.error);
+    }
+  }, [post.id, localComments.length]);
+
+  useEffect(() => {
+    if (isDetailsView || commentsExpanded) {
+      loadComments();
+    }
+  }, [isDetailsView, commentsExpanded, loadComments]);
   
   // Custom Voice Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,7 +191,8 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     } else {
       setCommentText("");
       setShowCommentInput(false);
-      onRefresh();
+      setCommentsExpanded(true); // Automatically expand to show new comment
+      loadComments(true); // Local refresh
     }
   };
 
@@ -179,7 +203,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       toast.error(res.error);
     } else {
       toast.success("评论已删除");
-      onRefresh();
+      loadComments(true); // Local refresh
     }
   };
 
@@ -193,7 +217,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
     } else {
       toast.success("评论修改成功");
       setEditingCommentId(null);
-      onRefresh();
+      loadComments(true); // Local refresh
     }
   };
 
@@ -204,7 +228,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       toast.error(res.error);
     } else {
       toast.success(isHidden ? "已取消隐藏" : "已隐藏该评论");
-      onRefresh();
+      loadComments(true); // Local refresh
     }
   };
 
@@ -693,101 +717,121 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
 
             {/* Comments List */}
             {post.comments.length > 0 && (
-              <div className="space-y-1.5">
-                {(isDetailsView ? post.comments : post.comments.slice(-5)).map((comment) => {
-                  const isCommentOwner = currentUser && comment.userId.id === currentUser.id;
-                  const isEditable = isCommentOwner && (Date.now() - new Date(comment.createdAt).getTime() <= 5 * 60 * 1000);
-                  const isCommentHidden = comment.status === "hidden";
-
-                  return (
-                    <div
-                      key={comment.id}
-                      className={`group flex items-start justify-between text-xs sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
-                    >
-                      <div className="flex-1 min-w-0 pr-2">
-                        <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
-                          {comment.userId.name}
-                        </span>
-                        {isCommentHidden && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 rounded ml-1 select-none">
-                            已隐藏
-                          </span>
-                        )}
-                        {editingCommentId === comment.id ? (
-                          <div className="mt-1 flex items-center gap-1">
-                            <input
-                              type="text"
-                              value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              className="flex-1 text-xs px-2 py-1 border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                              maxLength={500}
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              className="h-6 text-[10px] px-2"
-                              onClick={() => handleSaveEditComment(comment.id)}
-                            >
-                              保存
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 text-[10px] px-2 text-muted-foreground"
-                              onClick={() => setEditingCommentId(null)}
-                            >
-                              取消
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-foreground">：{comment.content}</span>
-                        )}
-                      </div>
-                      
-                      {editingCommentId !== comment.id && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                          {isEditable && (
-                            <button
-                              onClick={() => {
-                                setEditingCommentId(comment.id);
-                                setEditingContent(comment.content);
-                              }}
-                              title="编辑评论"
-                              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleToggleHideComment(comment.id, comment.status || "active")}
-                              title={isCommentHidden ? "取消隐藏" : "隐藏评论"}
-                              className="text-muted-foreground hover:text-amber-500 p-0.5 rounded transition-colors"
-                            >
-                              {isCommentHidden ? <Eye size={11} /> : <EyeOff size={11} />}
-                            </button>
-                          )}
-                          {(isCommentOwner || isOwner || isAdmin) && (
-                            <button
-                              onClick={() => handleDeleteComment(comment.id)}
-                              title="删除评论"
-                              className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {!isDetailsView && post.comments.length > 5 && (
-                  <Link
-                    href={`/mo/${post.id}`}
-                    className="block text-[11px] sm:text-xs text-[#576B95] dark:text-blue-400 font-semibold hover:underline mt-2 pt-1 border-t border-border/30"
+              <div className="space-y-1.5 border-t border-border/30 pt-2 first:border-t-0 first:pt-0">
+                {!commentsExpanded ? (
+                  <button
+                    type="button"
+                    onClick={() => setCommentsExpanded(true)}
+                    className="text-xs text-[#576B95] dark:text-blue-400 font-medium hover:underline flex items-center gap-1 py-0.5"
                   >
-                    查看全部共 {post.comments.length} 条评论...
-                  </Link>
+                    <span>💬 查看全部 {post.comments.length} 条评论</span>
+                  </button>
+                ) : (
+                  <>
+                    {commentsLoading && localComments.length === 0 ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 animate-pulse">
+                        <Loader2 className="size-3 animate-spin" />
+                        <span>正在加载评论...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {localComments.map((comment) => {
+                          const isCommentOwner = currentUser && comment.userId.id === currentUser.id;
+                          const isEditable = isCommentOwner && (Date.now() - new Date(comment.createdAt).getTime() <= 5 * 60 * 1000);
+                          const isCommentHidden = comment.status === "hidden";
+
+                          return (
+                            <div
+                              key={comment.id}
+                              className={`group flex items-start justify-between text-xs sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
+                                  {comment.userId.name}
+                                </span>
+                                {isCommentHidden && (
+                                  <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 rounded ml-1 select-none">
+                                    已隐藏
+                                  </span>
+                                )}
+                                {editingCommentId === comment.id ? (
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={editingContent}
+                                      onChange={(e) => setEditingContent(e.target.value)}
+                                      className="flex-1 text-xs px-2 py-1 border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                      maxLength={500}
+                                      autoFocus
+                                    />
+                                    <Button
+                                      size="sm"
+                                      className="h-6 text-[10px] px-2"
+                                      onClick={() => handleSaveEditComment(comment.id)}
+                                    >
+                                      保存
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-[10px] px-2 text-muted-foreground"
+                                      onClick={() => setEditingCommentId(null)}
+                                    >
+                                      取消
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-foreground">：{comment.content}</span>
+                                )}
+                              </div>
+
+                              {editingCommentId !== comment.id && (
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                                  {isEditable && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingCommentId(comment.id);
+                                        setEditingContent(comment.content);
+                                      }}
+                                      title="编辑评论"
+                                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                                    >
+                                      <Edit2 size={11} />
+                                    </button>
+                                  )}
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleToggleHideComment(comment.id, comment.status || "active")}
+                                      title={isCommentHidden ? "取消隐藏" : "隐藏评论"}
+                                      className="text-muted-foreground hover:text-amber-500 p-0.5 rounded transition-colors"
+                                    >
+                                      {isCommentHidden ? <Eye size={11} /> : <EyeOff size={11} />}
+                                    </button>
+                                  )}
+                                  {(isCommentOwner || isOwner || isAdmin) && (
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      title="删除评论"
+                                      className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setCommentsExpanded(false)}
+                      className="text-xs text-[#576B95] dark:text-blue-400 font-medium hover:underline flex items-center gap-1 mt-2 pt-1 border-t border-border/30 w-full text-left"
+                    >
+                      <span>收起评论</span>
+                    </button>
+                  </>
                 )}
               </div>
             )}
