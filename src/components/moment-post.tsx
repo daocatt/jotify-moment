@@ -14,6 +14,7 @@ import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle,
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
+import { MediaEmbed } from "@/components/media-embed";
 import { toast } from "sonner";
 
 interface MomentPostProps {
@@ -90,7 +91,6 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [ytActive, setYtActive] = useState(false);
 
   const mediaFiles = post.mediaUrls;
   const images = mediaFiles.filter((f) => f.type === "image");
@@ -397,46 +397,28 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
           </div>
         )}
 
-        {/* YouTube Video Embed — facade: show thumbnail until user clicks */}
-        {post.ytVideoId && (
-          <div className="relative aspect-video max-w-md w-full rounded-lg overflow-hidden border border-border bg-black mt-2">
-            {ytActive ? (
-              <iframe
-                src={`https://www.youtube.com/embed/${post.ytVideoId}?autoplay=1`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            ) : (
-              <button
-                type="button"
-                className="w-full h-full relative block group"
-                onClick={() => setYtActive(true)}
-                aria-label="播放 YouTube 视频"
-              >
-                {/* YouTube thumbnail from CDN — no YouTube JS loaded */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://i.ytimg.com/vi/${post.ytVideoId}/hqdefault.jpg`}
-                  alt="YouTube video thumbnail"
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-                {/* Play button overlay */}
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex items-center justify-center size-14 rounded-full bg-black/70 group-hover:bg-red-600 transition-colors duration-200">
-                    <svg viewBox="0 0 24 24" className="size-6 fill-white ml-1" aria-hidden>
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </span>
-                </span>
-              </button>
-            )}
+        {/* Media Embed — unified component for all platforms.
+            Handles: YouTube, Bilibili, TikTok (video facade) and
+            Spotify, Netease, Apple Music/Podcast (inline audio bars).
+            Falls back to ytVideoId for backward compat with old posts. */}
+        {(post.embedType && post.embedId) ? (
+          <div className="max-w-md w-full">
+            <MediaEmbed
+              embedType={post.embedType}
+              embedId={post.embedId}
+              embedMeta={post.embedMeta}
+            />
           </div>
-        )}
+        ) : post.ytVideoId ? (
+          // Legacy: old posts with ytVideoId only
+          <div className="max-w-md w-full">
+            <MediaEmbed
+              embedType="youtube"
+              embedId={post.ytVideoId}
+              embedMeta={null}
+            />
+          </div>
+        ) : null}
 
         {/* Images Grid */}
         {images.length > 0 && (
