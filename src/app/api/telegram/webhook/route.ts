@@ -429,9 +429,9 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
           }
         }
         // Attempt to prefetch meta (non-fatal)
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
         try {
-          const ctrl = new AbortController();
-          setTimeout(() => ctrl.abort(), 4000);
           if (embedType === "youtube") {
             const r = await fetch(`https://www.youtube.com/oembed?url=https://youtu.be/${embedId}&format=json`, { signal: ctrl.signal });
             if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
@@ -449,7 +449,7 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
             const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(su)}`, { signal: ctrl.signal });
             if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
           }
-        } catch { /* non-fatal */ }
+        } finally { clearTimeout(timer); }
       }
     }
 
