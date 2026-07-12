@@ -7,7 +7,7 @@ import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { deleteMediaFiles } from "@/lib/storage";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const MAX_POST_LENGTH = 1000;
 const MAX_PINNED = 5;
 
