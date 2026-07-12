@@ -18,16 +18,26 @@ interface PinnedPreview {
   posts: PostData[];
 }
 
-export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdminProfile | null }) {
+export function HomeClient({
+  initialSuperAdmin,
+  initialPosts = [],
+  initialHasMore = false,
+  initialNextCursor = null,
+}: {
+  initialSuperAdmin: SuperAdminProfile | null;
+  initialPosts?: PostData[];
+  initialHasMore?: boolean;
+  initialNextCursor?: string | null;
+}) {
   const router = useRouter();
 
   const [superAdmin, setSuperAdmin] = useState<SuperAdminProfile | null>(initialSuperAdmin);
 
-  const [posts, setPosts] = useState<PostData[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [posts, setPosts] = useState<PostData[]>(initialPosts);
+  const [loadingPosts, setLoadingPosts] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const cursorRef = useRef<string | null>(null);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const cursorRef = useRef<string | null>(initialNextCursor);
 
   const [pinned, setPinned] = useState<PinnedPreview | null>(null);
 
@@ -67,15 +77,10 @@ export function HomeClient({ initialSuperAdmin }: { initialSuperAdmin: SuperAdmi
     }
   }, []);
 
-  const initData = useCallback(() => {
-    fetchPosts();
-    fetchPinned();
-  }, [fetchPosts, fetchPinned]);
-
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    initData();
-  }, [initData]);
+    // Only fetch pinned on mount; initial posts come from SSR
+    fetchPinned();
+  }, [fetchPinned]);
 
   const handleLoadMore = useCallback(() => {
     fetchPosts(true);
