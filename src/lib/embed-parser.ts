@@ -189,3 +189,39 @@ export function getEmbedDimensions(embedType: EmbedType): { aspectRatio?: string
       return { height: "175px" };
   }
 }
+
+/**
+ * Validates that an embedId matches the expected format for its embedType.
+ * Prevents malformed or injected IDs from being used in server-side fetches.
+ */
+export function isValidEmbedId(embedType: EmbedType, embedId: string): boolean {
+  if (!embedId || embedId.length > 256) return false;
+
+  switch (embedType) {
+    case "youtube":
+      return /^[A-Za-z0-9_-]{11}$/.test(embedId);
+    case "bilibili":
+      // BVxxxxxxxxxx, avNNNNN, or b23.tv short code (alphanumeric, 4-12 chars)
+      return /^(BV[A-Za-z0-9]{6,12}|av\d{1,12}|[A-Za-z0-9]{4,12})$/.test(embedId);
+    case "tiktok":
+      // Numeric video ID or short alphanumeric code
+      return /^(\d{1,20}|[A-Za-z0-9]{4,15})$/.test(embedId);
+    case "spotify":
+      // track/xxxxx, album/xxxxx, playlist/xxxxx
+      return /^(track|album|playlist)\/[A-Za-z0-9]{10,30}$/.test(embedId);
+    case "spotify-podcast":
+      // episode/xxxxx or show/xxxxx
+      return /^(episode|show)\/[A-Za-z0-9]{10,30}$/.test(embedId);
+    case "netease":
+      // Numeric ID or playlist/NNNNN
+      return /^(playlist\/)?\d{1,15}$/.test(embedId);
+    case "apple-music":
+      // {region}/{type}/{id} — region=2-letter, type=album|song|playlist, id=alphanumeric
+      return /^[a-z]{2}\/(album|song|playlist)\/[A-Za-z0-9._-]{1,50}$/.test(embedId);
+    case "apple-podcast":
+      // {region}/idNNNNN
+      return /^[a-z]{2}\/id\d{1,20}$/.test(embedId);
+    default:
+      return false;
+  }
+}
