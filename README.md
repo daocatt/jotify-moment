@@ -20,9 +20,7 @@
 
 ## 基本简介
 
-<!-- TODO: Add screenshots here -->
-<!-- ![Screenshot](docs/screenshot-home.png) -->
-<!-- ![Screenshot](docs/screenshot-detail.png) -->
+![Jotify Moment 界面预览](docs/screenshot.png)
 
 Jotify Moment 是一个自托管的朋友圈风格日志平台，支持 Markdown 编辑、多媒体发布、Telegram Bot 集成，以及自定义域名绑定。
 
