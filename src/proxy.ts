@@ -187,7 +187,7 @@ export async function proxy(request: NextRequest) {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "media-src 'self' blob: https:",
-      "frame-src https://www.youtube.com https://challenges.cloudflare.com",
+      "frame-src https://www.youtube.com https://player.bilibili.com https://www.tiktok.com https://open.spotify.com https://music.163.com https://embed.music.apple.com https://embed.podcasts.apple.com https://challenges.cloudflare.com",
       "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com",
     ].join("; ")
   );
