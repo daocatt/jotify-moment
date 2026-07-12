@@ -198,7 +198,6 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         });
       }, 1000);
     } catch (error) {
-      console.error(error);
       toast.error("获取麦克风权限失败，无法录音");
     }
   };

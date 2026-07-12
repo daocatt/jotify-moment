@@ -20,7 +20,7 @@ export function ThemeProvider({
   children: React.ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }) {
   const [theme, setThemeState] = React.useState<Theme>(defaultTheme);
 
