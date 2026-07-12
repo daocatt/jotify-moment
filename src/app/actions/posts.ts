@@ -7,7 +7,7 @@ import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { deleteMediaFiles } from "@/lib/storage";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
 const MAX_PINNED = 5;
 
@@ -172,74 +172,15 @@ async function fetchEmbedMeta(
 }
 
 
+import { getPostsQuery } from "@/db/queries";
+
 export async function getPostsAction(cursor?: string) {
   const currentUser = await getSessionUser();
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
 
   try {
-    const allPosts = await db.query.posts.findMany({
-      where: isAdmin
-        ? (cursor
-            ? and(isNull(posts.pinnedAt), lt(posts.createdAt, new Date(cursor)))
-            : isNull(posts.pinnedAt))
-        : (cursor
-            ? and(eq(posts.status, "approved"), isNull(posts.pinnedAt), lt(posts.createdAt, new Date(cursor)))
-            : and(eq(posts.status, "approved"), isNull(posts.pinnedAt))),
-      orderBy: [desc(posts.createdAt)],
-      limit: PAGE_SIZE + 1,
-      with: {
-        author: {
-          columns: {
-            id: true,
-            name: true,
-            avatar: true,
-            role: true,
-            slug: true,
-          },
-        },
-        comments: {
-          columns: {
-            id: true,
-            status: true,
-          },
-          where: isAdmin ? undefined : eq(comments.status, "active"),
-        },
-        reactions: {
-          with: {
-            author: {
-              columns: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const hasMore = allPosts.length > PAGE_SIZE;
-    const items = hasMore ? allPosts.slice(0, PAGE_SIZE) : allPosts;
-    const nextCursor = hasMore && items.length > 0
-      ? items[items.length - 1].createdAt.toISOString()
-      : null;
-
-    const mapped = items.map((post) => ({
-      ...post,
-      user: post.author,
-      comments: post.comments.map((c) => ({
-        id: c.id,
-        content: "",
-        createdAt: post.createdAt, // dummy
-        status: c.status,
-        userId: { id: "", name: "", avatar: null },
-      })),
-      reactions: post.reactions.map((r) => ({
-        ...r,
-        userId: r.author,
-      })),
-    }));
-
-    return { success: true, posts: mapped, nextCursor, hasMore };
+    const res = await getPostsQuery(!!isAdmin, cursor);
+    return { success: true, ...res };
   } catch (error) {
     console.error("getPostsAction error:", error);
     return { error: "Failed to fetch posts" };

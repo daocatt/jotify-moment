@@ -56,9 +56,9 @@ export function HomeClient({
     setLoadingPosts(false);
     setLoadingMore(false);
 
-    if (res.error) {
+    if ("error" in res && res.error) {
       toast.error(res.error);
-    } else if (res.posts) {
+    } else if ("posts" in res && res.posts) {
       const typedPosts = res.posts as PostData[];
       if (append) {
         setPosts((prev) => [...prev, ...typedPosts]);

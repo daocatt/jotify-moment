@@ -26,7 +26,8 @@ export async function generateMetadata({
 
   const post = res.post;
   const excerpt = plainExcerpt(post.content);
-  const firstImage = post.mediaUrls.find((m) => m.type === "image")?.url;
+  const mediaUrls = post.mediaUrls as Array<{ type: string; url: string }> | undefined;
+  const firstImage = mediaUrls?.find((m) => m.type === "image")?.url;
 
   return {
     title: `${post.user.name} 的 Moment`,

@@ -311,7 +311,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       >
         {post.user.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" loading="lazy" />
+          <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" loading="eager" fetchPriority="high" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground font-semibold text-sm">
             {post.user.name.charAt(0)}
