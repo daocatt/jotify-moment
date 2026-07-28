@@ -8,6 +8,7 @@ import path from "path";
 import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
+import { invalidateStorageConfigCache } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
@@ -850,6 +851,7 @@ export async function saveStorageConfigAction(data: {
       });
     }
 
+    invalidateStorageConfigCache();
     revalidatePath("/");
     return { success: true };
   } catch (error) {

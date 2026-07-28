@@ -48,7 +48,7 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
   return signature.every((byte, idx) => buffer[idx] === byte);
 }
 
-async function getStorageConfig(): Promise<{
+type StorageConfig = {
   mode: "local" | "s3";
   maxFileSizeMB: number;
   allowedExtensions: string[];
@@ -58,7 +58,20 @@ async function getStorageConfig(): Promise<{
   s3Endpoint: string;
   s3Region: string;
   s3PublicUrl: string;
-}> {
+};
+
+let storageConfigCache: { data: StorageConfig; expires: number } | null = null;
+const STORAGE_CONFIG_TTL = 60_000; // 60 seconds
+
+export function invalidateStorageConfigCache() {
+  storageConfigCache = null;
+}
+
+async function getStorageConfig(): Promise<StorageConfig> {
+  if (storageConfigCache && Date.now() < storageConfigCache.expires) {
+    return storageConfigCache.data;
+  }
+
   const rows = await db.query.settings.findMany({
     where: (s, { or }) => or(
       eq(s.key, "storage_mode"),
@@ -80,7 +93,7 @@ async function getStorageConfig(): Promise<{
   const maxFileSizeMB = parseInt(map.storage_max_file_size_mb || String(DEFAULT_MAX_FILE_SIZE_MB), 10);
   const allowedExtensions = (map.storage_allowed_extensions || DEFAULT_ALLOWED_EXTENSIONS).split(",").map((e: string) => e.trim().toLowerCase().replace(/^\./, ""));
 
-  return {
+  const data: StorageConfig = {
     mode,
     maxFileSizeMB,
     allowedExtensions,
@@ -91,6 +104,9 @@ async function getStorageConfig(): Promise<{
     s3Region: map.storage_s3_region || "auto",
     s3PublicUrl: map.storage_s3_public_url || "",
   };
+
+  storageConfigCache = { data, expires: Date.now() + STORAGE_CONFIG_TTL };
+  return data;
 }
 
 export interface UploadResult {
