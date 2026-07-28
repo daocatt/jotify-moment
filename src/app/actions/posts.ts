@@ -552,7 +552,9 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
   }
 }
 
-export async function getSuperAdminProfileAction() {
+import { cache } from "react";
+
+export const getSuperAdminProfileAction = cache(async function getSuperAdminProfileAction() {
   try {
     const admin = await db.query.users.findFirst({
       where: eq(users.role, "super_admin"),
@@ -568,7 +570,7 @@ export async function getSuperAdminProfileAction() {
     console.error("getSuperAdminProfileAction error:", error);
     return { error: "Failed to fetch admin profile" };
   }
-}
+});
 
 export async function addCommentAction(postId: string, content: string) {
   const user = await getSessionUser();
