@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -71,7 +71,7 @@ export interface MomentPostProps {
 
 const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
 
-export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin, isDetailsView = false }: MomentPostProps) {
+export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin, isDetailsView = false }: MomentPostProps) {
   const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiClosing, setEmojiClosing] = useState(false);
@@ -321,7 +321,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       >
         {post.user.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" loading="eager" fetchPriority="high" />
+          <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" loading={isDetailsView ? "eager" : "lazy"} decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground font-semibold text-sm">
             {post.user.name.charAt(0)}
@@ -847,7 +847,7 @@ export function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onReq
       </div>
     </div>
   );
-}
+});
 
 function LazyImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
