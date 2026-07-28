@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Button } from "@/components/ui/button";
 import { MomentPost } from "@/components/moment-post";
 
 const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => m.AuthModals), { ssr: false });
