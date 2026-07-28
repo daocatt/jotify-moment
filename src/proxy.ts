@@ -89,7 +89,7 @@ export async function proxy(request: NextRequest) {
     }
     const response = NextResponse.next();
     response.headers.set("X-Content-Type-Options", "nosniff");
-    response.headers.set("Cache-Control", "private, max-age=3600");
+    response.headers.set("Cache-Control", "public, max-age=31536000, immutable");
     return response;
   }
 
