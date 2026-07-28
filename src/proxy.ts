@@ -53,6 +53,24 @@ async function resolveCustomDomain(hostname: string): Promise<string | null> {
   return null;
 }
 
+let hasAdminCache: { value: boolean; expires: number } | null = null;
+const ADMIN_CHECK_TTL = 300_000; // 5 minutes cache when admin exists
+
+async function checkHasAdmin(): Promise<boolean> {
+  if (hasAdminCache && Date.now() < hasAdminCache.expires) {
+    return hasAdminCache.value;
+  }
+  const adminUser = await db.query.users.findFirst({
+    where: eq(users.role, "super_admin"),
+    columns: { id: true },
+  });
+  const hasAdmin = !!adminUser;
+  // Cache for 5 minutes if admin exists, 5 seconds if not (allowing system init)
+  const ttl = hasAdmin ? ADMIN_CHECK_TTL : 5_000;
+  hasAdminCache = { value: hasAdmin, expires: Date.now() + ttl };
+  return hasAdmin;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -155,11 +173,7 @@ export async function proxy(request: NextRequest) {
   }
 
   try {
-    const adminUser = await db.query.users.findFirst({
-      where: eq(users.role, "super_admin"),
-      columns: { id: true },
-    });
-    const hasAdmin = !!adminUser;
+    const hasAdmin = await checkHasAdmin();
 
     if (!hasAdmin && pathname !== "/init") {
       return NextResponse.redirect(new URL("/init", request.url));
