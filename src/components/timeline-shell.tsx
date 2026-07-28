@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { AuthModals } from "@/components/auth-modals";
-import { PostEditor } from "@/components/post-editor";
+import dynamic from "next/dynamic";
 import { MomentPost } from "@/components/moment-post";
-import { Lightbox } from "@/components/lightbox";
-import { ProfileEditModal } from "@/components/profile-edit-modal";
+
+const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => m.AuthModals), { ssr: false });
+const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
+const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
+const ProfileEditModal = dynamic(() => import("@/components/profile-edit-modal").then((m) => m.ProfileEditModal), { ssr: false });
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
