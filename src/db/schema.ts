@@ -31,6 +31,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  index("users_role_idx").on(table.role),
   index("users_telegram_chat_id_idx").on(table.telegramChatId),
   index("users_telegram_bind_token_idx").on(table.telegramBindToken),
 ]);
