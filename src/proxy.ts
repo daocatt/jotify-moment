@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import crypto from "crypto";
 import { db } from "@/db";
 import { users, posts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -42,6 +43,46 @@ async function resolveCustomDomain(hostname: string): Promise<string | null> {
   }
 
   return null;
+}
+
+/**
+ * Generates a per-request CSP nonce and wires it into the request headers
+ * (x-nonce) so Next.js applies it to its own inline scripts/bundles.
+ * Removes 'unsafe-inline' from script-src — only nonce'd inline scripts run.
+ * Pages must be dynamically rendered for nonces to work.
+ */
+function buildNonce(request: NextRequest): { requestHeaders: Headers; csp: string } {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const isDev = process.env.NODE_ENV === "development";
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com https://www.googletagmanager.com`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    "frame-src https://www.youtube.com https://player.bilibili.com https://www.tiktok.com https://open.spotify.com https://music.163.com https://embed.music.apple.com https://embed.podcasts.apple.com https://challenges.cloudflare.com",
+    "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  return { requestHeaders, csp };
+}
+
+function applySecurityHeaders(response: NextResponse, request: NextRequest, csp?: string): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (csp) response.headers.set("Content-Security-Policy", csp);
+  if (request.headers.get("x-forwarded-proto") === "https") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+  return response;
 }
 
 let hasAdminCache: { value: boolean; expires: number } | null = null;
@@ -113,9 +154,11 @@ export async function proxy(request: NextRequest) {
         if (slug) {
           if (pathname === "/") {
             const rewriteUrl = new URL(`/u/${slug}`, request.url);
-            const response = NextResponse.rewrite(rewriteUrl);
+            const { requestHeaders, csp } = buildNonce(request);
+            const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
             response.headers.set("x-custom-domain", "true");
             response.headers.set("x-custom-domain-slug", slug);
+            applySecurityHeaders(response, request, csp);
             return response;
           }
 
@@ -133,9 +176,11 @@ export async function proxy(request: NextRequest) {
               });
 
               if (post && owner && post.userId === owner.id) {
-                const response = NextResponse.next();
+                const { requestHeaders, csp } = buildNonce(request);
+                const response = NextResponse.next({ request: { headers: requestHeaders } });
                 response.headers.set("x-custom-domain", "true");
                 response.headers.set("x-custom-domain-slug", slug);
+                applySecurityHeaders(response, request, csp);
                 return response;
               }
             }
@@ -177,29 +222,10 @@ export async function proxy(request: NextRequest) {
     console.error("Proxy initialization check failed:", err);
   }
 
-  const response = NextResponse.next();
+  const { requestHeaders, csp } = buildNonce(request);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  response.headers.set(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https:",
-      "media-src 'self' blob: https:",
-      "frame-src https://www.youtube.com https://player.bilibili.com https://www.tiktok.com https://open.spotify.com https://music.163.com https://embed.music.apple.com https://embed.podcasts.apple.com https://challenges.cloudflare.com",
-      "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com",
-    ].join("; ")
-  );
-
-  if (request.headers.get("x-forwarded-proto") === "https") {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-  }
+  applySecurityHeaders(response, request, csp);
 
   return response;
 }
