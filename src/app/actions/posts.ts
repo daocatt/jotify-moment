@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { posts, comments, reactions, users, userPinned } from "@/db/schema";
-import { eq, and, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
@@ -202,7 +202,7 @@ async function fetchEmbedMeta(
 }
 
 
-import { getPostsQuery } from "@/db/queries";
+import { getPostsQuery, parseCursor, makeCursor } from "@/db/queries";
 
 export async function getPostsAction(cursor?: string) {
   const currentUser = await getSessionUser();
@@ -499,20 +499,21 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
     });
     if (!target) return { error: "用户不存在" };
 
+    const cursorCond = cursor ? parseCursor(cursor) : null;
     const userPosts = await db.query.posts.findMany({
       where: isAdmin
         ? and(
             eq(posts.userId, target.id),
             isNull(posts.pinnedAt),
-            cursor ? lt(posts.createdAt, new Date(cursor)) : undefined
+            cursorCond ? or(lt(posts.createdAt, cursorCond.createdAt), and(eq(posts.createdAt, cursorCond.createdAt), lt(posts.id, cursorCond.id))) : undefined
           )
         : and(
             eq(posts.userId, target.id),
             eq(posts.status, "approved"),
             isNull(posts.pinnedAt),
-            cursor ? lt(posts.createdAt, new Date(cursor)) : undefined
+            cursorCond ? or(lt(posts.createdAt, cursorCond.createdAt), and(eq(posts.createdAt, cursorCond.createdAt), lt(posts.id, cursorCond.id))) : undefined
           ),
-      orderBy: [desc(posts.createdAt)],
+      orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: PAGE_SIZE + 1,
       with: {
         author: {
@@ -534,7 +535,7 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
     const hasMore = userPosts.length > PAGE_SIZE;
     const items = hasMore ? userPosts.slice(0, PAGE_SIZE) : userPosts;
     const nextCursor = hasMore && items.length > 0
-      ? items[items.length - 1].createdAt.toISOString()
+      ? makeCursor(items[items.length - 1])
       : null;
 
     const mapped = items.map((post) => ({
