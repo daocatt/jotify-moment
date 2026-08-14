@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { users, verificationCodes, settings, accounts } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
-import { hashPassword as hashPasswordScrypt } from "better-auth/crypto";
+import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import crypto from "crypto";
 
@@ -288,11 +288,18 @@ export async function registerAction(data: {
   }
 }
 
+const DUMMY_PASSWORD_HASH = hashPasswordScrypt("timing-equalization-dummy").catch(() => "");
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+  if (!dummyHashPromise) dummyHashPromise = DUMMY_PASSWORD_HASH;
+  return dummyHashPromise;
+}
+
 export async function loginAction(data: { email: string; password?: string; turnstileToken?: string }) {
   const { email, password, turnstileToken } = data;
 
   if (!email || !password) {
-    return { error: "Email and password are required" };
+    return { error: "邮箱或密码错误" };
   }
 
   const turnstileSecret = process.env.TURNSTILE_SECRET;
@@ -308,15 +315,18 @@ export async function loginAction(data: { email: string; password?: string; turn
     });
 
     if (!user) {
-      return { error: "Invalid email or password" };
+      // Equalize timing so account existence cannot be inferred from response latency.
+      await verifyPasswordScrypt({ hash: await getDummyHash(), password });
+      return { error: "邮箱或密码错误" };
     }
 
+    // Unified error message: do not reveal whether the account is disabled/suspended.
     if (user.loginDisabledAt) {
-      return { error: "该账号因密码错误次数过多已被禁用登录，请联系管理员解锁" };
+      return { error: "邮箱或密码错误" };
     }
 
     if (user.status === "suspended") {
-      return { error: "Your account has been suspended" };
+      return { error: "邮箱或密码错误" };
     }
 
     const { headers } = await import("next/headers");
@@ -334,9 +344,9 @@ export async function loginAction(data: { email: string; password?: string; turn
       if (!checkLoginRateLimit(email)) {
         await db.update(users).set({ loginDisabledAt: new Date() }).where(eq(users.email, email));
         LOGIN_RATE_LIMITS.delete(email);
-        return { error: "密码错误次数过多，账号已被禁用登录，请联系管理员解锁" };
+        return { error: "邮箱或密码错误" };
       }
-      return { error: "Invalid email or password" };
+      return { error: "邮箱或密码错误" };
     }
 
     LOGIN_RATE_LIMITS.delete(email);
