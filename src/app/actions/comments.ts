@@ -180,6 +180,20 @@ export async function getPostCommentsAction(postId: string) {
     const user = await getSessionUser();
     const isAdmin = user && (user.role === "super_admin" || user.role === "admin");
 
+    const post = await db.query.posts.findFirst({
+      where: eq(posts.id, postId),
+      columns: { userId: true, status: true },
+    });
+    if (!post) return { error: "Post not found" };
+
+    // Pending posts are only visible to their author and admins.
+    if (post.status !== "approved") {
+      const isOwner = user && post.userId === user.id;
+      if (!isAdmin && !isOwner) {
+        return { error: "Unauthorized" };
+      }
+    }
+
     const list = await db.query.comments.findMany({
       where: isAdmin 
         ? eq(comments.postId, postId)
