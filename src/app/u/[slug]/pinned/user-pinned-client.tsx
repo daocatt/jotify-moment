@@ -9,6 +9,7 @@ export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { s
   const [profileUser, setProfileUser] = useState<{
     id: string; name: string; slug: string | null;
     avatar: string | null; bio: string | null; coverImage: string | null;
+    hidden?: boolean;
   } | null>(null);
   const [pinnedPosts, setPinnedPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { s
       isCustomDomain={isCustomDomain}
       mainHost={mainHost}
       isUserHomePage
+      hidden={profileUser.hidden === true}
     />
   );
 }
