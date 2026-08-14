@@ -42,6 +42,14 @@ function checkInitStatusRateLimit(ip: string): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  // Only answer on the primary host to avoid probing via custom domains / arbitrary Host headers.
+  const hostname = (request.headers.get("host") || "").split(":")[0].toLowerCase();
+  const mainHosts = (process.env.MAIN_HOST || "")
+    .split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+  if (mainHosts.length > 0 && !mainHosts.includes(hostname)) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   const ip = request.headers.get("x-real-ip")
     || request.headers.get("x-forwarded-for")?.split(",")[0]
     || "unknown";

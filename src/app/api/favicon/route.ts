@@ -71,11 +71,23 @@ export async function GET() {
             return new NextResponse("Forbidden destination", { status: 400 });
           }
 
-          const res = await fetch(faviconUrl);
+          // Refuse redirects (an allowed host could redirect to a private/internal address),
+          // cap response size, and enforce an image content-type.
+          const res = await fetch(faviconUrl, {
+            redirect: "error",
+            signal: AbortSignal.timeout(5000),
+          });
           if (res.ok) {
+            const contentType = (res.headers.get("Content-Type") || "").toLowerCase();
+            if (!contentType.startsWith("image/")) {
+              return new NextResponse("Not an image", { status: 400 });
+            }
             const buffer = Buffer.from(await res.arrayBuffer());
+            if (buffer.length > 1 * 1024 * 1024) {
+              return new NextResponse("Image too large", { status: 413 });
+            }
             return new Response(buffer, {
-              headers: { "Content-Type": res.headers.get("Content-Type") || "image/png", "Cache-Control": "public, max-age=3600" },
+              headers: { "Content-Type": contentType || "image/png", "Cache-Control": "public, max-age=3600" },
             });
           }
         } catch (e) {
