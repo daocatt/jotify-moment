@@ -4,6 +4,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npx -y esbuild src/db/migrate.ts --bundle --platform=node --target=node22 --outfile=src/db/migrate.js
+RUN npx -y esbuild src/db/cleanup.ts --bundle --platform=node --target=node22 --outfile=src/db/cleanup.js
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ARG BETTER_AUTH_SECRET="build-placeholder-do-not-use-in-production"
@@ -30,9 +31,10 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/db/migrations ./src/db/migrations
 COPY --from=builder /app/src/db/migrate.js ./src/db/migrate.js
+COPY --from=builder /app/src/db/cleanup.js ./src/db/cleanup.js
 
 RUN mkdir -p public/uploads && chmod 750 public/uploads
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node src/db/migrate.js && node server.js"]
+CMD ["sh", "-c", "node src/db/migrate.js && node src/db/cleanup.js && node server.js"]
