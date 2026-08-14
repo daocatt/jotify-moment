@@ -27,6 +27,13 @@ export const users = pgTable("users", {
   theme: text("theme"),
   customDomain: text("custom_domain").unique(),
   allowCustomDomain: boolean("allow_custom_domain").default(false).notNull(),
+  // User self-control: when off, this account's posts are hidden from the global home feed
+  // (still reachable via the profile page) — a per-account "stealth" mode.
+  publishToFeed: boolean("publish_to_feed").default(true).notNull(),
+  // Platform control (admin): when off, this account's posts never appear in the public home feed.
+  displayPermission: boolean("display_permission").default(true).notNull(),
+  // User self-control: when off, visiting the profile page only shows basic info + a stealth notice.
+  publicHomepage: boolean("public_homepage").default(true).notNull(),
   loginDisabledAt: timestamp("login_disabled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
