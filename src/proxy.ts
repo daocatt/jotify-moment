@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/db";
-import { users, settings, posts } from "@/db/schema";
+import { users, posts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getSetting } from "@/lib/settings";
 
 const DOMAIN_CACHE_TTL = 30_000;
-const SETTING_CACHE_TTL = 60_000;
 const UNKNOWN_DOMAIN_COOLDOWN = 60_000;
 
 const domainCache = new Map<string, { slug: string; expires: number }>();
-const settingCache = new Map<string, { value: string; expires: number }>();
 const unknownDomainCache = new Map<string, number>();
 
 function isValidDomain(domain: string): boolean {
@@ -22,15 +21,7 @@ function getMainHosts(): string[] {
 }
 
 async function isCustomDomainGloballyAllowed(): Promise<boolean> {
-  const cached = settingCache.get("allow_custom_domains");
-  if (cached && Date.now() < cached.expires) return cached.value === "true";
-
-  const row = await db.query.settings.findFirst({
-    where: eq(settings.key, "allow_custom_domains"),
-  });
-  const value = row?.value || "false";
-  settingCache.set("allow_custom_domains", { value, expires: Date.now() + SETTING_CACHE_TTL });
-  return value === "true";
+  return (await getSetting("allow_custom_domains")) === "true";
 }
 
 async function resolveCustomDomain(hostname: string): Promise<string | null> {

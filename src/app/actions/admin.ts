@@ -9,6 +9,7 @@ import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { invalidateStorageConfigCache } from "@/lib/storage";
+import { getSetting, invalidateSetting } from "@/lib/settings";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
@@ -102,6 +103,7 @@ export async function updateSettingAction(key: string, value: string) {
         target: settings.key,
         set: { value },
       });
+    invalidateSetting(key);
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -377,10 +379,7 @@ export async function updateProfileAction(data: {
       return { error: "不能使用主站域名作为自定义域名" };
     }
 
-    const globalAllowRow = await db.query.settings.findFirst({
-      where: eq(settings.key, "allow_custom_domains")
-    });
-    const isGloballyAllowed = globalAllowRow?.value === "true";
+    const isGloballyAllowed = (await getSetting("allow_custom_domains")) === "true";
     if (!isGloballyAllowed) {
       return { error: "系统当前未开启自定义域名功能" };
     }
@@ -613,6 +612,7 @@ export async function integrateTelegramAction(botName: string, botToken: string,
     await db.insert(settings).values({ key: "telegram_bot_name", value: botName }).onConflictDoUpdate({ target: settings.key, set: { value: botName } });
     await db.insert(settings).values({ key: "telegram_bot_token", value: actualToken }).onConflictDoUpdate({ target: settings.key, set: { value: actualToken } });
     await db.insert(settings).values({ key: "telegram_webhook_secret", value: webhookSecret }).onConflictDoUpdate({ target: settings.key, set: { value: webhookSecret } });
+    invalidateSetting();
 
     return { success: true };
   } catch (error) {
@@ -642,6 +642,7 @@ export async function unbindTelegramAction() {
     await db.delete(settings).where(eq(settings.key, "telegram_bot_name"));
     await db.delete(settings).where(eq(settings.key, "telegram_bot_token"));
     await db.delete(settings).where(eq(settings.key, "telegram_webhook_secret"));
+    invalidateSetting();
 
     return { success: true };
   } catch (error) {
@@ -741,6 +742,7 @@ export async function saveResendConfigAction(apiKey: string, domain: string, fro
     await db.insert(settings).values({ key: "resend_domain", value: domain }).onConflictDoUpdate({ target: settings.key, set: { value: domain } });
     await db.insert(settings).values({ key: "resend_from_name", value: fromName }).onConflictDoUpdate({ target: settings.key, set: { value: fromName } });
     await db.insert(settings).values({ key: "resend_from_email", value: fromEmail }).onConflictDoUpdate({ target: settings.key, set: { value: fromEmail } });
+    invalidateSetting();
     return { success: true };
   } catch (error) {
     console.error("saveResendConfigAction error:", error);
@@ -759,6 +761,7 @@ export async function deleteResendConfigAction() {
     await db.delete(settings).where(eq(settings.key, "resend_domain"));
     await db.delete(settings).where(eq(settings.key, "resend_from_name"));
     await db.delete(settings).where(eq(settings.key, "resend_from_email"));
+    invalidateSetting();
     return { success: true };
   } catch (error) {
     console.error("deleteResendConfigAction error:", error);
@@ -852,6 +855,7 @@ export async function saveStorageConfigAction(data: {
     }
 
     invalidateStorageConfigCache();
+    invalidateSetting();
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -875,6 +879,7 @@ export async function updateFaviconAction(faviconUrl: string) {
       target: settings.key,
       set: { value: faviconUrl },
     });
+    invalidateSetting("site_favicon");
     revalidatePath("/");
     revalidatePath("/api/favicon");
     return { success: true };

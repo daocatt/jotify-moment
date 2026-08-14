@@ -1,13 +1,14 @@
 "use server";
 
 import { db } from "@/db";
-import { posts, comments, reactions, settings, users, userPinned } from "@/db/schema";
+import { posts, comments, reactions, users, userPinned } from "@/db/schema";
 import { eq, and, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
+import { getSetting } from "@/lib/settings";
 
 const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
@@ -85,10 +86,7 @@ export async function createPostAction(data: {
   }
 
   try {
-    const requireApprovalRow = await db.query.settings.findFirst({
-      where: eq(settings.key, "require_approval"),
-    });
-    const requireApproval = requireApprovalRow?.value === "true";
+    const requireApproval = (await getSetting("require_approval")) === "true";
     const status = (requireApproval && user.role === "user") ? "pending" : "approved";
 
     const postId = await generateUniquePostId();
@@ -705,10 +703,8 @@ export async function getPostByIdAction(postId: string) {
 
 export async function checkCustomDomainAvailabilityAction() {
   try {
-    const globalAllowRow = await db.query.settings.findFirst({
-      where: eq(settings.key, "allow_custom_domains")
-    });
-    return { success: true, allowed: globalAllowRow?.value === "true" };
+    const allowed = (await getSetting("allow_custom_domains")) === "true";
+    return { success: true, allowed };
   } catch (error) {
     console.error("checkCustomDomainAvailabilityAction error:", error);
     return { success: false, allowed: false };

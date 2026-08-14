@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { posts, users, settings } from "@/db/schema";
+import { posts, users } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
+import { getSetting } from "@/lib/settings";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
@@ -89,21 +90,18 @@ async function downloadTelegramFile(botToken: string, fileId: string): Promise<{
 
 export async function POST(req: Request) {
   try {
-    const botTokenSetting = await db.query.settings.findFirst({ where: eq(settings.key, "telegram_bot_token") });
-    const webhookSecretSetting = await db.query.settings.findFirst({ where: eq(settings.key, "telegram_webhook_secret") });
+    const botToken = await getSetting("telegram_bot_token");
+    const expectedSecret = await getSetting("telegram_webhook_secret");
 
-    if (!botTokenSetting?.value) {
+    if (!botToken) {
       return NextResponse.json({ error: "Telegram Bot is not configured" }, { status: 500 });
     }
 
-    const botToken = botTokenSetting.value;
-
-    if (!webhookSecretSetting?.value) {
+    if (!expectedSecret) {
       return NextResponse.json({ error: "Webhook secret not configured" }, { status: 403 });
     }
 
     const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
-    const expectedSecret = webhookSecretSetting.value;
     const headerBuf = Buffer.from(secretHeader);
     const expectedBuf = Buffer.from(expectedSecret);
     if (headerBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(headerBuf, expectedBuf)) {
@@ -314,10 +312,7 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
 
   if (!content && mediaUrls.length === 0) return;
 
-  const requireApprovalRow = await db.query.settings.findFirst({
-    where: (s, { eq }) => eq(s.key, "require_approval"),
-  });
-  const requireApproval = requireApprovalRow?.value === "true";
+  const requireApproval = (await getSetting("require_approval")) === "true";
   const isAdminUser = authorUser.role === "super_admin" || authorUser.role === "admin";
   const postStatus = (requireApproval && !isAdminUser) ? "pending" : "approved";
 
@@ -458,10 +453,7 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       return NextResponse.json({ ok: true });
     }
 
-    const requireApprovalRow = await db.query.settings.findFirst({
-      where: (s, { eq }) => eq(s.key, "require_approval"),
-    });
-    const requireApproval = requireApprovalRow?.value === "true";
+    const requireApproval = (await getSetting("require_approval")) === "true";
     const isAdminUser = authorUser.role === "super_admin" || authorUser.role === "admin";
     const postStatus = (requireApproval && !isAdminUser) ? "pending" : "approved";
 

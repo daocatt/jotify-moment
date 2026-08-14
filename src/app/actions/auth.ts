@@ -1,11 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { users, verificationCodes, settings, accounts, sessions } from "@/db/schema";
+import { users, verificationCodes, accounts, sessions } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
+import { getSetting } from "@/lib/settings";
 import crypto from "crypto";
 
 function hashToken(token: string): string {
@@ -121,10 +122,8 @@ export async function sendVerificationCodeAction(email: string, type: "register"
   if (type === "register") {
     const isFirstUser = (await db.query.users.findFirst({ columns: { id: true } })) === undefined;
     if (!isFirstUser) {
-      const allowReg = await db.query.settings.findFirst({
-        where: eq(settings.key, "allow_registration"),
-      });
-      if (allowReg && allowReg.value !== "true") {
+      const allowReg = await getSetting("allow_registration");
+      if (allowReg !== "true") {
         return { error: "注册通道已关闭，暂时无法注册" };
       }
     }
@@ -237,10 +236,8 @@ export async function registerAction(data: {
       return { error: "系统尚未初始化，请先通过初始化流程创建超级管理员" };
     }
 
-    const allowReg = await db.query.settings.findFirst({
-      where: eq(settings.key, "allow_registration"),
-    });
-    if (allowReg && allowReg.value !== "true") {
+    const allowReg = await getSetting("allow_registration");
+    if (allowReg !== "true") {
       return { error: "Registration is currently disabled by administrator" };
     }
 
