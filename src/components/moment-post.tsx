@@ -57,6 +57,7 @@ export interface MomentPostProps {
         name: string;
       };
     }>;
+    reactionSummary?: { total: number; byEmoji: Record<string, number> };
   };
   currentUser: {
     id: string;
@@ -685,42 +686,41 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
         {(post.reactions.length > 0 || post.comments.length > 0) && (
           <div className="bg-[#F7F7F7] dark:bg-muted/40 rounded-lg border border-border/40 p-2.5 space-y-2 mt-2 max-w-lg">
             {/* Reactions (Likes & Emojis) */}
-            {post.reactions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#576B95] dark:text-blue-400 border-b border-border/30 pb-2 last:border-b-0 last:pb-0 transition-all duration-300">
-                <Heart size={12} className="text-[#576B95] dark:text-blue-400 shrink-0" />
-                {(() => {
-                  if (post.reactions.length > 3) {
-                    const firstPersonName = post.reactions[0].userId.name;
-                    const totalCount = post.reactions.length;
-                    
-                    const emojiCounts: Record<string, number> = {};
-                    post.reactions.forEach(r => {
-                      emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
-                    });
-                    
-                    const emojiSummary = Object.entries(emojiCounts)
-                      .map(([emoji, count]) => `${emoji} ${count}人`)
-                      .join("  ");
-                    
-                    return (
-                      <span className="font-semibold">
-                        {firstPersonName}等{totalCount}人 {emojiSummary}
-                      </span>
-                    );
-                  } else {
-                    return (
-                      <span className="font-semibold flex flex-wrap gap-x-2">
-                        {post.reactions.map((r) => (
-                          <span key={r.id} className="inline-block transition-transform hover:scale-110">
-                            {r.userId.name} {r.emoji}
-                          </span>
-                        ))}
-                      </span>
-                    );
-                  }
-                })()}
-              </div>
-            )}
+            {(() => {
+              const totalReactions = post.reactionSummary?.total ?? post.reactions.length;
+              if (totalReactions === 0) return null;
+              const emojiCounts: Record<string, number> = post.reactionSummary?.byEmoji ?? {};
+              return (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#576B95] dark:text-blue-400 border-b border-border/30 pb-2 last:border-b-0 last:pb-0 transition-all duration-300">
+                  <Heart size={12} className="text-[#576B95] dark:text-blue-400 shrink-0" />
+                  {(() => {
+                    if (totalReactions > 3) {
+                      const firstPersonName = post.reactions[0]?.userId.name ?? "";
+
+                      const emojiSummary = Object.entries(emojiCounts)
+                        .map(([emoji, count]) => `${emoji} ${count}人`)
+                        .join("  ");
+
+                      return (
+                        <span className="font-semibold">
+                          {firstPersonName}等{totalReactions}人 {emojiSummary}
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="font-semibold flex flex-wrap gap-x-2">
+                          {post.reactions.map((r) => (
+                            <span key={r.id} className="inline-block transition-transform hover:scale-110">
+                              {r.userId.name} {r.emoji}
+                            </span>
+                          ))}
+                        </span>
+                      );
+                    }
+                  })()}
+                </div>
+              );
+            })()}
 
             {/* Comments List */}
             {post.comments.length > 0 && (
