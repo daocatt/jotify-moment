@@ -208,7 +208,7 @@ async function fetchEmbedMeta(
 }
 
 
-import { getPostsQuery, parseCursor, makeCursor } from "@/db/queries";
+import { getPostsQuery, parseCursor, makeCursor, loadReactions } from "@/db/queries";
 
 export async function getPostsAction(cursor?: string) {
   const currentUser = await getSessionUser();
@@ -300,25 +300,28 @@ export async function getPinnedPostsAction() {
           },
           where: isAdmin ? undefined : eq(comments.status, "active"),
         },
-        reactions: {
-          with: { author: { columns: { id: true, name: true } } },
-        },
       },
     });
 
-    const mapped = pinnedPosts.map((post) => ({
-      ...post,
-      user: post.author,
-      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
-      comments: post.comments.map((c) => ({
-        id: c.id,
-        content: "",
-        createdAt: post.createdAt, // dummy
-        status: c.status,
-        userId: { id: "", name: "", avatar: null },
-      })),
-      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
-    }));
+    const reactionsMap = await loadReactions(pinnedPosts.map((p) => p.id));
+
+    const mapped = pinnedPosts.map((post) => {
+      const summary = reactionsMap.get(post.id);
+      return {
+        ...post,
+        user: post.author,
+        // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
+        comments: post.comments.map((c) => ({
+          id: c.id,
+          content: "",
+          createdAt: post.createdAt, // dummy
+          status: c.status,
+          userId: { id: "", name: "", avatar: null },
+        })),
+        reactions: (summary?.top ?? []).map((r) => ({ id: r.id, emoji: r.emoji, userId: r.userId })),
+        reactionSummary: summary ? { total: summary.total, byEmoji: summary.byEmoji } : undefined,
+      };
+    });
 
     return { success: true, posts: mapped };
   } catch (error) {
@@ -492,7 +495,6 @@ export async function getUserPinnedPostsAction(slug: string) {
         comments: {
           columns: { id: true, status: true },
         },
-        reactions: { with: { author: { columns: { id: true, name: true } } } },
       },
     });
 
@@ -500,19 +502,25 @@ export async function getUserPinnedPostsAction(slug: string) {
       .map((id) => pinnedPosts.find((p) => p.id === id))
       .filter((p): p is NonNullable<typeof p> => !!p);
 
-    const mapped = sorted.map((post) => ({
-      ...post,
-      user: post.author,
-      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
-      comments: post.comments.map((c) => ({
-        id: c.id,
-        content: "",
-        createdAt: post.createdAt,
-        status: c.status,
-        userId: { id: "", name: "", avatar: null },
-      })),
-      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
-    }));
+    const reactionsMap = await loadReactions(sorted.map((p) => p.id));
+
+    const mapped = sorted.map((post) => {
+      const summary = reactionsMap.get(post.id);
+      return {
+        ...post,
+        user: post.author,
+        // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
+        comments: post.comments.map((c) => ({
+          id: c.id,
+          content: "",
+          createdAt: post.createdAt,
+          status: c.status,
+          userId: { id: "", name: "", avatar: null },
+        })),
+        reactions: (summary?.top ?? []).map((r) => ({ id: r.id, emoji: r.emoji, userId: r.userId })),
+        reactionSummary: summary ? { total: summary.total, byEmoji: summary.byEmoji } : undefined,
+      };
+    });
 
     return { posts: mapped };
   } catch (error) {
@@ -578,9 +586,6 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
           },
           where: isAdmin ? undefined : eq(comments.status, "active"),
         },
-        reactions: {
-          with: { author: { columns: { id: true, name: true } } },
-        },
       },
     });
 
@@ -590,19 +595,25 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
       ? makeCursor(items[items.length - 1])
       : null;
 
-    const mapped = items.map((post) => ({
-      ...post,
-      user: post.author,
-      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
-      comments: post.comments.map((c) => ({
-        id: c.id,
-        content: "",
-        createdAt: post.createdAt,
-        status: c.status,
-        userId: { id: "", name: "", avatar: null },
-      })),
-      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
-    }));
+    const reactionsMap = await loadReactions(items.map((p) => p.id));
+
+    const mapped = items.map((post) => {
+      const summary = reactionsMap.get(post.id);
+      return {
+        ...post,
+        user: post.author,
+        // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
+        comments: post.comments.map((c) => ({
+          id: c.id,
+          content: "",
+          createdAt: post.createdAt,
+          status: c.status,
+          userId: { id: "", name: "", avatar: null },
+        })),
+        reactions: (summary?.top ?? []).map((r) => ({ id: r.id, emoji: r.emoji, userId: r.userId })),
+        reactionSummary: summary ? { total: summary.total, byEmoji: summary.byEmoji } : undefined,
+      };
+    });
 
     return { success: true, posts: mapped, nextCursor, hasMore };
   } catch (error) {
@@ -724,9 +735,6 @@ export async function getPostByIdAction(postId: string) {
           where: isAdmin ? undefined : eq(comments.status, "active"),
           with: { author: { columns: { id: true, name: true, avatar: true } } },
         },
-        reactions: {
-          with: { author: { columns: { id: true, name: true } } },
-        },
       },
     });
 
@@ -740,11 +748,14 @@ export async function getPostByIdAction(postId: string) {
       }
     }
 
+    const summary = (await loadReactions([post.id])).get(post.id);
+
     const mapped = {
       ...post,
       user: post.author,
       comments: post.comments.map((c) => ({ ...c, userId: c.author })),
-      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
+      reactions: (summary?.top ?? []).map((r) => ({ id: r.id, emoji: r.emoji, userId: r.userId })),
+      reactionSummary: summary ? { total: summary.total, byEmoji: summary.byEmoji } : undefined,
     };
 
     return { success: true, post: mapped };

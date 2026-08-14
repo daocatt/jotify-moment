@@ -78,6 +78,7 @@ export interface PostData {
       name: string;
     };
   }>;
+  reactionSummary?: { total: number; byEmoji: Record<string, number> };
 }
 
 export interface ProfileUser {
