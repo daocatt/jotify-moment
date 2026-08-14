@@ -10,6 +10,7 @@ import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScr
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { invalidateStorageConfigCache, isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting, invalidateSetting } from "@/lib/settings";
+import { invalidateFeedCache } from "@/lib/feed-cache";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
@@ -105,6 +106,7 @@ export async function updateSettingAction(key: string, value: string) {
       });
     invalidateSetting(key);
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("updateSettingAction error:", error);
@@ -308,6 +310,7 @@ export async function approvePostAction(postId: string) {
   try {
     await db.update(posts).set({ status: "approved" }).where(eq(posts.id, postId));
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("approvePostAction error:", error);
@@ -427,6 +430,7 @@ export async function updateProfileAction(data: {
       .where(eq(users.id, user.id));
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("updateProfileAction error:", error);

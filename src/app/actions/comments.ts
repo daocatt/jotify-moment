@@ -6,6 +6,7 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { getSessionUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { RateLimiter } from "@/lib/rate-limit";
+import { invalidateFeedCache } from "@/lib/feed-cache";
 
 const VALID_COMMENT_STATUSES = ["active", "hidden"] as const;
 
@@ -72,6 +73,7 @@ export async function toggleCommentVisibilityAction(commentId: string, hide: boo
     await db.update(comments).set({ status: status as "active" | "hidden" }).where(eq(comments.id, commentId));
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("toggleCommentVisibilityAction error:", error);
@@ -119,6 +121,7 @@ export async function updateCommentAction(commentId: string, content: string) {
     await db.update(comments).set({ content: trimmed }).where(eq(comments.id, commentId));
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("updateCommentAction error:", error);
@@ -165,6 +168,7 @@ export async function deleteCommentAction(commentId: string) {
     await db.delete(comments).where(eq(comments.id, commentId));
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("deleteCommentAction error:", error);
