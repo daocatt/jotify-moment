@@ -15,6 +15,7 @@ import {
   updateUserStatusAction,
   updateUserRoleAction,
   updateUserCustomDomainPermissionAction,
+  updateUserDisplayPermissionAction,
   approvePostAction,
   updateUserEmailAction,
   adminChangePasswordAction,
@@ -57,6 +58,7 @@ import {
   ImagePlus,
   MessageSquare,
   UserPlus,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   Dialog,
@@ -67,6 +69,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { getAdminCommentsAction, toggleCommentVisibilityAction, deleteCommentAction } from "@/app/actions/comments";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 
 interface AdminConsoleClientProps {
@@ -89,6 +98,7 @@ interface AdminUser {
   createdAt: Date;
   customDomain: string | null;
   allowCustomDomain: boolean;
+  displayPermission: boolean;
 }
 
 interface PendingPost {
@@ -290,6 +300,11 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   }, [usersLoadingMore, usersHasMore]);
 
+  // Patch a user row in-place so actions don't reset the loaded pagination.
+  const updateUserInList = useCallback((userId: string, patch: Partial<AdminUser>) => {
+    setUsersList((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)));
+  }, []);
+
   const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -373,7 +388,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success(newStatus === "suspended" ? "用户已被封禁" : "用户已解除封禁");
-      loadData();
+      updateUserInList(userId, { status: newStatus as AdminUser["status"] });
     }
   };
 
@@ -383,7 +398,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success("已解锁登录");
-      loadData();
+      updateUserInList(userId, { loginDisabledAt: null });
     }
   };
 
@@ -393,7 +408,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success(!currentAllowed ? "已启用该用户的自定义域名权限" : "已禁用该用户的自定义域名权限");
-      loadData();
+      updateUserInList(userId, { allowCustomDomain: !currentAllowed });
+    }
+  };
+
+  const handleToggleUserDisplayPermission = async (userId: string, currentAllowed: boolean) => {
+    const res = await updateUserDisplayPermissionAction(userId, !currentAllowed);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(!currentAllowed ? "已开启该用户的展示权限" : "已关闭该用户的展示权限");
+      updateUserInList(userId, { displayPermission: !currentAllowed });
     }
   };
 
@@ -405,7 +430,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       toast.error(res.error);
     } else {
       toast.success("用户角色已更新");
-      loadData();
+      updateUserInList(userId, { role: newRole as AdminUser["role"] });
     }
   };
 
@@ -486,7 +511,11 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         } else {
           toast.success(`已更新: ${successLabels.join("、")}`);
         }
-        loadData();
+        updateUserInList(editingUser.id, {
+          ...(editEmail.trim() !== editingUser.email ? { email: editEmail.trim() } : {}),
+          ...(isSuperAdmin && editRole !== editingUser.role ? { role: editRole as AdminUser["role"] } : {}),
+          ...(editAllowCustomDomain !== editingUser.allowCustomDomain ? { allowCustomDomain: editAllowCustomDomain } : {}),
+        });
       } else if (errors.length === 0) {
         toast.success("没有需要更新的内容");
         setEditingUser(null);
@@ -1255,66 +1284,83 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                             <span className="text-red-500 font-medium">禁止</span>
                           )}
                         </div>
+                        <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span>信息流展示: </span>
+                          {user.displayPermission ? (
+                            <span className="text-green-600 font-medium">允许</span>
+                          ) : (
+                            <span className="text-red-500 font-medium">禁止</span>
+                          )}
+                        </div>
                         {user.loginDisabledAt && (
                           <span className="text-[10px] text-orange-500 font-medium block mt-0.5">登录已禁用</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex gap-2 items-center ml-auto">
-                      {user.role !== "super_admin" && user.id !== currentUser.id && (
-                        <>
-                          {isSuperAdmin && (
-                            <select
-                              value={user.role}
-                              onChange={(e) => handleChangeUserRole(user.id, e.target.value)}
-                              className="h-8 text-xs px-2 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
-                            >
-                              <option value="user">普通用户</option>
-                              <option value="guest">访客</option>
-                              <option value="admin">管理员</option>
-                            </select>
-                          )}
-
-                          <Button
-                            variant={user.status === "active" ? "outline" : "destructive"}
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => handleToggleUserStatus(user.id, user.status)}
-                          >
-                            {user.status === "active" ? (
-                              <span className="flex items-center gap-1 text-red-500 hover:text-red-600">
-                                <UserX size={12} /> 封禁
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
-                                <UserCheck size={12} /> 解封
-                              </span>
-                            )}
-                          </Button>
-
-                          {user.loginDisabledAt && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
-                              onClick={() => handleUnlockLogin(user.id)}
-                            >
-                              <LockOpen size={12} className="mr-1" /> 解锁登录
-                            </Button>
-                          )}
-                        </>
+                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                      {user.role !== "super_admin" && user.id !== currentUser.id && isSuperAdmin && (
+                        <select
+                          value={user.role}
+                          onChange={(e) => handleChangeUserRole(user.id, e.target.value)}
+                          className="h-7 text-[11px] px-1.5 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <option value="user">普通用户</option>
+                          <option value="guest">访客</option>
+                          <option value="admin">管理员</option>
+                        </select>
                       )}
 
                       {user.id !== currentUser.id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => openEditor(user)}
-                        >
-                          编辑账号
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="outline" size="icon" className="size-7" aria-label="更多操作">
+                                <MoreHorizontal size={14} />
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end" className="min-w-36">
+                            <DropdownMenuItem onClick={() => openEditor(user)}>
+                              <UserCheck size={14} /> 编辑账号
+                            </DropdownMenuItem>
+
+                            {user.role !== "super_admin" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleUserDisplayPermission(user.id, user.displayPermission)}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    <Eye size={14} /> 展示权限
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${
+                                      user.displayPermission
+                                        ? "bg-green-500/10 text-green-600"
+                                        : "bg-zinc-500/10 text-zinc-500"
+                                    }`}
+                                  >
+                                    {user.displayPermission ? "已开启" : "已关闭"}
+                                  </span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleUserStatus(user.id, user.status)}
+                                  variant={user.status === "active" ? "destructive" : "default"}
+                                >
+                                  {user.status === "active" ? <UserX size={14} /> : <UserCheck size={14} />}
+                                  {user.status === "active" ? "封禁" : "解封"}
+                                </DropdownMenuItem>
+                                {user.loginDisabledAt && (
+                                  <DropdownMenuItem onClick={() => handleUnlockLogin(user.id)}>
+                                    <LockOpen size={14} /> 解锁登录
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
                   </div>
@@ -1333,6 +1379,22 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   ))}
                 </>
               )}
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                <span>已加载 {usersList.length} 位用户{usersHasMore ? " · 下拉或点击加载更多" : " · 已全部加载"}</span>
+                {usersHasMore && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={loadMoreUsers}
+                    disabled={usersLoadingMore}
+                    className="h-7 px-2.5 gap-1"
+                  >
+                    {usersLoadingMore ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    加载更多
+                  </Button>
+                )}
+              </div>
               <div ref={usersSentinelRef} className="h-1" />
             </div>
 
