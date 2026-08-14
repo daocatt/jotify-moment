@@ -58,13 +58,13 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = searchParams.get("biz") as "profile" | "moment" | null;
 
-    const arrayBuffer = await file.arrayBuffer();
-    const view = new Uint8Array(arrayBuffer);
-    const buffer = Buffer.alloc(arrayBuffer.byteLength);
-    buffer.set(view);
-    
-    const result = await uploadFile(buffer, file.name, file.type, biz || undefined);
-    
+    // Re-encodable raster images are streamed straight into sharp, avoiding a
+    // full in-memory buffer of the raw upload (up to maxFileSizeMB).
+    const streamableImage = file.type === "image/jpeg" || file.type === "image/jpg" || file.type === "image/png" || file.type === "image/webp";
+    const result = streamableImage
+      ? await uploadFile(file.stream(), file.name, file.type, biz || undefined, file.size)
+      : await uploadFile(Buffer.from(await file.arrayBuffer()), file.name, file.type, biz || undefined);
+
     return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("Upload handler error:", error);
