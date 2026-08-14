@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
-import { getPostsAction, getPinnedPostsAction, getSuperAdminProfileAction } from "@/app/actions/posts";
+import { getPostsAction, getPinnedPreviewAction, getSuperAdminProfileAction } from "@/app/actions/posts";
 import { toast } from "sonner";
 import { Pin } from "lucide-react";
 
@@ -71,7 +71,7 @@ export function HomeClient({
   }, []);
 
   const fetchPinned = useCallback(async () => {
-    const res = await getPinnedPostsAction();
+    const res = await getPinnedPreviewAction();
     if (res.posts) {
       setPinned({ posts: res.posts as PostData[] });
     }
