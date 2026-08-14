@@ -101,6 +101,12 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   const [commentsLoadTime, setCommentsLoadTime] = useState(0);
   const [commentsExpanded, setCommentsExpanded] = useState(isDetailsView);
 
+  // Local mirror of the post used for optimistic reaction updates without a full feed refetch.
+  const [postState, setPostState] = useState(post);
+  useEffect(() => {
+    setPostState(post);
+  }, [post]);
+
   const loadComments = useCallback(async (force = false) => {
     if (!force && localComments.length > 0) return;
     setCommentsLoading(true);
@@ -172,13 +178,41 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
     }
     if (reacting) return;
     setReacting(true);
+    setShowEmojiPicker(false);
+
+    // Optimistic update: apply immediately, revert on server error.
+    const prev = postState;
+    const prevReactions = prev.reactions;
+    const existing = prevReactions.find((r) => r.userId.id === currentUser.id && r.emoji === emoji);
+
+    const fallbackByEmoji: Record<string, number> = {};
+    for (const r of prevReactions) fallbackByEmoji[r.emoji] = (fallbackByEmoji[r.emoji] || 0) + 1;
+    const byEmoji = { ...(prev.reactionSummary?.byEmoji ?? fallbackByEmoji) };
+    const total = (prev.reactionSummary?.total ?? prevReactions.length) + (existing ? -1 : 1);
+    if (existing) {
+      byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
+    } else {
+      byEmoji[emoji] = (byEmoji[emoji] ?? 0) + 1;
+    }
+
+    const nextReactions = existing
+      ? prevReactions.filter((r) => !(r.userId.id === currentUser.id && r.emoji === emoji))
+      : [
+          ...prevReactions,
+          { id: `tmp-${Date.now()}`, emoji, userId: { id: currentUser.id, name: currentUser.name } },
+        ];
+
+    setPostState((p) => ({
+      ...p,
+      reactions: nextReactions,
+      reactionSummary: { total, byEmoji },
+    }));
+
     try {
       const res = await toggleReactionAction(post.id, emoji);
-      setShowEmojiPicker(false);
       if (res.error) {
+        setPostState(prev);
         toast.error(res.error);
-      } else {
-        onRefresh();
       }
     } finally {
       setReacting(false);
@@ -683,19 +717,19 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
         </div>
 
         {/* Reactions List and Comments Container */}
-        {(post.reactions.length > 0 || post.comments.length > 0) && (
+        {(postState.reactions.length > 0 || post.comments.length > 0) && (
           <div className="bg-[#F7F7F7] dark:bg-muted/40 rounded-lg border border-border/40 p-2.5 space-y-2 mt-2 max-w-lg">
             {/* Reactions (Likes & Emojis) */}
             {(() => {
-              const totalReactions = post.reactionSummary?.total ?? post.reactions.length;
+              const totalReactions = postState.reactionSummary?.total ?? postState.reactions.length;
               if (totalReactions === 0) return null;
-              const emojiCounts: Record<string, number> = post.reactionSummary?.byEmoji ?? {};
+              const emojiCounts: Record<string, number> = postState.reactionSummary?.byEmoji ?? {};
               return (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#576B95] dark:text-blue-400 border-b border-border/30 pb-2 last:border-b-0 last:pb-0 transition-all duration-300">
                   <Heart size={12} className="text-[#576B95] dark:text-blue-400 shrink-0" />
                   {(() => {
                     if (totalReactions > 3) {
-                      const firstPersonName = post.reactions[0]?.userId.name ?? "";
+                      const firstPersonName = postState.reactions[0]?.userId.name ?? "";
 
                       const emojiSummary = Object.entries(emojiCounts)
                         .map(([emoji, count]) => `${emoji} ${count}人`)
@@ -709,7 +743,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                     } else {
                       return (
                         <span className="font-semibold flex flex-wrap gap-x-2">
-                          {post.reactions.map((r) => (
+                          {postState.reactions.map((r) => (
                             <span key={r.id} className="inline-block transition-transform hover:scale-110">
                               {r.userId.name} {r.emoji}
                             </span>
