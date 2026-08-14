@@ -8,7 +8,7 @@ import path from "path";
 import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
-import { invalidateStorageConfigCache } from "@/lib/storage";
+import { invalidateStorageConfigCache, isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting, invalidateSetting } from "@/lib/settings";
 import { revalidatePath } from "next/cache";
 
@@ -353,8 +353,15 @@ export async function updateProfileAction(data: {
 
   if (!data.name.trim()) return { error: "用户名不能为空" };
   if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
-  if (data.avatar && !isValidUrl(data.avatar)) return { error: "Invalid avatar URL" };
-  if (data.coverImage && !isValidUrl(data.coverImage)) return { error: "Invalid cover image URL" };
+  // Avatar/cover must come from this app's upload pipeline — block arbitrary
+  // external URLs that could track visitors or point to untrusted content.
+  // Unchanged values (matching the stored ones) are allowed through.
+  if (data.avatar && data.avatar !== user.avatar && !(await isAllowedMediaUrl(data.avatar))) {
+    return { error: "头像图片无效，请通过上传获取" };
+  }
+  if (data.coverImage && data.coverImage !== user.coverImage && !(await isAllowedMediaUrl(data.coverImage))) {
+    return { error: "封面图片无效，请通过上传获取" };
+  }
   if (data.theme && !VALID_THEME_IDS.includes(data.theme)) return { error: "Invalid theme" };
 
   const slug = data.slug.trim();
