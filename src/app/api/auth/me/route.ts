@@ -26,6 +26,9 @@ export async function GET() {
         otherLink: user.otherLink,
         customDomain: user.customDomain,
         allowCustomDomain: user.allowCustomDomain,
+        publishToFeed: user.publishToFeed,
+        displayPermission: user.displayPermission,
+        publicHomepage: user.publicHomepage,
       },
     });
   } catch {

@@ -39,6 +39,9 @@ export interface CurrentUser {
   otherLink: string | null;
   customDomain: string | null;
   allowCustomDomain: boolean;
+  publishToFeed?: boolean;
+  displayPermission?: boolean;
+  publicHomepage?: boolean;
 }
 
 export interface PostData {
