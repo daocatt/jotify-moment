@@ -5,8 +5,11 @@ import { comments, users, posts } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { getSessionUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { RateLimiter } from "@/lib/rate-limit";
 
 const VALID_COMMENT_STATUSES = ["active", "hidden"] as const;
+
+const COMMENT_WRITE_LIMITER = new RateLimiter(30, 60_000);
 
 /**
  * Admin Action: Get paginated list of all comments for comment management.
@@ -61,6 +64,10 @@ export async function toggleCommentVisibilityAction(commentId: string, hide: boo
       return { error: "Unauthorized" };
     }
 
+    if (!COMMENT_WRITE_LIMITER.allow(user.id)) {
+      return { error: "操作过于频繁，请稍后再试" };
+    }
+
     const status = hide ? "hidden" : "active";
     await db.update(comments).set({ status: status as "active" | "hidden" }).where(eq(comments.id, commentId));
 
@@ -80,6 +87,10 @@ export async function updateCommentAction(commentId: string, content: string) {
   try {
     const user = await getSessionUser();
     if (!user) return { error: "Unauthorized" };
+
+    if (!COMMENT_WRITE_LIMITER.allow(user.id)) {
+      return { error: "操作过于频繁，请稍后再试" };
+    }
 
     const trimmed = content.trim();
     if (!trimmed) return { error: "评论内容不能为空" };
@@ -122,6 +133,10 @@ export async function deleteCommentAction(commentId: string) {
   try {
     const user = await getSessionUser();
     if (!user) return { error: "Unauthorized" };
+
+    if (!COMMENT_WRITE_LIMITER.allow(user.id)) {
+      return { error: "操作过于频繁，请稍后再试" };
+    }
 
     const existing = await db.query.comments.findFirst({
       where: eq(comments.id, commentId),
