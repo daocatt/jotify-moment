@@ -12,11 +12,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { updateProfileAction, changePasswordAction, getTelegramBotNameAction, generateTelegramBindTokenAction, unbindUserTelegramAction } from "@/app/actions/admin";
+import { updateProfileAction, changePasswordAction, getTelegramBotNameAction, generateTelegramBindTokenAction, unbindUserTelegramAction, updatePrivacySettingsAction } from "@/app/actions/admin";
 import { checkCustomDomainAvailabilityAction } from "@/app/actions/posts";
 import { THEME_LIST } from "@/lib/theme-resolver";
-import { Camera, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Camera, Loader2, Eye, EyeOff, CheckCircle, UserRound, Send, Palette, KeyRound } from "lucide-react";
 import { ImageCropModal } from "@/components/image-crop-modal";
 
 interface ProfileEditModalProps {
@@ -38,6 +39,8 @@ interface ProfileEditModalProps {
     theme?: string | null;
     customDomain?: string | null;
     allowCustomDomain?: boolean;
+    publishToFeed?: boolean;
+    publicHomepage?: boolean;
     role?: string;
   };
   isOpen: boolean;
@@ -58,6 +61,9 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [otherLink, setOtherLink] = useState(user.otherLink || "");
   const [selectedTheme, setSelectedTheme] = useState(user.theme || "");
   const [customDomain, setCustomDomain] = useState(user.customDomain || "");
+  const [publishToFeed, setPublishToFeed] = useState(user.publishToFeed !== false);
+  const [publicHomepage, setPublicHomepage] = useState(user.publicHomepage !== false);
+  const [publishLoading, setPublishLoading] = useState(false);
 
   const [tgBotName, setTgBotName] = useState<string | null>(null);
   const [tgBound, setTgBound] = useState(!!user.telegramChatId || !!user.telegramBound);
@@ -135,6 +141,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
   const [activeTab, setActiveTab] = useState("profile");
   const showTelegramTab = !!(tgBotName && user.role !== "guest");
   const showThemeTab = user.role !== "guest";
+  const showPublishTab = user.role !== "guest";
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -157,6 +164,21 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
     const url = URL.createObjectURL(file);
     setCropSrc(url);
     setCropTarget(target);
+  };
+
+  const handlePublishSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPublishLoading(true);
+    const res = await updatePrivacySettingsAction({ publishToFeed, publicHomepage });
+    setPublishLoading(false);
+
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("发布设置已更新");
+      onSuccess();
+      onClose();
+    }
   };
 
   const handleCropConfirm = useCallback(async (croppedBlob: Blob) => {
@@ -215,6 +237,8 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
       otherLink,
       theme: selectedTheme || "",
       customDomain: customDomain || "",
+      publishToFeed,
+      publicHomepage,
     });
     setLoading(false);
 
@@ -282,11 +306,33 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className="w-full flex flex-wrap gap-1 bg-muted p-1 rounded-lg">
-              <TabsTrigger value="profile" className="flex-1 min-w-[70px]">基础资料</TabsTrigger>
-              {showThemeTab && <TabsTrigger value="theme" className="flex-1 min-w-[70px]">主题</TabsTrigger>}
-              {showTelegramTab && <TabsTrigger value="telegram" className="flex-1 min-w-[70px]">Telegram</TabsTrigger>}
-              <TabsTrigger value="password" className="flex-1 min-w-[70px]">修改密码</TabsTrigger>
+            <TabsList className="w-full grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-muted p-1.5 border border-border/60">
+              <TabsTrigger value="profile" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <UserRound size={15} />
+                <span>基础资料</span>
+              </TabsTrigger>
+              {showPublishTab && (
+                <TabsTrigger value="publish" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                  <Send size={15} />
+                  <span>发布</span>
+                </TabsTrigger>
+              )}
+              {showThemeTab && (
+                <TabsTrigger value="theme" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                  <Palette size={15} />
+                  <span>主题</span>
+                </TabsTrigger>
+              )}
+              {showTelegramTab && (
+                <TabsTrigger value="telegram" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                  <Send size={15} />
+                  <span>Telegram</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="password" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <KeyRound size={15} />
+                <span>修改密码</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
@@ -371,6 +417,16 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                           onChange={(e) => setBio(e.target.value)}
                           rows={3}
                         />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2.5 bg-muted/20">
+                        <div className="space-y-0.5 pr-3">
+                          <p className="text-xs font-medium">是否公开主页</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">
+                            关闭后，访问您的主页只能看到基本信息，发布的内容（含置顶）将不可访问
+                          </p>
+                        </div>
+                        <Switch checked={publicHomepage} onCheckedChange={setPublicHomepage} />
                       </div>
 
                       <div className="space-y-1">
@@ -466,6 +522,34 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
                 </DialogFooter>
               </form>
             </TabsContent>
+
+            {showPublishTab && (
+              <TabsContent value="publish" className="space-y-4 py-1">
+                <form onSubmit={handlePublishSubmit} className="space-y-4">
+                  <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5 pr-3">
+                        <h3 className="text-sm font-semibold">发布至 Jotify Feed</h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          关闭后，您的所有发布内容将不会出现在全站的首页信息流中（隐身效果），只能通过您的个人主页访问这些内容。
+                        </p>
+                      </div>
+                      <Switch checked={publishToFeed} onCheckedChange={setPublishToFeed} />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="mt-4">
+                    <Button type="button" variant="outline" onClick={onClose} disabled={publishLoading}>
+                      取消
+                    </Button>
+                    <Button type="submit" disabled={publishLoading}>
+                      {publishLoading && <Loader2 className="mr-2 animate-spin size-4" />}
+                      保存设置
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </TabsContent>
+            )}
 
             {tgBotName && user.role !== "guest" && (
               <TabsContent value="telegram" className="space-y-4 py-2">
