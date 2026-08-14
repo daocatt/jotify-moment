@@ -25,6 +25,22 @@ function trimMap<K, V>(map: Map<K, V>, maxSize: number) {
   }
 }
 
+const REGISTER_CODE_ATTEMPTS = new Map<string, { count: number; resetAt: number }>();
+const MAX_REGISTER_CODE_ATTEMPTS = 5;
+const REGISTER_CODE_WINDOW = 10 * 60_000;
+
+function checkRegisterCodeAttempt(email: string): boolean {
+  maybePurge();
+  const now = Date.now();
+  const entry = REGISTER_CODE_ATTEMPTS.get(email);
+  if (!entry || now > entry.resetAt) {
+    REGISTER_CODE_ATTEMPTS.set(email, { count: 1, resetAt: now + REGISTER_CODE_WINDOW });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= MAX_REGISTER_CODE_ATTEMPTS;
+}
+
 function purgeExpiredRateLimits() {
   const now = Date.now();
   for (const [k, v] of CODE_RATE_LIMITS) {
@@ -36,9 +52,13 @@ function purgeExpiredRateLimits() {
   for (const [k, v] of RESET_PASSWORD_SEND_LIMITS) {
     if (now > v.resetAt) RESET_PASSWORD_SEND_LIMITS.delete(k);
   }
+  for (const [k, v] of REGISTER_CODE_ATTEMPTS) {
+    if (now > v.resetAt) REGISTER_CODE_ATTEMPTS.delete(k);
+  }
   trimMap(CODE_RATE_LIMITS, MAX_RATE_LIMIT_ENTRIES);
   trimMap(LOGIN_RATE_LIMITS, MAX_RATE_LIMIT_ENTRIES);
   trimMap(RESET_PASSWORD_SEND_LIMITS, MAX_RATE_LIMIT_ENTRIES);
+  trimMap(REGISTER_CODE_ATTEMPTS, MAX_RATE_LIMIT_ENTRIES);
 }
 
 let lastPurgeAt = 0;
@@ -187,8 +207,12 @@ export async function registerAction(data: {
     });
 
     if (!validCode) {
+      if (!checkRegisterCodeAttempt(email)) {
+        return { error: "验证码尝试次数过多，请重新获取验证码" };
+      }
       return { error: "Invalid or expired verification code" };
     }
+    REGISTER_CODE_ATTEMPTS.delete(email);
 
     const existingUser = await db.query.users.findFirst({
       where: eq(users.email, email),
@@ -207,13 +231,17 @@ export async function registerAction(data: {
 
     const isFirstUser = (await db.query.users.findFirst({ columns: { id: true } })) === undefined;
 
-    if (!isFirstUser) {
-      const allowReg = await db.query.settings.findFirst({
-        where: eq(settings.key, "allow_registration"),
-      });
-      if (allowReg && allowReg.value !== "true") {
-        return { error: "Registration is currently disabled by administrator" };
-      }
+    // SECURITY: The first registered account would be auto-promoted to super_admin.
+    // System bootstrap must go through the dedicated /init flow, never self-registration.
+    if (isFirstUser) {
+      return { error: "系统尚未初始化，请先通过初始化流程创建超级管理员" };
+    }
+
+    const allowReg = await db.query.settings.findFirst({
+      where: eq(settings.key, "allow_registration"),
+    });
+    if (allowReg && allowReg.value !== "true") {
+      return { error: "Registration is currently disabled by administrator" };
     }
 
     const { headers } = await import("next/headers");
