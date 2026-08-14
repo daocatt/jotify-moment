@@ -7,10 +7,14 @@ import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles } from "@/lib/storage";
+import { RateLimiter } from "@/lib/rate-limit";
 
 const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
 const MAX_PINNED = 5;
+
+const INTERACTION_RATE_LIMITER = new RateLimiter(30, 60_000);
+const POST_RATE_LIMITER = new RateLimiter(5, 60_000);
 
 export async function generateUniquePostId(): Promise<string> {
   const maxAttempts = 15;
@@ -38,6 +42,10 @@ export async function createPostAction(data: {
 
   if (data.content.length > MAX_POST_LENGTH) {
     return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
+  }
+
+  if (!POST_RATE_LIMITER.allow(user.id)) {
+    return { error: "发布过于频繁，请稍后再试" };
   }
 
   // Backward compat: if caller still passes ytVideoId, convert to embedType/embedId
@@ -579,6 +587,10 @@ export async function addCommentAction(postId: string, content: string) {
   if (!content.trim()) return { error: "Comment content cannot be empty" };
   if (content.length > 500) return { error: "评论内容不能超过 500 字" };
 
+  if (!INTERACTION_RATE_LIMITER.allow(user.id)) {
+    return { error: "操作过于频繁，请稍后再试" };
+  }
+
   try {
     const post = await db.query.posts.findFirst({
       where: eq(posts.id, postId),
@@ -608,6 +620,10 @@ export async function toggleReactionAction(postId: string, emoji: string) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
   if (user.status === "suspended") return { error: "Your account is suspended" };
+
+  if (!INTERACTION_RATE_LIMITER.allow(user.id)) {
+    return { error: "操作过于频繁，请稍后再试" };
+  }
 
   const ALLOWED_EMOJIS = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
   if (!ALLOWED_EMOJIS.includes(emoji)) {
