@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "@/lib/theme-css.gen";
@@ -36,11 +37,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // CSP nonce set by src/proxy.ts — passed to the inline theme script and GA.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="zh"
@@ -49,7 +53,10 @@ export default function RootLayout({
     >
       <head>
         {/* SECURITY: hardcoded theme-switching script only — no user input ever interpolated. Do NOT add dynamic values here. */}
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("active-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}` }} />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("active-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}` }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground relative">
         <ThemeProvider
@@ -60,7 +67,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster position="top-center" richColors />
-          <GoogleAnalytics />
+          <GoogleAnalytics nonce={nonce} />
         </ThemeProvider>
       </body>
     </html>
