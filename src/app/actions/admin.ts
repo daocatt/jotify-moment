@@ -140,6 +140,7 @@ export async function getUsersAction(cursor?: string) {
         createdAt: true,
         customDomain: true,
         allowCustomDomain: true,
+        displayPermission: true,
       },
     });
 
@@ -212,6 +213,36 @@ export async function updateUserCustomDomainPermissionAction(targetUserId: strin
     return { success: true };
   } catch (error) {
     console.error("updateUserCustomDomainPermissionAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+/**
+ * Platform-level display control: when disabled, this account's posts are
+ * hidden from the public home feed regardless of the user's own preference.
+ */
+export async function updateUserDisplayPermissionAction(targetUserId: string, allowed: boolean) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+
+    if (!targetUser) return { error: "User not found" };
+    if (targetUser.role === "super_admin") {
+      return { error: "Cannot restrict the Super Admin" };
+    }
+
+    await db.update(users).set({ displayPermission: !!allowed }).where(eq(users.id, targetUserId));
+    revalidatePath("/");
+    invalidateFeedCache();
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserDisplayPermissionAction error:", error);
     return { error: "Internal server error" };
   }
 }
@@ -331,6 +362,8 @@ export async function updateProfileAction(data: {
   otherLink: string;
   theme?: string;
   customDomain?: string;
+  publishToFeed?: boolean;
+  publicHomepage?: boolean;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -426,6 +459,8 @@ export async function updateProfileAction(data: {
         otherLink: data.otherLink || null,
         theme: data.theme || null,
         customDomain: customDomain,
+        publishToFeed: data.publishToFeed ?? user.publishToFeed,
+        publicHomepage: data.publicHomepage ?? user.publicHomepage,
       })
       .where(eq(users.id, user.id));
 
@@ -434,6 +469,32 @@ export async function updateProfileAction(data: {
     return { success: true };
   } catch (error) {
     console.error("updateProfileAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function updatePrivacySettingsAction(data: {
+  publishToFeed: boolean;
+  publicHomepage: boolean;
+}) {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+  if (user.status === "suspended") return { error: "Your account is suspended" };
+
+  try {
+    await db
+      .update(users)
+      .set({
+        publishToFeed: !!data.publishToFeed,
+        publicHomepage: !!data.publicHomepage,
+      })
+      .where(eq(users.id, user.id));
+
+    revalidatePath("/");
+    invalidateFeedCache();
+    return { success: true };
+  } catch (error) {
+    console.error("updatePrivacySettingsAction error:", error);
     return { error: "Internal server error" };
   }
 }
