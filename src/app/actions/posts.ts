@@ -283,25 +283,26 @@ export async function getPinnedPostsAction() {
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
 
   try {
+    // Lightweight query: the pinned preview only needs the first post's content,
+    // author name and a few image thumbnails — no comments/reactions payloads.
     const pinnedPosts = await db.query.posts.findMany({
       where: isAdmin
         ? isNotNull(posts.pinnedAt)
         : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt)),
       orderBy: [asc(posts.pinnedAt)],
       limit: MAX_PINNED,
+      columns: {
+        id: true,
+        userId: true,
+        content: true,
+        mediaUrls: true,
+        status: true,
+        pinnedAt: true,
+        createdAt: true,
+      },
       with: {
         author: {
           columns: { id: true, name: true, avatar: true, role: true, slug: true },
-        },
-        comments: {
-          columns: {
-            id: true,
-            status: true,
-          },
-          where: isAdmin ? undefined : eq(comments.status, "active"),
-        },
-        reactions: {
-          with: { author: { columns: { id: true, name: true } } },
         },
       },
     });
@@ -309,15 +310,8 @@ export async function getPinnedPostsAction() {
     const mapped = pinnedPosts.map((post) => ({
       ...post,
       user: post.author,
-      // Lazy-loaded comment stubs — content/userId are empty; full data fetched on expand
-      comments: post.comments.map((c) => ({
-        id: c.id,
-        content: "",
-        createdAt: post.createdAt, // dummy
-        status: c.status,
-        userId: { id: "", name: "", avatar: null },
-      })),
-      reactions: post.reactions.map((r) => ({ ...r, userId: r.author })),
+      comments: [],
+      reactions: [],
     }));
 
     return { success: true, posts: mapped };
