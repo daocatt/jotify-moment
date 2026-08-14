@@ -6,7 +6,7 @@ import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray } from "d
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
-import { deleteMediaFiles } from "@/lib/storage";
+import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
 
@@ -47,6 +47,30 @@ export async function createPostAction(data: {
 
   if (!POST_RATE_LIMITER.allow(user.id)) {
     return { error: "发布过于频繁，请稍后再试" };
+  }
+
+  // Validate media URLs: only files produced by this app's upload pipeline,
+  // bounded in count and field sizes.
+  if (data.mediaUrls.length > 9) {
+    return { error: "每条动态最多附带 9 个媒体文件" };
+  }
+  const VALID_MEDIA_TYPES = ["image", "video", "audio"];
+  for (const m of data.mediaUrls) {
+    if (!VALID_MEDIA_TYPES.includes(m.type)) {
+      return { error: "无效的媒体类型" };
+    }
+    if (typeof m.name !== "string" || m.name.length > 200) {
+      return { error: "无效的媒体文件名" };
+    }
+    if (typeof m.url !== "string" || !(await isAllowedMediaUrl(m.url))) {
+      return { error: "无效的媒体 URL" };
+    }
+    if (m.duration !== undefined && (typeof m.duration !== "number" || m.duration < 0 || m.duration > 24 * 3600)) {
+      return { error: "无效的媒体时长" };
+    }
+    if (m.thumbnailUrl !== undefined && (typeof m.thumbnailUrl !== "string" || !(await isAllowedMediaUrl(m.thumbnailUrl)))) {
+      return { error: "无效的缩略图 URL" };
+    }
   }
 
   // Backward compat: if caller still passes ytVideoId, convert to embedType/embedId

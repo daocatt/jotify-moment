@@ -121,6 +121,22 @@ export async function getUploadLimits(): Promise<{ maxFileSizeMB: number; allowe
   return { maxFileSizeMB: config.maxFileSizeMB, allowedExtensions: config.allowedExtensions };
 }
 
+/**
+ * Restrict media URLs to those produced by this app's upload pipeline:
+ * local `/uploads/...` paths or the configured S3 public base URL.
+ * Prevents referencing arbitrary external URLs (hotlinking, tracking, phishing).
+ */
+export async function isAllowedMediaUrl(url: string): Promise<boolean> {
+  if (!url) return false;
+  if (url.startsWith("/uploads/")) return !url.includes("..");
+
+  const config = await getStorageConfig();
+  if (config.mode !== "s3") return false;
+  if (config.s3PublicUrl && url.startsWith(config.s3PublicUrl)) return true;
+  if (config.s3Endpoint && config.s3BucketName && url.startsWith(`${config.s3Endpoint}/${config.s3BucketName}`)) return true;
+  return false;
+}
+
 export async function uploadFile(
   fileBuffer: Buffer,
   originalName: string,
