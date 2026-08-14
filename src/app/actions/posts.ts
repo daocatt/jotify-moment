@@ -135,6 +135,7 @@ export async function createPostAction(data: {
     }
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true, pending: status === "pending" };
   } catch (error) {
     console.error("createPostAction error:", error);
@@ -233,6 +234,7 @@ async function fetchEmbedMeta(
 
 
 import { getPostsQuery, parseCursor, makeCursor, loadReactions } from "@/db/queries";
+import { getCachedSuperAdminProfile, invalidateFeedCache } from "@/lib/feed-cache";
 
 export async function getPostsAction(cursor?: string) {
   const currentUser = await getSessionUser();
@@ -270,6 +272,7 @@ export async function deletePostAction(postId: string) {
 
     await db.delete(posts).where(eq(posts.id, postId));
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("deletePostAction error:", error);
@@ -295,6 +298,7 @@ export async function updatePostAction(postId: string, content: string) {
 
     await db.update(posts).set({ content: content.trim() }).where(eq(posts.id, postId));
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("updatePostAction error:", error);
@@ -422,6 +426,7 @@ export async function pinPostAction(postId: string) {
     await db.update(posts).set({ pinnedAt: new Date() }).where(eq(posts.id, postId));
     revalidatePath("/");
     revalidatePath("/pinned");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("pinPostAction error:", error);
@@ -443,6 +448,7 @@ export async function unpinPostAction(postId: string) {
     await db.update(posts).set({ pinnedAt: null }).where(eq(posts.id, postId));
     revalidatePath("/");
     revalidatePath("/pinned");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("unpinPostAction error:", error);
@@ -472,6 +478,7 @@ export async function pinPostToProfileAction(postId: string) {
 
     await db.insert(userPinned).values({ userId: user.id, postId });
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("pinPostToProfileAction error:", error);
@@ -487,6 +494,7 @@ export async function unpinPostFromProfileAction(postId: string) {
     await db.delete(userPinned)
       .where(and(eq(userPinned.userId, user.id), eq(userPinned.postId, postId)));
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("unpinPostFromProfileAction error:", error);
@@ -650,16 +658,9 @@ import { cache } from "react";
 
 export const getSuperAdminProfileAction = cache(async function getSuperAdminProfileAction() {
   try {
-    const admin = await db.query.users.findFirst({
-      where: eq(users.role, "super_admin"),
-      columns: { id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true, customDomain: true, allowCustomDomain: true },
-    });
+    const admin = await getCachedSuperAdminProfile();
     if (!admin) return { error: "No super admin" };
-    let slug = admin.slug;
-    if (!slug) {
-      slug = await ensureUserSlug(admin.id, admin.name);
-    }
-    return { success: true, user: { ...admin, slug } };
+    return { success: true, user: admin };
   } catch (error) {
     console.error("getSuperAdminProfileAction error:", error);
     return { error: "Failed to fetch admin profile" };
@@ -695,6 +696,7 @@ export async function addCommentAction(postId: string, content: string) {
 
     revalidatePath("/");
     revalidatePath(`/mo/${postId}`);
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("addCommentAction error:", error);
@@ -736,6 +738,7 @@ export async function toggleReactionAction(postId: string, emoji: string) {
     }
 
     revalidatePath("/");
+    invalidateFeedCache();
     return { success: true };
   } catch (error) {
     console.error("toggleReactionAction error:", error);

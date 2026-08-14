@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSuperAdminProfileAction } from "@/app/actions/posts";
-import { getPostsQuery } from "@/db/queries";
+import { getCachedPublicFeed } from "@/lib/feed-cache";
 import { HomeClient } from "./home-client";
 import type { PostData } from "@/components/timeline-shell";
 
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
   const [profileRes, postsRes] = await Promise.all([
     getSuperAdminProfileAction(),
-    getPostsQuery(false), // Direct query call, not via Server Action
+    getCachedPublicFeed(), // Cached public feed (short TTL), not via Server Action
   ]);
   const superAdmin = "user" in profileRes && profileRes.user ? profileRes.user : null;
   const initialPosts = (postsRes.posts as PostData[] | undefined) ?? [];
