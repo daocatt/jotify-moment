@@ -405,7 +405,6 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     // Parse any embed URL from text (YouTube, Bilibili, TikTok, Spotify, etc.)
     let embedType: string | null = null;
     let embedId: string | null = null;
-    let embedMeta: { thumbnailUrl?: string; title?: string } | null = null;
 
     // Find first URL in content and try to parse it as an embed
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
@@ -423,28 +422,6 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
             if (resolved) embedId = resolved;
           }
         }
-        // Attempt to prefetch meta (non-fatal)
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 4000);
-        try {
-          if (embedType === "youtube") {
-            const r = await fetch(`https://www.youtube.com/oembed?url=https://youtu.be/${embedId}&format=json`, { signal: ctrl.signal });
-            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
-          } else if (embedType === "bilibili") {
-            const isBV = embedId.toUpperCase().startsWith("BV");
-            const param = isBV ? `bvid=${embedId}` : `aid=${embedId.slice(2)}`;
-            const r = await fetch(`https://api.bilibili.com/x/web-interface/view?${param}`, { signal: ctrl.signal });
-            if (r.ok) { const j = await r.json() as { data?: { title?: string; pic?: string } }; embedMeta = { title: j.data?.title, thumbnailUrl: j.data?.pic }; }
-          } else if (embedType === "tiktok") {
-            const vu = embedId.length > 15 ? `https://www.tiktok.com/video/${embedId}` : `https://vm.tiktok.com/${embedId}`;
-            const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(vu)}`, { signal: ctrl.signal });
-            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
-          } else if (embedType === "spotify" || embedType === "spotify-podcast") {
-            const su = `https://open.spotify.com/${embedId}`;
-            const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(su)}`, { signal: ctrl.signal });
-            if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; embedMeta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
-          }
-        } finally { clearTimeout(timer); }
       }
     }
 
@@ -466,9 +443,44 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta,
+      embedMeta: null,
       status: postStatus,
     });
+
+    // Background embed meta enrichment (thumbnail + title) — non-blocking.
+    if (embedType && embedId) {
+      void (async () => {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 4000);
+          try {
+            let meta: { thumbnailUrl?: string; title?: string } | null = null;
+            if (embedType === "youtube") {
+              const r = await fetch(`https://www.youtube.com/oembed?url=https://youtu.be/${embedId}&format=json`, { signal: ctrl.signal });
+              if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; meta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+            } else if (embedType === "bilibili") {
+              const isBV = embedId.toUpperCase().startsWith("BV");
+              const param = isBV ? `bvid=${embedId}` : `aid=${embedId.slice(2)}`;
+              const r = await fetch(`https://api.bilibili.com/x/web-interface/view?${param}`, { signal: ctrl.signal });
+              if (r.ok) { const j = await r.json() as { data?: { title?: string; pic?: string } }; meta = { title: j.data?.title, thumbnailUrl: j.data?.pic }; }
+            } else if (embedType === "tiktok") {
+              const vu = embedId.length > 15 ? `https://www.tiktok.com/video/${embedId}` : `https://vm.tiktok.com/${embedId}`;
+              const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(vu)}`, { signal: ctrl.signal });
+              if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; meta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+            } else if (embedType === "spotify" || embedType === "spotify-podcast") {
+              const su = `https://open.spotify.com/${embedId}`;
+              const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(su)}`, { signal: ctrl.signal });
+              if (r.ok) { const j = await r.json() as { title?: string; thumbnail_url?: string }; meta = { title: j.title, thumbnailUrl: j.thumbnail_url }; }
+            }
+            if (meta && (meta.title || meta.thumbnailUrl)) {
+              await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+            }
+          } finally { clearTimeout(timer); }
+        } catch (err) {
+          console.error("Telegram embedMeta background enrichment failed:", err);
+        }
+      })();
+    }
 
     if (postStatus === "pending") {
       await sendTelegramMessage(botToken, chatId, `📝 动态已提交，等待管理员审核后发布。`);

@@ -75,16 +75,6 @@ export async function createPostAction(data: {
     }
   }
 
-  // Fetch embed meta server-side (thumbnail + title) so the client never needs to call external APIs
-  let embedMeta: { thumbnailUrl?: string; title?: string } | null = null;
-  if (embedType && embedId) {
-    try {
-      embedMeta = await fetchEmbedMeta(embedType, embedId);
-    } catch {
-      // non-fatal — render will still work, just without cached thumbnail
-    }
-  }
-
   try {
     const requireApproval = (await getSetting("require_approval")) === "true";
     const status = (requireApproval && user.role === "user") ? "pending" : "approved";
@@ -100,9 +90,25 @@ export async function createPostAction(data: {
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta,
+      embedMeta: null,
       status,
     });
+
+    // Fetch embed meta (thumbnail + title) in the background so publishing
+    // never blocks on external oEmbed APIs. Pages are force-dynamic, so the
+    // enrichment is picked up on the next visit.
+    if (embedType && embedId) {
+      void (async () => {
+        try {
+          const meta = await fetchEmbedMeta(embedType as EmbedType, embedId);
+          if (meta && (meta.title || meta.thumbnailUrl)) {
+            await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+          }
+        } catch (err) {
+          console.error("embedMeta background enrichment failed:", err);
+        }
+      })();
+    }
 
     revalidatePath("/");
     return { success: true, pending: status === "pending" };
