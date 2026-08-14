@@ -104,8 +104,12 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   // Local mirror of the post used for optimistic reaction updates without a full feed refetch.
   const [postState, setPostState] = useState(post);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local mirror with server data
     setPostState(post);
   }, [post]);
+
+  // Counter for optimistic (temporary) reaction ids — avoids impure calls in render.
+  const tmpIdCounter = useRef(0);
 
   const loadComments = useCallback(async (force = false) => {
     if (!force && localComments.length > 0) return;
@@ -199,7 +203,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
       ? prevReactions.filter((r) => !(r.userId.id === currentUser.id && r.emoji === emoji))
       : [
           ...prevReactions,
-          { id: `tmp-${Date.now()}`, emoji, userId: { id: currentUser.id, name: currentUser.name } },
+          { id: `tmp-${++tmpIdCounter.current}`, emoji, userId: { id: currentUser.id, name: currentUser.name } },
         ];
 
     setPostState((p) => ({
