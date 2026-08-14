@@ -190,6 +190,18 @@ export async function getPostCommentsAction(postId: string) {
     });
     if (!post) return { error: "Post not found" };
 
+    // Hidden profiles (public homepage off): comments are not accessible to others.
+    const author = await db.query.users.findFirst({
+      where: eq(users.id, post.userId),
+      columns: { publicHomepage: true },
+    });
+    if (author?.publicHomepage === false) {
+      const isOwner = user && post.userId === user.id;
+      if (!isAdmin && !isOwner) {
+        return { error: "Post not found" };
+      }
+    }
+
     // Pending posts are only visible to their author and admins.
     if (post.status !== "approved") {
       const isOwner = user && post.userId === user.id;
