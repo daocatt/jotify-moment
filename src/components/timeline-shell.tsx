@@ -112,6 +112,8 @@ interface TimelineShellProps {
   isCustomDomain?: boolean;
   mainHost?: string;
   isUserHomePage?: boolean;
+  /** Owner disabled public homepage: show only basic info + a stealth notice. */
+  hidden?: boolean;
 }
 
 export function TimelineShell({
@@ -130,6 +132,7 @@ export function TimelineShell({
   isCustomDomain = false,
   mainHost,
   isUserHomePage = false,
+  hidden = false,
 }: TimelineShellProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -779,10 +782,14 @@ export function TimelineShell({
         </div>
       )}
 
-      {pinnedEntry}
+      {!hidden && pinnedEntry}
 
       <div className="flex-1 divide-y divide-border/60 pb-20">
-        {posts.length === 0 && loadingPosts ? (
+        {hidden ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
+            <span className="text-sm">本帐号已悄悄隐身</span>
+          </div>
+        ) : posts.length === 0 && loadingPosts ? (
           <>
             {[...Array(4)].map((_, i) => (
               <div key={i} className="animate-pulse flex gap-4 p-4">

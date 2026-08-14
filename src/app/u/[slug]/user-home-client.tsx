@@ -23,6 +23,7 @@ interface ProfileUserFull {
   x: string | null;
   otherLink: string | null;
   theme: string | null;
+  hidden?: boolean;
 }
 
 export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slug: string; isCustomDomain?: boolean; mainHost?: string }) {
@@ -58,7 +59,11 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
     setLoadingPosts(false);
     setLoadingMore(false);
 
-    if ("posts" in res && res.posts) {
+    if ("hidden" in res && res.hidden) {
+      setPosts([]);
+      cursorRef.current = null;
+      setHasMore(false);
+    } else if ("posts" in res && res.posts) {
       const typedPosts = res.posts as PostData[];
       if (append) {
         setPosts((prev) => [...prev, ...typedPosts]);
@@ -170,6 +175,7 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
       mainHost={mainHost}
       isUserHomePage
       pinnedEntry={pinnedEntry}
+      hidden={profileUser.hidden === true}
     />
   );
 }
