@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { users, verificationCodes, settings, accounts } from "@/db/schema";
+import { users, verificationCodes, settings, accounts, sessions } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
 import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
@@ -378,6 +378,9 @@ export async function loginAction(data: { email: string; password?: string; turn
     }
 
     LOGIN_RATE_LIMITS.delete(email);
+
+    // Opportunistic cleanup of this user's expired sessions to keep the table from growing.
+    await db.delete(sessions).where(and(eq(sessions.userId, user.id), lt(sessions.expiresAt, new Date())));
 
     const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
