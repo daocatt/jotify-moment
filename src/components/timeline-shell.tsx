@@ -336,11 +336,11 @@ export function TimelineShell({
     return () => observer.disconnect();
   }, [hasMore, loadingMore, onLoadMore]);
 
-  const openLightbox = (images: string[], index: number) => {
+  const openLightbox = useCallback((images: string[], index: number) => {
     setLightboxImages(images);
     setLightboxIndex(index);
     setLightboxOpen(true);
-  };
+  }, []);
 
   const isOwnPage = !!(profileUser.id && currentUser && profileUser.id === currentUser.id);
   const isGuest = currentUser?.role === "guest";
