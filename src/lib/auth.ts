@@ -1,4 +1,5 @@
 import { MIN_PASSWORD_LENGTH } from "@/lib/constants";
+import { cache } from "react";
 
 export { MIN_PASSWORD_LENGTH };
 import { cookies } from "next/headers";
@@ -55,7 +56,9 @@ export async function generateToken(user: SessionUser): Promise<string> {
   return "";
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+// Memoized per request: getSessionUser is called from many server actions/routes
+// within a single request; this avoids repeated session+user DB lookups.
+export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("better-auth.session_token")?.value;
@@ -114,7 +117,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     console.error("getSessionUser error:", error);
     throw new Error("Session lookup failed");
   }
-}
+});
 
 // Stubs to avoid breaking compilation elsewhere
 export async function setSessionCookie(token: string) {}
