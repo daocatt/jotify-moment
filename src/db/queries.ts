@@ -1,8 +1,18 @@
 import { db } from "@/db";
-import { posts, comments, reactions } from "@/db/schema";
+import { posts, comments, reactions, users } from "@/db/schema";
 import { eq, and, or, desc, lt, isNull, sql, inArray } from "drizzle-orm";
 
 const PAGE_SIZE = 15;
+
+/**
+ * Users whose posts may appear in the public home feed.
+ * Both the user's own "publish to feed" preference AND the platform's
+ * "display permission" (admin control) must be enabled.
+ */
+export const visibleFeedUsers = db
+  .select({ id: users.id })
+  .from(users)
+  .where(and(eq(users.publishToFeed, true), eq(users.displayPermission, true)));
 
 export interface ReactionSummary {
   total: number;
@@ -103,8 +113,8 @@ export async function getPostsQuery(isAdmin: boolean, cursor?: string) {
           ? and(isNull(posts.pinnedAt), afterCursor(cursorCond))
           : isNull(posts.pinnedAt))
       : (cursorCond
-          ? and(eq(posts.status, "approved"), isNull(posts.pinnedAt), afterCursor(cursorCond))
-          : and(eq(posts.status, "approved"), isNull(posts.pinnedAt))),
+          ? and(eq(posts.status, "approved"), isNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers), afterCursor(cursorCond))
+          : and(eq(posts.status, "approved"), isNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers))),
     orderBy: [desc(posts.createdAt), desc(posts.id)],
     limit: PAGE_SIZE + 1,
     with: {

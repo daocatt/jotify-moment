@@ -233,7 +233,7 @@ async function fetchEmbedMeta(
 }
 
 
-import { getPostsQuery, parseCursor, makeCursor, loadReactions } from "@/db/queries";
+import { getPostsQuery, parseCursor, makeCursor, loadReactions, visibleFeedUsers } from "@/db/queries";
 import { getCachedSuperAdminProfile, invalidateFeedCache } from "@/lib/feed-cache";
 
 export async function getPostsAction(cursor?: string) {
@@ -314,7 +314,7 @@ export async function getPinnedPostsAction() {
     const pinnedPosts = await db.query.posts.findMany({
       where: isAdmin
         ? isNotNull(posts.pinnedAt)
-        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt)),
+        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers)),
       orderBy: [asc(posts.pinnedAt)],
       limit: MAX_PINNED,
       with: {
@@ -367,7 +367,7 @@ export async function getPinnedPreviewAction() {
     const pinnedPosts = await db.query.posts.findMany({
       where: isAdmin
         ? isNotNull(posts.pinnedAt)
-        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt)),
+        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers)),
       orderBy: [asc(posts.pinnedAt)],
       limit: MAX_PINNED,
       columns: {
@@ -506,9 +506,12 @@ export async function getUserPinnedPostsAction(slug: string) {
   try {
     const target = await db.query.users.findFirst({
       where: eq(users.slug, slug),
-      columns: { id: true },
+      columns: { id: true, publicHomepage: true },
     });
-    if (!target) return { posts: [] };
+    if (!target) return { posts: [], hidden: true };
+    if (await isProfileHidden(target.id, target.publicHomepage)) {
+      return { posts: [], hidden: true };
+    }
 
     const pinnedRows = await db.query.userPinned.findMany({
       where: eq(userPinned.userId, target.id),
@@ -561,6 +564,19 @@ export async function getUserPinnedPostsAction(slug: string) {
   }
 }
 
+/**
+ * A profile is "hidden" when the owner disabled their public homepage AND the
+ * viewer is neither the owner nor an admin.
+ */
+async function isProfileHidden(targetId: string, targetPublicHomepage: boolean): Promise<boolean> {
+  if (targetPublicHomepage) return false;
+  const viewer = await getSessionUser();
+  if (!viewer) return true;
+  if (viewer.role === "super_admin" || viewer.role === "admin") return false;
+  if (viewer.id === targetId) return false;
+  return true;
+}
+
 export async function getUserBySlugAction(slug: string) {
   try {
     const target = await db.query.users.findFirst({
@@ -569,11 +585,13 @@ export async function getUserBySlugAction(slug: string) {
         id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, status: true,
         wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true,
         customDomain: true, allowCustomDomain: true,
+        publishToFeed: true, displayPermission: true, publicHomepage: true,
       },
     });
     if (!target) return { error: "用户不存在" };
     if (target.role === "guest") return { error: "该用户为访客用户，无个人主页" };
-    return { success: true, user: target };
+    const hidden = await isProfileHidden(target.id, target.publicHomepage);
+    return { success: true, user: { ...target, hidden } };
   } catch (error) {
     console.error("getUserBySlugAction error:", error);
     return { error: "Failed to fetch user" };
@@ -587,9 +605,12 @@ export async function getUserPostsAction(slug: string, cursor?: string) {
   try {
     const target = await db.query.users.findFirst({
       where: eq(users.slug, slug),
-      columns: { id: true },
+      columns: { id: true, publicHomepage: true },
     });
     if (!target) return { error: "用户不存在" };
+    if (await isProfileHidden(target.id, target.publicHomepage)) {
+      return { hidden: true };
+    }
 
     const cursorCond = cursor ? parseCursor(cursor) : null;
     const userPosts = await db.query.posts.findMany({
@@ -755,7 +776,7 @@ export async function getPostByIdAction(postId: string) {
       where: eq(posts.id, postId),
       with: {
         author: {
-          columns: { id: true, name: true, avatar: true, role: true, slug: true },
+          columns: { id: true, name: true, avatar: true, role: true, slug: true, publicHomepage: true },
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
@@ -766,6 +787,14 @@ export async function getPostByIdAction(postId: string) {
     });
 
     if (!post) return { error: "Post not found" };
+
+    // Guard: hidden profiles (publicHomepage off) — content is not accessible to others
+    if (post.author.publicHomepage === false) {
+      const isOwner = currentUser && post.userId === currentUser.id;
+      if (!isOwner && !isAdmin) {
+        return { error: "Post not found" };
+      }
+    }
 
     // Guard: pending posts are only visible to author and admin
     if (post.status !== "approved") {

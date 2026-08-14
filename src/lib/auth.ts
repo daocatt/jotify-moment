@@ -27,6 +27,9 @@ export interface SessionUser {
   theme: string | null;
   customDomain: string | null;
   allowCustomDomain: boolean;
+  publishToFeed: boolean;
+  displayPermission: boolean;
+  publicHomepage: boolean;
   loginDisabledAt: Date | null;
 }
 
@@ -111,6 +114,9 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
       theme: dbUser.theme,
       customDomain: dbUser.customDomain,
       allowCustomDomain: dbUser.allowCustomDomain,
+      publishToFeed: dbUser.publishToFeed,
+      displayPermission: dbUser.displayPermission,
+      publicHomepage: dbUser.publicHomepage,
       loginDisabledAt: dbUser.loginDisabledAt,
     };
   } catch (error) {
