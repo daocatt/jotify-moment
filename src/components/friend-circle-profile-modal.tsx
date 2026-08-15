@@ -119,7 +119,7 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>编辑好友圈资料</DialogTitle>
+            <DialogTitle>朋友圈资料</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-1">
