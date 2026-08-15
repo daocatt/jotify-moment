@@ -14,9 +14,16 @@ import { getPublicSettingsAction } from "@/app/actions/admin";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { APP_VERSION } from "@/lib/version";
 
 export interface CurrentUser {
@@ -375,6 +382,51 @@ export function TimelineShell({
     }
   };
 
+  const goToMyHome = () => {
+    if (currentUser?.role === "guest") {
+      router.push("/guest-profile");
+    } else if (currentUser?.slug) {
+      router.push(`/u/${currentUser.slug}`);
+    } else {
+      toast.error("尚未设置主页路径");
+    }
+  };
+
+  const goToHomePage = () => {
+    if (isCustomDomain && mainHost) {
+      window.location.href = `${window.location.protocol}//${mainHost}/`;
+    } else {
+      router.push("/");
+    }
+  };
+
+  const goToCustomHome = () => {
+    if (currentUser?.customDomain) {
+      window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
+    }
+  };
+
+  const toggleEditor = () => {
+    setEditorOpen((v) => {
+      const next = !v;
+      if (next) {
+        setTimeout(() => {
+          document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      }
+      return next;
+    });
+  };
+
+  const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
+  const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
+  const menuBtnClass = `inline-flex items-center justify-center h-8 rounded-full px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${
+    coverStyle
+      ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+  }`;
+  const menuBtnActiveClass = "text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15";
+
   return (
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
 
@@ -466,143 +518,67 @@ export function TimelineShell({
         </div>
       </div>
 
-      {/* Floating Vertical Navigation */}
-      <div className="fixed bottom-10 left-0 md:left-[calc(50%-320px)] md:bottom-16 z-40 flex flex-col gap-2">
-        {currentUser ? (
+      {/* Top-right: functional menu (aligned with the top-left controls) */}
+      <div className={`absolute top-4 right-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
+        {!currentUser && (
           <>
-            {isUserHomePage ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (isCustomDomain && mainHost) {
-                    window.location.href = `${window.location.protocol}//${mainHost}/`;
-                  } else {
-                    router.push("/");
-                  }
-                }}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <ArrowLeft size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>返</span>
-                  <span>回</span>
-                </span>
-              </Button>
-            ) : currentUser.role === "guest" ? (
-              <Button
-                variant="outline"
-                onClick={() => router.push("/guest-profile")}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <CircleUserRound size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>我</span>
-                  <span>的</span>
-                </span>
-              </Button>
-            ) : currentUser.slug ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  router.push(`/u/${currentUser.slug}`);
-                }}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <CircleUserRound size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>我</span>
-                  <span>的</span>
-                </span>
-              </Button>
-            ) : null}
-            {isUserHomePage && isOwnPage && currentUser.customDomain && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
-                }}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <Globe size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>主</span>
-                  <span>页</span>
-                </span>
-              </Button>
+            <button type="button" onClick={handleLoginClick} className={menuBtnClass}>
+              登录
+            </button>
+            {sysSettings && sysSettings.allow_registration !== "false" && (
+              <button type="button" onClick={handleRegisterClick} className={menuBtnClass}>
+                注册
+              </button>
+            )}
+          </>
+        )}
+
+        {currentUser && (
+          <>
+            {isUserHomePage && (
+              <button type="button" onClick={goToHomePage} className={menuBtnClass}>
+                <ArrowLeft size={13} /> 返回
+              </button>
             )}
             {renderEditor && (
-              <Button
-                variant={editorOpen ? "default" : "outline"}
-                onClick={() => {
-                  setEditorOpen((v) => {
-                    const next = !v;
-                    if (next) {
-                      setTimeout(() => {
-                        document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }, 50);
-                    }
-                    return next;
-                  });
-                }}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
+              <button
+                type="button"
+                onClick={toggleEditor}
+                className={editorOpen ? menuBtnActiveClass : menuBtnClass}
               >
-                <Pen size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>发</span>
-                  <span>布</span>
-                </span>
-              </Button>
+                <Pen size={13} /> 发布
+              </button>
             )}
-            {(currentUser.role === "super_admin" || currentUser.role === "admin") && (
-              <Button
-                variant="outline"
-                onClick={() => window.open("/admin", "_blank")}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <Shield size={13} className="shrink-0" />
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>控</span>
-                  <span>制</span>
-                  <span>台</span>
-                </span>
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-            >
-              <LogOut size={13} className="shrink-0" />
-              <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                <span>登</span>
-                <span>出</span>
-              </span>
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              onClick={handleLoginClick}
-              className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-            >
-              <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                <span>登</span>
-                <span>录</span>
-              </span>
-            </Button>
-            {sysSettings && sysSettings.allow_registration !== "false" && (
-              <Button
-                variant="outline"
-                onClick={handleRegisterClick}
-                className="w-8 h-auto py-2.5 bg-background border border-border text-foreground shadow-sm hover:bg-muted flex flex-col items-center gap-1.5 rounded-none border-l-0 md:border-r-0 md:border-l"
-              >
-                <span className="flex flex-col items-center text-[9px] leading-tight font-medium">
-                  <span>注</span>
-                  <span>册</span>
-                </span>
-              </Button>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button type="button" className={menuBtnClass} aria-label="更多操作">
+                    更多 <ChevronDown size={13} />
+                  </button>
+                }
+              />
+              <DropdownMenuContent align="end" className="min-w-36">
+                {(currentUser.role === "guest" || currentUser.slug) && (
+                  <DropdownMenuItem onClick={goToMyHome} className="whitespace-nowrap text-xs">
+                    <CircleUserRound size={13} /> 我的
+                  </DropdownMenuItem>
+                )}
+                {isUserHomePage && isOwnPage && currentUser.customDomain && (
+                  <DropdownMenuItem onClick={goToCustomHome} className="whitespace-nowrap text-xs">
+                    <Globe size={13} /> 主页
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => window.open("/admin", "_blank")} className="whitespace-nowrap text-xs">
+                    <Shield size={13} /> 控制台
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} variant="destructive" className="whitespace-nowrap text-xs">
+                  <LogOut size={13} /> 登出
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
       </div>
