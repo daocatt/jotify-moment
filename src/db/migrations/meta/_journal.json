@@ -162,6 +162,13 @@
       "when": 1786816083699,
       "tag": "0022_calm_aqueduct",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786821635967,
+      "tag": "0023_dizzy_wrecker",
+      "breakpoints": true
     }
   ]
 }
