@@ -100,7 +100,8 @@ export async function GET() {
     console.error("Favicon route error:", error);
   }
 
-  const defaultPath = path.join(process.cwd(), "public", "logo.svg");
+  // Circular black-background logo with the white mark.
+  const defaultPath = path.join(process.cwd(), "public", "logo-rounded.svg");
   if (fs.existsSync(defaultPath)) {
     const buffer = fs.readFileSync(defaultPath);
     return new Response(buffer, {

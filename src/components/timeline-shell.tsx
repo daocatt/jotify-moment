@@ -392,14 +392,6 @@ export function TimelineShell({
     }
   };
 
-  const goToHomePage = () => {
-    if (isCustomDomain && mainHost) {
-      window.location.href = `${window.location.protocol}//${mainHost}/`;
-    } else {
-      router.push("/");
-    }
-  };
-
   const goToCustomHome = () => {
     if (currentUser?.customDomain) {
       window.location.href = `${window.location.protocol}//${currentUser.customDomain}/`;
@@ -470,9 +462,12 @@ export function TimelineShell({
             href="https://jotify.me"
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-flex items-center justify-center h-8 px-3 rounded-full text-xs font-semibold select-none cursor-pointer outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            title="Jotify"
+            aria-label="Jotify"
+            className="size-8 rounded-full overflow-hidden bg-white/90 dark:bg-zinc-100 shadow-sm ring-1 ring-black/5 cursor-pointer outline-none transition-all hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Jotify
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="Jotify" className="h-full w-full object-contain" />
           </a>
         )}
       </div>
@@ -535,11 +530,6 @@ export function TimelineShell({
 
         {currentUser && (
           <>
-            {isUserHomePage && (
-              <button type="button" onClick={goToHomePage} className={menuBtnClass}>
-                <ArrowLeft size={13} /> 返回
-              </button>
-            )}
             {renderEditor && (
               <button
                 type="button"
