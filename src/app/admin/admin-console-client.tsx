@@ -1320,9 +1320,9 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                               </Button>
                             }
                           />
-                          <DropdownMenuContent align="end" className="min-w-36">
-                            <DropdownMenuItem onClick={() => openEditor(user)}>
-                              <UserCheck size={14} /> 编辑账号
+                          <DropdownMenuContent align="end" className="min-w-44">
+                            <DropdownMenuItem onClick={() => openEditor(user)} className="whitespace-nowrap text-xs">
+                              <UserCheck size={13} /> 编辑账号
                             </DropdownMenuItem>
 
                             {user.role !== "super_admin" && (
@@ -1330,13 +1330,13 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() => handleToggleUserDisplayPermission(user.id, user.displayPermission)}
-                                  className="flex items-center justify-between gap-2"
+                                  className="flex items-center justify-between gap-2 whitespace-nowrap text-xs"
                                 >
                                   <span className="flex items-center gap-1.5">
-                                    <Eye size={14} /> 展示权限
+                                    <Eye size={13} /> 展示权限
                                   </span>
                                   <span
-                                    className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${
+                                    className={`shrink-0 text-[9px] font-medium rounded px-1 py-px leading-none ${
                                       user.displayPermission
                                         ? "bg-green-500/10 text-green-600"
                                         : "bg-zinc-500/10 text-zinc-500"
@@ -1348,13 +1348,14 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                 <DropdownMenuItem
                                   onClick={() => handleToggleUserStatus(user.id, user.status)}
                                   variant={user.status === "active" ? "destructive" : "default"}
+                                  className="whitespace-nowrap text-xs"
                                 >
-                                  {user.status === "active" ? <UserX size={14} /> : <UserCheck size={14} />}
+                                  {user.status === "active" ? <UserX size={13} /> : <UserCheck size={13} />}
                                   {user.status === "active" ? "封禁" : "解封"}
                                 </DropdownMenuItem>
                                 {user.loginDisabledAt && (
-                                  <DropdownMenuItem onClick={() => handleUnlockLogin(user.id)}>
-                                    <LockOpen size={14} /> 解锁登录
+                                  <DropdownMenuItem onClick={() => handleUnlockLogin(user.id)} className="whitespace-nowrap text-xs">
+                                    <LockOpen size={13} /> 解锁登录
                                   </DropdownMenuItem>
                                 )}
                               </>
