@@ -306,18 +306,18 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className="h-auto w-full grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-muted p-1.5 border border-border/60">
-              <TabsTrigger value="profile" className="min-w-0 rounded-lg py-2 px-1 text-xs font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">基础资料</TabsTrigger>
+            <TabsList className="inline-flex h-9 w-full items-center justify-start rounded-lg bg-zinc-100/80 dark:bg-zinc-800/80 p-1 text-muted-foreground gap-1">
+              <TabsTrigger value="profile" className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all data-active:bg-background dark:data-active:bg-zinc-900 data-active:text-foreground data-active:shadow-sm">基础资料</TabsTrigger>
               {showPublishTab && (
-                <TabsTrigger value="publish" className="min-w-0 rounded-lg py-2 px-1 text-xs font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">发布</TabsTrigger>
+                <TabsTrigger value="publish" className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all data-active:bg-background dark:data-active:bg-zinc-900 data-active:text-foreground data-active:shadow-sm">发布</TabsTrigger>
               )}
               {showThemeTab && (
-                <TabsTrigger value="theme" className="min-w-0 rounded-lg py-2 px-1 text-xs font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">主题</TabsTrigger>
+                <TabsTrigger value="theme" className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all data-active:bg-background dark:data-active:bg-zinc-900 data-active:text-foreground data-active:shadow-sm">主题</TabsTrigger>
               )}
               {showTelegramTab && (
-                <TabsTrigger value="telegram" className="min-w-0 rounded-lg py-2 px-1 text-xs font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">Telegram</TabsTrigger>
+                <TabsTrigger value="telegram" className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all data-active:bg-background dark:data-active:bg-zinc-900 data-active:text-foreground data-active:shadow-sm">Telegram</TabsTrigger>
               )}
-              <TabsTrigger value="password" className="min-w-0 rounded-lg py-2 px-1 text-xs font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">修改密码</TabsTrigger>
+              <TabsTrigger value="password" className="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium transition-all data-active:bg-background dark:data-active:bg-zinc-900 data-active:text-foreground data-active:shadow-sm">修改密码</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
