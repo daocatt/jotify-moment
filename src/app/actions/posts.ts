@@ -115,8 +115,10 @@ export async function createPostAction(data: {
       embedType,
       embedId,
       embedMeta: null,
-      status,
+      status: status as "approved" | "pending",
     });
+
+    await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, user.id));
 
     // Fetch embed meta (thumbnail + title) in the background so publishing
     // never blocks on external oEmbed APIs. Pages are force-dynamic, so the
