@@ -500,6 +500,49 @@ export async function updatePrivacySettingsAction(data: {
   }
 }
 
+/**
+ * Update only the friends-circle basic profile (cover/logo/title/description).
+ * Unlike updateProfileAction, this never touches the homepage path/slug.
+ */
+export async function updateFriendCircleProfileAction(data: {
+  name: string;
+  bio: string;
+  avatar: string;
+  coverImage: string;
+}) {
+  const user = await getSessionUser();
+  if (!user) return { error: "Unauthorized" };
+  if (user.status === "suspended") return { error: "Your account is suspended" };
+
+  if (!data.name.trim()) return { error: "用户名不能为空" };
+  if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
+  if (data.avatar && data.avatar !== user.avatar && !(await isAllowedMediaUrl(data.avatar))) {
+    return { error: "头像图片无效，请通过上传获取" };
+  }
+  if (data.coverImage && data.coverImage !== user.coverImage && !(await isAllowedMediaUrl(data.coverImage))) {
+    return { error: "封面图片无效，请通过上传获取" };
+  }
+
+  try {
+    await db
+      .update(users)
+      .set({
+        name: data.name.trim(),
+        bio: data.bio || null,
+        avatar: data.avatar || null,
+        coverImage: data.coverImage || null,
+      })
+      .where(eq(users.id, user.id));
+
+    revalidatePath("/");
+    invalidateFeedCache();
+    return { success: true };
+  } catch (error) {
+    console.error("updateFriendCircleProfileAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function updateUserEmailAction(targetUserId: string, email: string) {

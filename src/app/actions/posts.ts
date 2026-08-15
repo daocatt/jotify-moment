@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { posts, comments, reactions, users, userPinned } from "@/db/schema";
-import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray, ne, sql } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
@@ -856,5 +856,36 @@ export async function checkCustomDomainAvailabilityAction() {
   } catch (error) {
     console.error("checkCustomDomainAvailabilityAction error:", error);
     return { success: false, allowed: false };
+  }
+}
+
+/**
+ * Friends-circle listing: all displayable registered users (guests excluded),
+ * sorted by latest post activity (users who never posted come last).
+ */
+export async function getFriendsCircleAction() {
+  try {
+    const usersList = await db.query.users.findMany({
+      where: and(eq(users.displayPermission, true), ne(users.role, "guest")),
+      orderBy: [
+        sql`${users.lastPostAt} desc nulls last`,
+        sql`${users.createdAt} desc nulls last`,
+      ],
+      columns: {
+        id: true,
+        name: true,
+        slug: true,
+        avatar: true,
+        bio: true,
+        publicHomepage: true,
+        lastPostAt: true,
+      },
+      limit: 500,
+    });
+
+    return { success: true, users: usersList };
+  } catch (error) {
+    console.error("getFriendsCircleAction error:", error);
+    return { error: "Failed to fetch friends circle" };
   }
 }
