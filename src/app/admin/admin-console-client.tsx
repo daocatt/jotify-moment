@@ -129,6 +129,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     require_approval: "false",
     global_theme: "default",
     allow_custom_domains: "true",
+    friends_circle_enabled: "false",
   });
 
   // Telegram states
@@ -806,6 +807,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                 <Switch
                   checked={sysSettings.allow_custom_domains === "true"}
                   onCheckedChange={() => handleToggleSetting("allow_custom_domains", sysSettings.allow_custom_domains)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">好友圈</h3>
+                  <p className="text-xs text-muted-foreground">开启后，左上角菜单新增“好友圈”入口，展示所有用户的书目录式个人卡片（默认关闭）</p>
+                </div>
+                <Switch
+                  checked={sysSettings.friends_circle_enabled === "true"}
+                  onCheckedChange={() => handleToggleSetting("friends_circle_enabled", sysSettings.friends_circle_enabled)}
                 />
               </div>
 
