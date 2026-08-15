@@ -306,7 +306,7 @@ export function ProfileEditModal({ user, isOpen, onClose, onSuccess }: ProfileEd
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
-            <TabsList className="w-full grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-muted p-1.5 border border-border/60">
+            <TabsList className="h-auto w-full grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-muted p-1.5 border border-border/60">
               <TabsTrigger value="profile" className="flex flex-col items-center justify-center gap-1 min-w-0 rounded-lg py-2 px-1 text-[11px] font-medium text-muted-foreground transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm">
                 <UserRound size={15} />
                 <span>基础资料</span>
