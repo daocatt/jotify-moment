@@ -6,6 +6,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import rehypeHighlight from "rehype-highlight";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -427,9 +428,20 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               // post.content is user-generated — enabling raw HTML would allow XSS attacks.
               // If you need HTML rendering, sanitize with DOMPurify first.
               remarkPlugins={[remarkGfm, remarkBreaks]}
+              rehypePlugins={[rehypeHighlight]}
               components={{
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                table: ({ node, children, ...props }) => (
+                  <div className="overflow-x-auto my-2">
+                    <table {...props} className="w-full">{children}</table>
+                  </div>
+                ),
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                pre: ({ node, children, ...props }) => (
+                  <pre {...props} className="overflow-x-auto">{children}</pre>
+                ),
               }}
             >
               {post.content}
