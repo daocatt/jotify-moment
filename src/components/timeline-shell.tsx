@@ -467,11 +467,11 @@ export function TimelineShell({
             rel="noopener noreferrer"
             title="Jotify"
             aria-label="Jotify"
-            className={`size-8 min-h-0 rounded-full overflow-hidden outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${coverStyle ? "bg-black/25 backdrop-blur-sm border border-white/10" : "hover:bg-muted"}`}
+            className={`size-8 min-h-0 rounded-full overflow-hidden p-0.5 outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${coverStyle ? "bg-black/25 backdrop-blur-sm border border-white/10 hover:bg-white/20" : "hover:bg-muted"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.svg"
+              src="/logo-lined.svg"
               alt="Jotify"
               className={`h-full w-full object-cover ${coverStyle ? "invert" : "dark:invert"}`}
             />
