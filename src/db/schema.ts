@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   // User self-control: when off, this account's posts are hidden from the global home feed
   // (still reachable via the profile page) — a per-account "stealth" mode.
   publishToFeed: boolean("publish_to_feed").default(true).notNull(),
+  // Last time this user published a post — used to sort the friends-circle listing.
+  lastPostAt: timestamp("last_post_at", { withTimezone: true }),
   // Platform control (admin): when off, this account's posts never appear in the public home feed.
   displayPermission: boolean("display_permission").default(true).notNull(),
   // User self-control: when off, visiting the profile page only shows basic info + a stealth notice.

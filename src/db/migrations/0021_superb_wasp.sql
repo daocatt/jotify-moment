@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "last_post_at" timestamp with time zone;
