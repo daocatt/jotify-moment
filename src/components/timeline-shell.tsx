@@ -10,6 +10,7 @@ const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => 
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
 const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
 const ProfileEditModal = dynamic(() => import("@/components/profile-edit-modal").then((m) => m.ProfileEditModal), { ssr: false });
+const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
@@ -160,6 +161,7 @@ export function TimelineShell({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [friendProfileOpen, setFriendProfileOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
@@ -379,7 +381,7 @@ export function TimelineShell({
   const handleBannerAvatarClick = () => {
     if (isOwnPage) {
       if (onOwnAvatarClick) onOwnAvatarClick();
-      else setProfileModalOpen(true);
+      else setFriendProfileOpen(true);
     } else {
       onAvatarClick?.();
     }
@@ -433,7 +435,7 @@ export function TimelineShell({
   return (
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
 
-      {/* Top-left: Back + Theme toggle */}
+      {/* Top-left: additional links area (back / friends-circle / brand) */}
       <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
         {showBackButton && (
           <Button
@@ -454,29 +456,6 @@ export function TimelineShell({
             className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
             <Users size={16} />
-          </Button>
-        )}
-        {!friendsCircleEnabled && showThemeToggle && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-          >
-            <span className="t-icon-swap" data-state={isDark ? "a" : "b"}>
-              <span className="t-icon" data-icon="a"><Sun size={16} /></span>
-              <span className="t-icon" data-icon="b"><Moon size={16} /></span>
-            </span>
-          </Button>
-        )}
-        {!friendsCircleEnabled && !showBackButton && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setAboutOpen(true)}
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-          >
-            <Info size={16} />
           </Button>
         )}
         {isCustomDomain && (
@@ -517,7 +496,7 @@ export function TimelineShell({
           >
             <button
               type="button"
-              onClick={() => currentUser && (isOwnPage ? setProfileModalOpen(true) : goToOwnHome())}
+              onClick={() => currentUser && (isOwnPage ? setFriendProfileOpen(true) : goToOwnHome())}
               className={`block size-full relative ${currentUser ? "cursor-pointer" : "cursor-default"}`}
               title={currentUser ? (isOwnPage ? "编辑个人资料" : "我的主页") : undefined}
             >
@@ -541,18 +520,14 @@ export function TimelineShell({
 
       {/* Top-right: functional menu (aligned with the top-left controls) */}
       <div className={`absolute top-4 right-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
-        {friendsCircleEnabled && (
-          <>
-            {showThemeToggle && (
-              <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={menuBtnClass} title="切换主题">
-                {isDark ? <Sun size={13} /> : <Moon size={13} />}
-              </button>
-            )}
-            <button type="button" onClick={() => setAboutOpen(true)} className={menuBtnClass} title="关于">
-              <Info size={13} />
-            </button>
-          </>
+        {showThemeToggle && (
+          <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={menuBtnClass} title="切换主题">
+            {isDark ? <Sun size={13} /> : <Moon size={13} />}
+          </button>
         )}
+        <button type="button" onClick={() => setAboutOpen(true)} className={menuBtnClass} title="关于">
+          <Info size={13} />
+        </button>
 
         {!currentUser && (
           <>
@@ -590,6 +565,11 @@ export function TimelineShell({
                 {(currentUser.role === "guest" || currentUser.slug) && (
                   <DropdownMenuItem onClick={goToMyHome} className="whitespace-nowrap text-xs">
                     <CircleUserRound size={13} /> 我的
+                  </DropdownMenuItem>
+                )}
+                {currentUser.role !== "guest" && (
+                  <DropdownMenuItem onClick={() => setProfileModalOpen(true)} className="whitespace-nowrap text-xs">
+                    <Pen size={13} /> 编辑个人资料
                   </DropdownMenuItem>
                 )}
                 {isUserHomePage && isOwnPage && currentUser.customDomain && (
@@ -929,6 +909,23 @@ export function TimelineShell({
                 }
               }
             }
+          }}
+        />
+      )}
+
+      {friendProfileOpen && currentUser && (
+        <FriendCircleProfileModal
+          user={{
+            name: currentUser.name,
+            avatar: currentUser.avatar,
+            coverImage: currentUser.coverImage,
+            bio: currentUser.bio,
+          }}
+          isOpen={friendProfileOpen}
+          onClose={() => setFriendProfileOpen(false)}
+          onSuccess={() => {
+            fetchSession();
+            onProfileUpdated?.();
           }}
         />
       )}
