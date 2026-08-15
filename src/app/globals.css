@@ -1,8 +1,26 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "highlight.js/styles/github-dark.css";
 
 @plugin "@tailwindcss/typography";
+
+/* Code blocks always use the dark highlight.js theme. Neutralize the prose
+   inline-code utility styles that would otherwise override the hljs theme. */
+.prose :where(pre):not(:where([class~="not-prose"] *)) {
+  background-color: #0d1117;
+  color: #c9d1d9;
+}
+.prose :where(pre code):not(:where([class~="not-prose"] *)) {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+.prose :where(pre code):not(:where([class~="not-prose"] *))::before,
+.prose :where(pre code):not(:where([class~="not-prose"] *))::after {
+  content: none;
+}
 
 @custom-variant dark (&:is(.dark *));
 
