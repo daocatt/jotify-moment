@@ -14,7 +14,7 @@ import { getPublicSettingsAction } from "@/app/actions/admin";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -117,6 +117,10 @@ interface TimelineShellProps {
   onProfileUpdated?: () => void;
   /** Called after a post is published, with the created post — lets the page prepend it instead of re-fetching. */
   onPostCreated?: (post: PostData) => void;
+  /** Rendered in place of the post feed (e.g. the friends-circle card list). */
+  children?: React.ReactNode;
+  /** When the user clicks their own avatar, use this instead of the profile-edit modal. */
+  onOwnAvatarClick?: () => void;
   showBackButton?: boolean;
   showPostEditor?: "always" | "own" | "never";
   pinnedEntry?: React.ReactNode;
@@ -142,6 +146,8 @@ export function TimelineShell({
   pinnedEntry,
   onAvatarClick,
   onPostCreated,
+  children,
+  onOwnAvatarClick,
   isCustomDomain = false,
   mainHost,
   isUserHomePage = false,
@@ -361,6 +367,7 @@ export function TimelineShell({
 
   const isOwnPage = !!(profileUser.id && currentUser && profileUser.id === currentUser.id);
   const isGuest = currentUser?.role === "guest";
+  const friendsCircleEnabled = sysSettings?.friends_circle_enabled === "true";
   const renderEditor = isGuest
     ? false
     : showPostEditor === "always"
@@ -371,7 +378,8 @@ export function TimelineShell({
 
   const handleBannerAvatarClick = () => {
     if (isOwnPage) {
-      setProfileModalOpen(true);
+      if (onOwnAvatarClick) onOwnAvatarClick();
+      else setProfileModalOpen(true);
     } else {
       onAvatarClick?.();
     }
@@ -437,7 +445,18 @@ export function TimelineShell({
             <ArrowLeft size={16} />
           </Button>
         )}
-        {showThemeToggle && (
+        {friendsCircleEnabled && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/friends")}
+            title="好友圈"
+            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+          >
+            <Users size={16} />
+          </Button>
+        )}
+        {!friendsCircleEnabled && showThemeToggle && (
           <Button
             variant="ghost"
             size="icon"
@@ -450,7 +469,7 @@ export function TimelineShell({
             </span>
           </Button>
         )}
-        {!showBackButton && (
+        {!friendsCircleEnabled && !showBackButton && (
           <Button
             variant="ghost"
             size="icon"
@@ -522,6 +541,19 @@ export function TimelineShell({
 
       {/* Top-right: functional menu (aligned with the top-left controls) */}
       <div className={`absolute top-4 right-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
+        {friendsCircleEnabled && (
+          <>
+            {showThemeToggle && (
+              <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={menuBtnClass} title="切换主题">
+                {isDark ? <Sun size={13} /> : <Moon size={13} />}
+              </button>
+            )}
+            <button type="button" onClick={() => setAboutOpen(true)} className={menuBtnClass} title="关于">
+              <Info size={13} />
+            </button>
+          </>
+        )}
+
         {!currentUser && (
           <>
             <button type="button" onClick={handleLoginClick} className={menuBtnClass}>
@@ -769,6 +801,9 @@ export function TimelineShell({
 
       {!hidden && pinnedEntry}
 
+      {children ? (
+        <div className="flex-1 pb-56">{children}</div>
+      ) : (
       <div className="flex-1 divide-y divide-border/60 pb-56">
         {hidden ? (
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
@@ -846,13 +881,14 @@ export function TimelineShell({
                       ))}
                     </div>
                   )}
-                  <div ref={sentinelRef} className="h-1" />
-                </div>
-              )}
-            </div>
+                <div ref={sentinelRef} className="h-1" />
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
       </div>
+      )}
 
       {authModalOpen && (
         <AuthModals
