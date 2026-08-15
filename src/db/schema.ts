@@ -43,6 +43,10 @@ export const users = pgTable("users", {
   index("users_role_idx").on(table.role),
   index("users_telegram_chat_id_idx").on(table.telegramChatId),
   index("users_telegram_bind_token_idx").on(table.telegramBindToken),
+  // Hot subquery on every public feed render: which users' posts are visible.
+  index("users_publish_display_idx").on(table.publishToFeed, table.displayPermission),
+  // Friends-circle listing: displayable users sorted by latest post activity.
+  index("users_friends_idx").on(table.displayPermission, table.lastPostAt),
 ]);
 
 export const sessions = pgTable("sessions", {
@@ -88,7 +92,9 @@ export const verifications = pgTable("verifications", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  index("verifications_expires_at_idx").on(table.expiresAt),
+]);
 
 export const posts = pgTable("posts", {
   id: text("id").primaryKey(),
@@ -112,6 +118,8 @@ export const posts = pgTable("posts", {
   index("posts_user_id_idx").on(table.userId),
   index("posts_status_created_at_idx").on(table.status, table.createdAt),
   index("posts_pinned_at_idx").on(table.pinnedAt),
+  // User home feed: filter by user + status, ordered by created_at.
+  index("posts_user_status_created_idx").on(table.userId, table.status, table.createdAt),
 ]);
 
 export const comments = pgTable("comments", {
@@ -128,6 +136,8 @@ export const comments = pgTable("comments", {
 }, (table) => [
   index("comments_post_id_idx").on(table.postId),
   index("comments_user_id_idx").on(table.userId),
+  // Feed comment-count stubs: filter by post + visible status.
+  index("comments_post_status_idx").on(table.postId, table.status),
 ]);
 
 export const reactions = pgTable("reactions", {
@@ -177,6 +187,8 @@ export const verificationCodes = pgTable("verification_codes", {
   index("verification_codes_email_idx").on(table.email),
   index("verification_codes_lookup_idx").on(table.email, table.code, table.type),
   uniqueIndex("verification_codes_type_code_idx").on(table.type, table.code),
+  // Expired-code cleanup runs at container startup.
+  index("verification_codes_expires_at_idx").on(table.expiresAt),
 ]);
 
 // Relations
