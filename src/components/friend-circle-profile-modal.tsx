@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,36 +12,43 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateFriendCircleProfileAction } from "@/app/actions/admin";
+import { getSiteFcProfileAction, updateSiteFcProfileAction } from "@/app/actions/admin";
 import { Camera, Loader2 } from "lucide-react";
 import { ImageCropModal } from "@/components/image-crop-modal";
 
 interface FriendCircleProfileModalProps {
-  user: {
-    name: string;
-    avatar: string | null;
-    coverImage: string | null;
-    bio: string | null;
-  };
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: FriendCircleProfileModalProps) {
-  const [name, setName] = useState(user.name);
-  const [bio, setBio] = useState(user.bio || "");
-  const [avatar, setAvatar] = useState(user.avatar || "");
-  const [coverImage, setCoverImage] = useState(user.coverImage || "");
+export function FriendCircleProfileModal({ isOpen, onClose, onSuccess }: FriendCircleProfileModalProps) {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [logo, setLogo] = useState("");
+  const [cover, setCover] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
   const [cropSrc, setCropSrc] = useState<string | null>(null);
-  const [cropTarget, setCropTarget] = useState<"avatar" | "cover">("avatar");
+  const [cropTarget, setCropTarget] = useState<"logo" | "cover">("logo");
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, target: "avatar" | "cover") => {
+  // Prefill with the global site profile whenever the modal opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    getSiteFcProfileAction().then((res) => {
+      if (res.success && res.profile) {
+        setTitle(res.profile.title);
+        setDesc(res.profile.desc);
+        setLogo(res.profile.logo);
+        setCover(res.profile.cover);
+      }
+    });
+  }, [isOpen]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, target: "logo" | "cover") => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -54,7 +61,7 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
   };
 
   const handleCropConfirm = useCallback(async (croppedBlob: Blob) => {
-    const setUploadProgress = cropTarget === "avatar" ? setUploadingAvatar : setUploadingCover;
+    const setUploadProgress = cropTarget === "logo" ? setUploadingAvatar : setUploadingCover;
     setUploadProgress(true);
 
     const file = new File([croppedBlob], `crop_${cropTarget}.jpg`, { type: "image/jpeg" });
@@ -67,8 +74,8 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
       if (data.error) {
         toast.error(data.error);
       } else {
-        if (cropTarget === "avatar") setAvatar(data.url);
-        else setCoverImage(data.url);
+        if (cropTarget === "logo") setLogo(data.url);
+        else setCover(data.url);
         toast.success("图片上传成功");
       }
     } catch {
@@ -87,19 +94,19 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!title.trim()) {
       toast.error("朋友圈标题不能为空");
       return;
     }
 
     setLoading(true);
-    const res = await updateFriendCircleProfileAction({ name, bio, avatar, coverImage });
+    const res = await updateSiteFcProfileAction({ title, desc, logo, cover });
     setLoading(false);
 
     if (res.error) {
       toast.error(res.error);
     } else {
-      toast.success("好友圈资料已更新");
+      toast.success("站点资料已更新");
       onSuccess();
       onClose();
     }
@@ -120,13 +127,14 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>朋友圈资料</DialogTitle>
+            <p className="text-xs text-muted-foreground">站点级资料，仅管理员可修改</p>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-1">
             <div className="relative h-32 w-full bg-muted rounded overflow-hidden group">
-              {coverImage ? (
+              {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={coverImage} alt="Cover" className="h-full w-full object-cover" />
+                <img src={cover} alt="Cover" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm">
                   无背景图
@@ -153,12 +161,12 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
 
             <div className="flex items-start gap-4">
               <div className="relative h-16 w-16 rounded-full overflow-hidden bg-muted group border border-border shrink-0">
-                {avatar ? (
+                {logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatar} alt="Logo" className="h-full w-full object-cover" />
+                  <img src={logo} alt="Logo" className="h-full w-full object-cover" />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center text-muted-foreground font-medium text-lg">
-                    {name.charAt(0)}
+                    {title.charAt(0)}
                   </div>
                 )}
                 <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
@@ -167,7 +175,7 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
                     type="file"
                     className="hidden"
                     accept="image/*"
-                    onChange={(e) => handleFileSelect(e, "avatar")}
+                    onChange={(e) => handleFileSelect(e, "logo")}
                     disabled={uploadingAvatar}
                   />
                 </label>
@@ -177,8 +185,8 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
                 <Input
                   type="text"
                   placeholder="例如：某某的好友圈"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   required
                 />
               </div>
@@ -187,9 +195,9 @@ export function FriendCircleProfileModal({ user, isOpen, onClose, onSuccess }: F
             <div className="space-y-1">
               <label className="text-xs font-normal text-muted-foreground">朋友圈描述</label>
               <Textarea
-                placeholder="介绍一下这个好友圈..."
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
+                placeholder="介绍一下这个朋友圈..."
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
                 rows={3}
               />
             </div>

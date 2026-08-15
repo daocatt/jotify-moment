@@ -26,3 +26,24 @@ export function invalidateSetting(key?: string): void {
   if (key) cache.delete(key);
   else cache.clear();
 }
+
+export interface SiteFcProfile {
+  cover: string;
+  logo: string;
+  title: string;
+  desc: string;
+}
+
+/**
+ * The site-wide friends-circle profile — a single, global identity stored in the
+ * settings table. Strictly separate from any user's personal profile.
+ */
+export async function getSiteFcProfile(): Promise<SiteFcProfile> {
+  const [cover, logo, title, desc] = await Promise.all([
+    getSetting("site_fc_cover"),
+    getSetting("site_fc_logo"),
+    getSetting("site_fc_title"),
+    getSetting("site_fc_desc"),
+  ]);
+  return { cover: cover || "", logo: logo || "", title: title || "", desc: desc || "" };
+}
