@@ -115,6 +115,8 @@ interface TimelineShellProps {
   onLoadMore: () => void;
   onRefresh: () => void;
   onProfileUpdated?: () => void;
+  /** Called after a post is published, with the created post — lets the page prepend it instead of re-fetching. */
+  onPostCreated?: (post: PostData) => void;
   showBackButton?: boolean;
   showPostEditor?: "always" | "own" | "never";
   pinnedEntry?: React.ReactNode;
@@ -139,6 +141,7 @@ export function TimelineShell({
   showPostEditor = "never",
   pinnedEntry,
   onAvatarClick,
+  onPostCreated,
   isCustomDomain = false,
   mainHost,
   isUserHomePage = false,
@@ -747,7 +750,16 @@ export function TimelineShell({
 
       {renderEditor && currentUser && editorOpen && (
         <div id="post-editor" className="px-4 py-3 border-b border-border/60 scroll-mt-16">
-          <PostEditor onSuccess={() => { setEditorOpen(false); onRefresh(); }} />
+          <PostEditor
+            onSuccess={(post) => {
+              setEditorOpen(false);
+              if (post && onPostCreated) {
+                onPostCreated(post as PostData);
+              } else {
+                onRefresh();
+              }
+            }}
+          />
         </div>
       )}
 

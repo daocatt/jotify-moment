@@ -92,6 +92,12 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
     fetchPosts();
   }, [fetchUser, fetchPosts]);
 
+  // Prepend a freshly published post without re-fetching the whole timeline.
+  const handlePostCreated = useCallback((post: PostData) => {
+    if (post.status !== "approved") return;
+    setPosts((prev) => [post, ...prev]);
+  }, []);
+
   const pinnedImages: string[] = [];
   for (const p of pinnedPosts) {
     for (const m of p.mediaUrls) {
@@ -169,6 +175,7 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
       onProfileUpdated={fetchUser}
+      onPostCreated={handlePostCreated}
       showBackButton={!isCustomDomain}
       showPostEditor="own"
       isCustomDomain={isCustomDomain}

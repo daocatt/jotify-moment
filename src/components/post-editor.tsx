@@ -17,8 +17,31 @@ const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
 
 const MAX_POST_LENGTH = 1000;
 
+export interface CreatedPost {
+  id: string;
+  userId: string;
+  content: string;
+  mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
+  ytVideoId: string | null;
+  embedType: string | null;
+  embedId: string | null;
+  embedMeta: null;
+  status: "approved" | "pending";
+  pinnedAt: null;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    role: string;
+    slug: string | null;
+  };
+  comments: never[];
+  reactions: never[];
+}
+
 interface PostEditorProps {
-  onSuccess: () => void;
+  onSuccess: (post?: CreatedPost) => void;
 }
 
 export function PostEditor({ onSuccess }: PostEditorProps) {
@@ -244,7 +267,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       toast.success(res.pending ? "已提交，等待管理员审核" : "发布成功");
       setContent("");
       setMediaFiles([]);
-      onSuccess();
+      onSuccess(res.post);
     }
   };
 
