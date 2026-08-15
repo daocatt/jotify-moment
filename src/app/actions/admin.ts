@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret", "allow_custom_domains"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret", "allow_custom_domains", "friends_circle_enabled"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -58,7 +58,7 @@ export async function getSettingsAction() {
 
 export async function getPublicSettingsAction() {
   try {
-    const PUBLIC_KEYS = ["allow_registration", "require_approval", "global_theme"];
+    const PUBLIC_KEYS = ["allow_registration", "require_approval", "global_theme", "friends_circle_enabled"];
     const publicSettings = await db.query.settings.findMany({
       where: (s, { inArray }) => inArray(s.key, PUBLIC_KEYS),
     });
@@ -66,6 +66,7 @@ export async function getPublicSettingsAction() {
       allow_registration: "true",
       require_approval: "false",
       global_theme: "default",
+      friends_circle_enabled: "false",
     };
 
     for (const s of publicSettings) {
