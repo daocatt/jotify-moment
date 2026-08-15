@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
@@ -111,6 +111,20 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
   // Counter for optimistic (temporary) reaction ids — avoids impure calls in render.
   const tmpIdCounter = useRef(0);
+
+  // Close the pin popup when clicking anywhere outside of it.
+  const pinMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showPinMenu) return;
+    const onDocClick = (e: MouseEvent) => {
+      const el = pinMenuRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setShowPinMenu(false);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [showPinMenu]);
 
   const loadComments = useCallback(async (force = false) => {
     if (!force && localComments.length > 0) return;
@@ -562,7 +576,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
             </button>
             {showEmojiPicker && (
               <div
-                className={`t-dropdown ${emojiClosing ? "is-closing" : "is-open"} absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full`}
+                className={`t-dropdown ${emojiClosing ? "is-closing" : "is-open"} absolute left-0 bottom-8 z-30 flex items-center gap-1 p-1 bg-popover/85 backdrop-blur-sm rounded-full border border-border/30`}
                 onTransitionEnd={() => {
                   if (emojiClosing) {
                     setShowEmojiPicker(false);
@@ -618,13 +632,14 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           {/* Pin buttons */}
           {post.status === "approved" && (
             isOwner && isAdmin ? (
-              <div className="relative">
+              <div className="relative" ref={pinMenuRef}>
                 <button
                   onClick={() => setShowPinMenu((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={showPinMenu}
                   className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
                 >
                   <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
-                  <ChevronDown size={10} className="absolute -bottom-0.5 -right-0.5" />
                 </button>
                 {showPinMenu && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-[10px] font-medium z-50 overflow-hidden min-w-[80px]">
@@ -644,7 +659,6 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                     </button>
                   </div>
                 )}
-                {showPinMenu && <div className="fixed inset-0 z-40" onClick={() => setShowPinMenu(false)} />}
               </div>
             ) : isOwner ? (
               <div className="relative">
