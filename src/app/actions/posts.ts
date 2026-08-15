@@ -136,7 +136,33 @@ export async function createPostAction(data: {
 
     revalidatePath("/");
     invalidateFeedCache();
-    return { success: true, pending: status === "pending" };
+
+    // Return the created post so the client can prepend it to the timeline
+    // optimistically instead of re-fetching (and blanking) the whole page.
+    const createdPost = {
+      id: postId,
+      userId: user.id,
+      content: data.content,
+      mediaUrls: data.mediaUrls,
+      ytVideoId: embedType === "youtube" ? embedId : null,
+      embedType,
+      embedId,
+      embedMeta: null,
+      status: status as "approved" | "pending",
+      pinnedAt: null,
+      createdAt: new Date(),
+      user: {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        role: user.role,
+        slug: user.slug,
+      },
+      comments: [],
+      reactions: [],
+    };
+
+    return { success: true, pending: status === "pending", post: createdPost };
   } catch (error) {
     console.error("createPostAction error:", error);
     return { error: "Internal server error" };

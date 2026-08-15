@@ -92,6 +92,13 @@ export function HomeClient({
     fetchPinned();
   }, [fetchPosts, fetchPinned]);
 
+  // Prepend the freshly created post instead of re-fetching the whole timeline.
+  const handlePostCreated = useCallback((post: PostData) => {
+    if (post.status !== "approved") return;
+    setPosts((prev) => [post, ...prev]);
+    fetchPinned();
+  }, [fetchPinned]);
+
   // Pinned entry: collect first 3 images across pinned posts for stacked thumbnails
   const pinnedImages: string[] = [];
   if (pinned) {
@@ -165,6 +172,7 @@ export function HomeClient({
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
       onProfileUpdated={fetchSuperAdmin}
+      onPostCreated={handlePostCreated}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
       onAvatarClick={() => superAdmin.slug && router.push(`/u/${superAdmin.slug}`)}
