@@ -325,6 +325,8 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
     status: postStatus,
   });
 
+  await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));
+
   if (postStatus === "pending") {
     await sendTelegramMessage(botToken, chatId, `📝 相册动态已提交（${mediaUrls.length} 张图片），等待管理员审核。`);
   } else {
@@ -446,6 +448,8 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       embedMeta: null,
       status: postStatus,
     });
+
+    await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));
 
     // Background embed meta enrichment (thumbnail + title) — non-blocking.
     if (embedType && embedId) {
