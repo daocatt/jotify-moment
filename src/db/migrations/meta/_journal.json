@@ -169,6 +169,13 @@
       "when": 1786821635967,
       "tag": "0023_dizzy_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786822077673,
+      "tag": "0024_gorgeous_rhino",
+      "breakpoints": true
     }
   ]
 }

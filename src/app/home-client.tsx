@@ -4,34 +4,31 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
 import { getPostsAction, getPinnedPreviewAction, getSuperAdminProfileAction } from "@/app/actions/posts";
+import { getSiteFcProfileAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 import { Pin } from "lucide-react";
-
-interface SuperAdminProfile {
-  id: string; name: string; slug: string | null;
-  avatar: string | null; bio: string | null; coverImage: string | null;
-  wechat: string | null; telegram: string | null; github: string | null; x: string | null; otherLink: string | null;
-  theme: string | null;
-}
+import type { HomeHeaderProfile } from "@/app/page";
 
 interface PinnedPreview {
   posts: PostData[];
 }
 
 export function HomeClient({
-  initialSuperAdmin,
+  initialProfile,
+  isSiteHome,
   initialPosts = [],
   initialHasMore = false,
   initialNextCursor = null,
 }: {
-  initialSuperAdmin: SuperAdminProfile | null;
+  initialProfile: HomeHeaderProfile;
+  isSiteHome: boolean;
   initialPosts?: PostData[];
   initialHasMore?: boolean;
   initialNextCursor?: string | null;
 }) {
   const router = useRouter();
 
-  const [superAdmin, setSuperAdmin] = useState<SuperAdminProfile | null>(initialSuperAdmin);
+  const [profile, setProfile] = useState<HomeHeaderProfile>(initialProfile);
 
   const [posts, setPosts] = useState<PostData[]>(initialPosts);
   const [loadingPosts, setLoadingPosts] = useState(false);
@@ -41,10 +38,23 @@ export function HomeClient({
 
   const [pinned, setPinned] = useState<PinnedPreview | null>(null);
 
-  const fetchSuperAdmin = useCallback(async () => {
-    const res = await getSuperAdminProfileAction();
-    if (res.user) setSuperAdmin(res.user as SuperAdminProfile);
-  }, []);
+  const fetchProfile = useCallback(async () => {
+    if (isSiteHome) {
+      const res = await getSiteFcProfileAction();
+      if (res.success && res.profile) {
+        setProfile({
+          name: res.profile.title || "朋友圈",
+          slug: null,
+          avatar: res.profile.logo || null,
+          bio: res.profile.desc || null,
+          coverImage: res.profile.cover || null,
+        });
+      }
+    } else {
+      const res = await getSuperAdminProfileAction();
+      if (res.user) setProfile(res.user as HomeHeaderProfile);
+    }
+  }, [isSiteHome]);
 
   const fetchPosts = useCallback(async (append = false) => {
     if (append) {
@@ -78,7 +88,6 @@ export function HomeClient({
   }, []);
 
   useEffect(() => {
-    // Only fetch pinned on mount; initial posts come from SSR
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     fetchPinned();
   }, [fetchPinned]);
@@ -151,7 +160,7 @@ export function HomeClient({
     </div>
   ) : null;
 
-  if (!superAdmin) {
+  if (!profile) {
     return (
       <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -164,18 +173,21 @@ export function HomeClient({
 
   return (
     <TimelineShell
-      profileUser={superAdmin}
+      profileUser={profile}
       posts={posts}
       loadingPosts={loadingPosts}
       hasMore={hasMore}
       loadingMore={loadingMore}
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
-      onProfileUpdated={fetchSuperAdmin}
+      onProfileUpdated={fetchProfile}
       onPostCreated={handlePostCreated}
+      onAvatarClick={() => {
+        if (isSiteHome) router.push("/friends");
+        else if (profile.slug) router.push(`/u/${profile.slug}`);
+      }}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
-      onAvatarClick={() => superAdmin.slug && router.push(`/u/${superAdmin.slug}`)}
     />
   );
 }

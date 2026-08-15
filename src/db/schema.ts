@@ -32,11 +32,6 @@ export const users = pgTable("users", {
   publishToFeed: boolean("publish_to_feed").default(true).notNull(),
   // Last time this user published a post — used to sort the friends-circle listing.
   lastPostAt: timestamp("last_post_at", { withTimezone: true }),
-  // Friends-circle (platform) basic profile — fully separate from the personal profile.
-  fcCover: text("fc_cover"),
-  fcLogo: text("fc_logo"),
-  fcTitle: text("fc_title"),
-  fcDesc: text("fc_desc"),
   // Platform control (admin): when off, this account's posts never appear in the public home feed.
   displayPermission: boolean("display_permission").default(true).notNull(),
   // User self-control: when off, visiting the profile page only shows basic info + a stealth notice.

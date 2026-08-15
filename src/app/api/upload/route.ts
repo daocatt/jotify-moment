@@ -58,12 +58,9 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = searchParams.get("biz") as "profile" | "moment" | null;
 
-    // Re-encodable raster images are streamed straight into sharp, avoiding a
-    // full in-memory buffer of the raw upload (up to maxFileSizeMB).
-    const streamableImage = file.type === "image/jpeg" || file.type === "image/jpg" || file.type === "image/png" || file.type === "image/webp";
-    const result = streamableImage
-      ? await uploadFile(file.stream(), file.name, file.type, biz || undefined, file.size)
-      : await uploadFile(Buffer.from(await file.arrayBuffer()), file.name, file.type, biz || undefined);
+    // Buffer the raw file then hand it to sharp — the most reliable path across
+    // browser/environment stream implementations.
+    const result = await uploadFile(Buffer.from(await file.arrayBuffer()), file.name, file.type, biz || undefined);
 
     return NextResponse.json(result);
   } catch (error: unknown) {

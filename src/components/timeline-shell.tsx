@@ -381,7 +381,10 @@ export function TimelineShell({
   const handleBannerAvatarClick = () => {
     if (isOwnPage) {
       if (onOwnAvatarClick) onOwnAvatarClick();
-      else setFriendProfileOpen(true);
+      else setProfileModalOpen(true);
+    } else if (!profileUser.id && isAdmin) {
+      // Site (friends-circle) header: only admins may edit the global site profile.
+      setFriendProfileOpen(true);
     } else {
       onAvatarClick?.();
     }
@@ -496,7 +499,7 @@ export function TimelineShell({
           >
             <button
               type="button"
-              onClick={() => currentUser && (isOwnPage ? setFriendProfileOpen(true) : goToOwnHome())}
+              onClick={() => currentUser && (isOwnPage ? setProfileModalOpen(true) : goToOwnHome())}
               className={`block size-full relative ${currentUser ? "cursor-pointer" : "cursor-default"}`}
               title={currentUser ? (isOwnPage ? "编辑个人资料" : "我的主页") : undefined}
             >
@@ -913,14 +916,8 @@ export function TimelineShell({
         />
       )}
 
-      {friendProfileOpen && currentUser && (
+      {friendProfileOpen && (
         <FriendCircleProfileModal
-          user={{
-            name: currentUser.name,
-            avatar: currentUser.avatar,
-            coverImage: currentUser.coverImage,
-            bio: currentUser.bio,
-          }}
           isOpen={friendProfileOpen}
           onClose={() => setFriendProfileOpen(false)}
           onSuccess={() => {

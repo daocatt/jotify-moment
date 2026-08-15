@@ -9,7 +9,7 @@ import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { invalidateStorageConfigCache, isAllowedMediaUrl } from "@/lib/storage";
-import { getSetting, invalidateSetting } from "@/lib/settings";
+import { getSetting, invalidateSetting, getSiteFcProfile } from "@/lib/settings";
 import { invalidateFeedCache } from "@/lib/feed-cache";
 import { revalidatePath } from "next/cache";
 
@@ -500,45 +500,61 @@ export async function updatePrivacySettingsAction(data: {
   }
 }
 
+/** Public read of the global site friends-circle profile. */
+export async function getSiteFcProfileAction() {
+  try {
+    const profile = await getSiteFcProfile();
+    return { success: true, profile };
+  } catch (error) {
+    console.error("getSiteFcProfileAction error:", error);
+    return { error: "Failed to fetch site profile" };
+  }
+}
+
 /**
- * Update only the friends-circle basic profile (cover/logo/title/description).
- * Unlike updateProfileAction, this never touches the homepage path/slug.
+ * Update the GLOBAL site friends-circle profile — admin only. This never
+ * touches any user's personal profile.
  */
-export async function updateFriendCircleProfileAction(data: {
-  name: string;
-  bio: string;
-  avatar: string;
-  coverImage: string;
+export async function updateSiteFcProfileAction(data: {
+  cover: string;
+  logo: string;
+  title: string;
+  desc: string;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
-  if (user.status === "suspended") return { error: "Your account is suspended" };
-
-  if (!data.name.trim()) return { error: "用户名不能为空" };
-  if (data.name.trim().length < 2) return { error: "用户名至少需要 2 个字符" };
-  if (data.avatar && data.avatar !== user.avatar && !(await isAllowedMediaUrl(data.avatar))) {
-    return { error: "头像图片无效，请通过上传获取" };
+  if (user.role !== "super_admin" && user.role !== "admin") {
+    return { error: "仅管理员可修改站点资料" };
   }
-  if (data.coverImage && data.coverImage !== user.coverImage && !(await isAllowedMediaUrl(data.coverImage))) {
-    return { error: "封面图片无效，请通过上传获取" };
+
+  if (!data.title.trim()) return { error: "朋友圈标题不能为空" };
+  if (data.logo && !(await isAllowedMediaUrl(data.logo))) {
+    return { error: "Logo 图片无效，请通过上传获取" };
+  }
+  if (data.cover && !(await isAllowedMediaUrl(data.cover))) {
+    return { error: "背景图无效，请通过上传获取" };
   }
 
   try {
-    await db
-      .update(users)
-      .set({
-        name: data.name.trim(),
-        bio: data.bio || null,
-        avatar: data.avatar || null,
-        coverImage: data.coverImage || null,
-      })
-      .where(eq(users.id, user.id));
+    const entries: Array<[string, string]> = [
+      ["site_fc_cover", data.cover],
+      ["site_fc_logo", data.logo],
+      ["site_fc_title", data.title.trim()],
+      ["site_fc_desc", data.desc],
+    ];
+    for (const [key, value] of entries) {
+      await db
+        .insert(settings)
+        .values({ key, value })
+        .onConflictDoUpdate({ target: settings.key, set: { value } });
+      invalidateSetting(key);
+    }
 
     revalidatePath("/");
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
-    console.error("updateFriendCircleProfileAction error:", error);
+    console.error("updateSiteFcProfileAction error:", error);
     return { error: "Internal server error" };
   }
 }
