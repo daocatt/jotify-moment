@@ -769,7 +769,7 @@ export function TimelineShell({
 
       {!hidden && pinnedEntry}
 
-      <div className="flex-1 divide-y divide-border/60 pb-20">
+      <div className="flex-1 divide-y divide-border/60 pb-44">
         {hidden ? (
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
             <span className="text-sm">本帐号已悄悄隐身</span>
