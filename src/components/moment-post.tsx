@@ -901,9 +901,23 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
 function LazyImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  // Cached images (immutable Cache-Control) can complete before React attaches
+  // onLoad, leaving `loaded` false forever and the image invisible. Check the
+  // synchronous `complete` state on mount to cover that case.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync with image load state
+      setLoaded(true);
+    }
+  }, []);
+
   return (
     <div className={`relative w-full h-full bg-neutral-100 dark:bg-zinc-900 transition-all duration-300 ${!loaded ? "animate-pulse" : ""}`}>
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         onLoad={() => setLoaded(true)}
