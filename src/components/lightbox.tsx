@@ -48,6 +48,26 @@ export function Lightbox({ images, activeIndex, onClose, onChange }: LightboxPro
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in select-none"
       onClick={onClose}
     >
+      {/* Prev/next arrows pinned to the screen edges, outside the image */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+            aria-label="上一张"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 p-2 rounded-full transition-all"
+          >
+            <ChevronLeft size={32} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+            aria-label="下一张"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 p-2 rounded-full transition-all"
+          >
+            <ChevronRight size={32} />
+          </button>
+        </>
+      )}
+
       <div
         className="relative max-w-4xl max-h-[85vh] px-4 flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
@@ -58,23 +78,6 @@ export function Lightbox({ images, activeIndex, onClose, onChange }: LightboxPro
           alt={`Image ${activeIndex + 1}`}
           className="max-w-full max-h-[85vh] object-contain rounded shadow-2xl pointer-events-none"
         />
-
-        {images.length > 1 && (
-          <>
-            <button
-              onClick={handlePrev}
-              className="absolute left-6 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 p-2 rounded-full transition-all"
-            >
-              <ChevronLeft size={36} />
-            </button>
-            <button
-              onClick={handleNext}
-              className="absolute right-6 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 p-2 rounded-full transition-all"
-            >
-              <ChevronRight size={36} />
-            </button>
-          </>
-        )}
       </div>
 
       <button
