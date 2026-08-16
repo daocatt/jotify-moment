@@ -395,12 +395,9 @@
 
   /* ── transitions-dev: Skeleton ── */
   .t-skel { position: relative; }
-  .t-skel-skeleton,
-  .t-skel-content {
+  .t-skel-skeleton {
     position: absolute;
     inset: 0;
-  }
-  .t-skel-skeleton {
     z-index: 1;
     opacity: 1;
     filter: blur(0);
@@ -409,6 +406,7 @@
       filter  var(--reveal-dur) var(--reveal-ease);
   }
   .t-skel-content {
+    position: relative;
     z-index: 2;
     opacity: 0;
     filter: blur(var(--reveal-blur));
@@ -419,6 +417,7 @@
   .t-skel.is-revealed .t-skel-skeleton {
     opacity: 0;
     filter: blur(var(--reveal-blur));
+    pointer-events: none;
   }
   .t-skel.is-revealed .t-skel-content {
     opacity: 1;
