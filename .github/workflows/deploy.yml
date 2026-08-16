@@ -46,26 +46,30 @@ jobs:
           port: ${{ secrets.VPS_PORT != '' && secrets.VPS_PORT || 22 }}
           script: |
             set -e
+            set -o pipefail
 
             PROJECT_PATH="${{ secrets.VPS_PROJECT_PATH }}"
             ENV_FILE="${{ secrets.VPS_ENV_FILE }}"
 
             cd "$PROJECT_PATH"
-            echo "🚀 Deployment started at $(date)"
+            git fetch --all
+            echo "🚀 Deployment started at $(date) — commit $(git rev-parse --short origin/main)"
 
             # 1. Sync code
-            echo "📥 Fetching latest code..."
-            git fetch --all
             git checkout -B main origin/main
             git reset --hard origin/main
 
-            # 2. Clean and prepare
-            echo "🧹 Cleaning legacy build artifacts..."
+            # 2. Prepare env
             cp "$ENV_FILE" .env
 
-            # 3. Build Docker images
+            # 3. Build Docker images — if the build fails, STOP (never silently
+            #    keep the previous image and call it a success).
             echo "📦 Building new Docker images..."
-            docker compose build --no-cache 2>&1 | grep -vE '(DATABASE_URL|BETTER_AUTH_SECRET|POSTGRES_PASSWORD)'
+            if ! docker compose build --no-cache >/tmp/dc-build.log 2>&1; then
+              echo "❌ Build failed — deployment aborted. Last build output:"
+              tail -80 /tmp/dc-build.log | grep -vE '(DATABASE_URL|BETTER_AUTH_SECRET|POSTGRES_PASSWORD)'
+              exit 1
+            fi
 
             # 4. Start database
             echo "🗄️ Bootstrapping database..."
@@ -76,8 +80,7 @@ jobs:
             echo "🚀 Starting containers..."
             docker compose up -d
 
-            # 7. Cleanup
-            echo "🧹 Cleaning up old images..."
+            # 6. Cleanup
             docker image prune -f
 
-            echo "✅ Deployment successful!"
+            echo "✅ Deployment successful! (commit $(git rev-parse --short HEAD))"
