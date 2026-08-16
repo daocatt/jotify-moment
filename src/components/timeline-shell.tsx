@@ -849,7 +849,7 @@ export function TimelineShell({
                   onRequireLogin={handleLoginClick}
                 />
               ))}
-              {hasMore && (
+              {hasMore ? (
                 <div>
                   {loadingMore && (
                     <div className="divide-y divide-border/60">
@@ -864,10 +864,14 @@ export function TimelineShell({
                       ))}
                     </div>
                   )}
-                <div ref={sentinelRef} className="h-1" />
-              </div>
-            )}
-          </div>
+                  <div ref={sentinelRef} className="h-1" />
+                </div>
+              ) : (
+                <div className="py-8 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-border/80" />
+                </div>
+              )}
+            </div>
         </div>
       )}
       </div>
