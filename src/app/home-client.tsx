@@ -3,11 +3,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
-import { getPostsAction, getPinnedPreviewAction, getSuperAdminProfileAction } from "@/app/actions/posts";
+import { getPostsAction, getPinnedPreviewAction } from "@/app/actions/posts";
 import { getSiteFcProfileAction } from "@/app/actions/admin";
 import { toast } from "sonner";
 import { Pin } from "lucide-react";
-import type { HomeHeaderProfile } from "@/app/page";
+import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
 
 interface PinnedPreview {
   posts: PostData[];
@@ -15,13 +15,11 @@ interface PinnedPreview {
 
 export function HomeClient({
   initialProfile,
-  isSiteHome,
   initialPosts = [],
   initialHasMore = false,
   initialNextCursor = null,
 }: {
   initialProfile: HomeHeaderProfile;
-  isSiteHome: boolean;
   initialPosts?: PostData[];
   initialHasMore?: boolean;
   initialNextCursor?: string | null;
@@ -39,22 +37,17 @@ export function HomeClient({
   const [pinned, setPinned] = useState<PinnedPreview | null>(null);
 
   const fetchProfile = useCallback(async () => {
-    if (isSiteHome) {
-      const res = await getSiteFcProfileAction();
-      if (res.success && res.profile) {
-        setProfile({
-          name: res.profile.title || "朋友圈",
-          slug: null,
-          avatar: res.profile.logo || null,
-          bio: res.profile.desc || null,
-          coverImage: res.profile.cover || null,
-        });
-      }
-    } else {
-      const res = await getSuperAdminProfileAction();
-      if (res.user) setProfile(res.user as HomeHeaderProfile);
+    const res = await getSiteFcProfileAction();
+    if (res.success && res.profile) {
+      setProfile({
+        name: res.profile.title || SITE_PROFILE_PLACEHOLDER,
+        slug: null,
+        avatar: res.profile.logo || null,
+        bio: res.profile.desc || null,
+        coverImage: res.profile.cover || null,
+      });
     }
-  }, [isSiteHome]);
+  }, []);
 
   const fetchPosts = useCallback(async (append = false) => {
     if (append) {
@@ -182,10 +175,7 @@ export function HomeClient({
       onRefresh={handleRefresh}
       onProfileUpdated={fetchProfile}
       onPostCreated={handlePostCreated}
-      onAvatarClick={() => {
-        if (isSiteHome) router.push("/friends");
-        else if (profile.slug) router.push(`/u/${profile.slug}`);
-      }}
+      onAvatarClick={() => router.push("/friends")}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
     />

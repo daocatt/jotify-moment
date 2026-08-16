@@ -252,7 +252,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans SC', var(--theme-font-sans, var(--font-geist-sans)), system-ui, sans-serif;
+    font-family: var(--theme-font-sans, var(--font-geist-sans)), -apple-system, BlinkMacSystemFont,
+      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui, sans-serif;
     font-size: 15px;
     line-height: var(--theme-line-height, 1.6);
   }

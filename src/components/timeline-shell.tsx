@@ -634,7 +634,7 @@ export function TimelineShell({
                 <img src={profileUser.avatar} alt="User Avatar" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                  {profileUser.name.charAt(0)}
+                  {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
                 </div>
               )}
             </button>
@@ -656,7 +656,7 @@ export function TimelineShell({
                   <img src={profileUser.avatar} alt="User Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                    {profileUser.name.charAt(0)}
+                    {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
                   </div>
                 )}
               </div>
@@ -750,7 +750,7 @@ export function TimelineShell({
               <img src={profileUser.avatar} alt="User Avatar" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                {profileUser.name.charAt(0)}
+                {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
               </div>
             )}
           </button>
