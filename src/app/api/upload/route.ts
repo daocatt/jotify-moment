@@ -59,10 +59,15 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = searchParams.get("biz") as "profile" | "moment" | null;
 
-    // Buffer the raw file then hand it to sharp. Some Node/undici versions
-    // return a SharedArrayBuffer from file.arrayBuffer(), which Buffer.from()
-    // rejects — toBuffer copies bytes so the SharedArrayBuffer backing is never touched.
-    const result = await uploadFile(toBuffer(await file.arrayBuffer()), file.name, file.type, biz || undefined);
+    // Some Node/undici versions return a SharedArrayBuffer from file.arrayBuffer(),
+    // which Buffer.from() rejects. Creating a fresh TypedArray and copying bytes
+    // guarantees a clean Uint8Array backed by a standard ArrayBuffer.
+    const rawBytes = new Uint8Array(await file.arrayBuffer());
+    const cleanBytes = new Uint8Array(rawBytes.byteLength);
+    cleanBytes.set(rawBytes);
+    const fileBuffer = Buffer.from(cleanBytes.buffer);
+
+    const result = await uploadFile(fileBuffer, file.name, file.type, biz || undefined);
 
     return NextResponse.json(result);
   } catch (error: unknown) {
