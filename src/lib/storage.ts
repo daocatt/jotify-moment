@@ -190,6 +190,13 @@ export async function uploadFile(
 ): Promise<UploadResult> {
   const config = await getStorageConfig();
 
+  // Normalize to a clean, plain-ArrayBuffer-backed Buffer up front so sharp and
+  // the R2/S3 SDK never receive a SharedArrayBuffer-backed Buffer (which the AWS
+  // SDK's fromArrayBuffer() rejects).
+  if (isBufferInput(input)) {
+    input = toBuffer(input);
+  }
+
   const maxBytes = config.maxFileSizeMB * 1024 * 1024;
   if (isBufferInput(input)) {
     if (input.length > maxBytes) {
@@ -322,7 +329,7 @@ export async function uploadFile(
       new PutObjectCommand({
         Bucket: config.s3BucketName,
         Key: key,
-        Body: mainBuffer,
+        Body: toBuffer(mainBuffer),
         ContentType: mainContentType,
       })
     );
@@ -337,7 +344,7 @@ export async function uploadFile(
         new PutObjectCommand({
           Bucket: config.s3BucketName,
           Key: thumbKey,
-          Body: thumbnailBuffer,
+          Body: toBuffer(thumbnailBuffer),
           ContentType: "image/jpeg",
         })
       );
