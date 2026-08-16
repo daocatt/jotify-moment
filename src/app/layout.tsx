@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "@/lib/theme-css.gen";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { GoogleAnalytics } from "@/components/google-analytics";
 
-const geistSans = Geist({
+// Self-hosted fonts — no build-time network download (offline, deterministic builds).
+const geistSans = localFont({
+  src: "./fonts/Geist.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/GeistMono.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const notoSansSC = Noto_Sans_SC({
-  variable: "--font-noto-sans-sc",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: "100 900",
   display: "swap",
 });
 
@@ -49,7 +47,7 @@ export default async function RootLayout({
     <html
       lang="zh"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansSC.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         {/* SECURITY: hardcoded theme-switching script only — no user input ever interpolated. Do NOT add dynamic values here. */}
