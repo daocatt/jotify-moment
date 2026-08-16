@@ -99,7 +99,7 @@ export function FriendsClient() {
                   )}
                 </div>
                 {/* Book-TOC style dotted leader */}
-                <span className="mx-3 flex-1 border-b border-dotted border-muted-foreground/40 translate-y-[-2px]" />
+                <span className="mx-3 flex-1 border-b border-dashed border-muted-foreground/25 translate-y-[-2px]" />
                 <div className="size-9 rounded-full overflow-hidden bg-muted shrink-0 border border-border">
                   {logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -114,11 +114,11 @@ export function FriendsClient() {
             );
 
             return u.slug ? (
-              <Link key={u.id} href={`/u/${u.slug}`} className="flex items-center py-3 px-4 hover:bg-muted/40 transition-colors">
+              <Link key={u.id} href={`/u/${u.slug}`} className="flex items-center py-4 px-4 hover:bg-muted/40 transition-colors">
                 {inner}
               </Link>
             ) : (
-              <div key={u.id} className="flex items-center py-3 px-4">
+              <div key={u.id} className="flex items-center py-4 px-4">
                 {inner}
               </div>
             );
