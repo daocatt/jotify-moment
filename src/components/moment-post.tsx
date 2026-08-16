@@ -572,7 +572,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                 }
               }}
             >
-              <Smile size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
+              <Smile size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
             </button>
             {showEmojiPicker && (
               <div
@@ -609,7 +609,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               setShowCommentInput((prev) => !prev);
             }}
           >
-            <MessageSquare size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-green-500 group-hover:fill-green-100 dark:group-hover:fill-green-950/40" />
+            <MessageSquare size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-green-500 group-hover:fill-green-100 dark:group-hover:fill-green-950/40" />
           </button>
 
 
@@ -623,7 +623,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                 onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                 onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
               >
-                <Edit2 size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-amber-500" />
+                <Edit2 size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-amber-500" />
               </button>
               <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">编辑</span>
             </div>
@@ -639,7 +639,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                   aria-expanded={showPinMenu}
                   className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
                 >
-                  <Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
+                  <Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
                 </button>
                 {showPinMenu && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-[10px] font-medium z-50 overflow-hidden min-w-[80px]">
@@ -673,8 +673,8 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                     <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
                   ) : (
                     <span className="t-icon-swap" data-state={post.profilePinned ? "a" : "b"}>
-                      <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
-                      <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="a"><PinOff size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
                     </span>
                   )}
                 </button>
@@ -693,8 +693,8 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                     <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
                   ) : (
                     <span className="t-icon-swap" data-state={post.pinnedAt ? "a" : "b"}>
-                      <span className="t-icon" data-icon="a"><PinOff size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
-                      <span className="t-icon" data-icon="b"><Pin size={16} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="a"><PinOff size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
                     </span>
                   )}
                 </button>
@@ -712,7 +712,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                 onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                 onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
               >
-                <Trash2 size={18} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
+                <Trash2 size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
               </button>
               <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">删除</span>
             </div>
