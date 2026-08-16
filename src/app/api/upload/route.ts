@@ -65,6 +65,9 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("Upload handler error:", error);
-    return NextResponse.json({ error: "文件上传失败，请重试" }, { status: 500 });
+    // Return a short, non-sensitive error message (no stack, no secrets) so
+    // failures can be diagnosed from the client during debugging.
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "文件上传失败，请重试", detail }, { status: 500 });
   }
 }

@@ -72,7 +72,7 @@ export function FriendCircleProfileModal({ isOpen, onClose, onSuccess }: FriendC
       const res = await fetch("/api/upload?biz=profile", { method: "POST", body: formData });
       const data = await res.json();
       if (data.error) {
-        toast.error(data.error);
+        toast.error(data.detail ? `${data.error}：${data.detail}` : data.error);
       } else {
         if (cropTarget === "logo") setLogo(data.url);
         else setCover(data.url);
