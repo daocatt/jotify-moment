@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { posts, users } from "@/db/schema";
 import { uploadFile } from "@/lib/storage";
 import { getSetting } from "@/lib/settings";
+import { toBuffer } from "@/lib/to-buffer";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
@@ -59,8 +60,7 @@ async function downloadTelegramFile(botToken: string, fileId: string): Promise<{
   const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
 
   const fileResponse = await fetch(fileUrl);
-  const arrayBuffer = await fileResponse.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = toBuffer(await fileResponse.arrayBuffer());
 
   const filename = filePath.split("/").pop() || "telegram_file";
   const ext = filename.split(".").pop()?.toLowerCase() || "";
