@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
+import { toBuffer } from "@/lib/to-buffer";
 
 const DEFAULT_MAX_FILE_SIZE_MB = 50;
 const DEFAULT_ALLOWED_EXTENSIONS = "jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a";
@@ -155,7 +156,7 @@ async function readStreamToBuffer(stream: ReadableStream<Uint8Array>): Promise<B
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    chunks.push(Buffer.from(value));
+    chunks.push(toBuffer(value));
   }
   return Buffer.concat(chunks);
 }
@@ -168,7 +169,7 @@ function webStreamToReadable(stream: ReadableStream<Uint8Array>): Readable {
       try {
         const { done, value } = await reader.read();
         if (done) this.push(null);
-        else this.push(Buffer.from(value));
+        else this.push(toBuffer(value));
       } catch (err) {
         this.destroy(err as Error);
       }

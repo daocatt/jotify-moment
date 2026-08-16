@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { uploadFile, getUploadLimits } from "@/lib/storage";
+import { toBuffer } from "@/lib/to-buffer";
 
 // In-memory user upload rate limiter (max 30 uploads per minute)
 const uploadTracker = new Map<string, { count: number; resetTime: number }>();
@@ -60,9 +61,8 @@ export async function POST(req: Request) {
 
     // Buffer the raw file then hand it to sharp. Some Node/undici versions
     // return a SharedArrayBuffer from file.arrayBuffer(), which Buffer.from()
-    // rejects — so view it as Uint8Array first (Buffer.from then copies).
-    const raw = new Uint8Array(await file.arrayBuffer());
-    const result = await uploadFile(Buffer.from(raw), file.name, file.type, biz || undefined);
+    // rejects — toBuffer copies bytes so the SharedArrayBuffer backing is never touched.
+    const result = await uploadFile(toBuffer(await file.arrayBuffer()), file.name, file.type, biz || undefined);
 
     return NextResponse.json(result);
   } catch (error: unknown) {
