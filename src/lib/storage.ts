@@ -223,25 +223,44 @@ export async function uploadFile(
   let mainContentType = normalizedMime;
 
   if (reEncodeImage) {
-    // Re-encode raster images to WebP (smaller + strips metadata).
-    // Deliberately NO fallback to the original upload (which could be huge).
+    // Re-encode raster images (smaller + strips metadata). Deliberately NO
+    // fallback to the original upload (which could be huge). Try WebP first,
+    // and degrade to JPEG only if WebP output is unavailable in this build.
     const maxEdge = bizType === "profile" ? MAX_PROFILE_IMAGE_EDGE : MAX_MAIN_IMAGE_EDGE;
-    if (isBufferInput(input)) {
-      mainBuffer = await sharp(input, { limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true })
-        .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
-    } else {
-      const source = webStreamToReadable(input);
-      mainBuffer = await source.pipe(
-        sharp({ limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true }),
-      )
-        .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
+    const opts = { limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true } as const;
+
+    try {
+      if (isBufferInput(input)) {
+        mainBuffer = await sharp(input, opts)
+          .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer();
+      } else {
+        const source = webStreamToReadable(input);
+        mainBuffer = await source.pipe(sharp(opts))
+          .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer();
+      }
+      finalExt = "webp";
+      mainContentType = "image/webp";
+    } catch {
+      // WebP unsupported in this sharp build — fall back to JPEG (still resized/re-encoded).
+      if (isBufferInput(input)) {
+        mainBuffer = await sharp(input, opts)
+          .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 82 })
+          .toBuffer();
+      } else {
+        const source = webStreamToReadable(input);
+        mainBuffer = await source.pipe(sharp(opts))
+          .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 82 })
+          .toBuffer();
+      }
+      finalExt = "jpg";
+      mainContentType = "image/jpeg";
     }
-    finalExt = "webp";
-    mainContentType = "image/webp";
   } else {
     // GIF / video / audio: keep original bytes (preserves GIF animation / lossless audio).
     mainBuffer = isBufferInput(input)
