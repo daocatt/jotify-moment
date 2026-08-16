@@ -58,9 +58,11 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = searchParams.get("biz") as "profile" | "moment" | null;
 
-    // Buffer the raw file then hand it to sharp — the most reliable path across
-    // browser/environment stream implementations.
-    const result = await uploadFile(Buffer.from(await file.arrayBuffer()), file.name, file.type, biz || undefined);
+    // Buffer the raw file then hand it to sharp. Some Node/undici versions
+    // return a SharedArrayBuffer from file.arrayBuffer(), which Buffer.from()
+    // rejects — so view it as Uint8Array first (Buffer.from then copies).
+    const raw = new Uint8Array(await file.arrayBuffer());
+    const result = await uploadFile(Buffer.from(raw), file.name, file.type, biz || undefined);
 
     return NextResponse.json(result);
   } catch (error: unknown) {
