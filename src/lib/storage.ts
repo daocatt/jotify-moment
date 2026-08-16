@@ -13,11 +13,14 @@ const DEFAULT_ALLOWED_EXTENSIONS = "jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m
 // Raster image formats that are re-encoded (normalized to WebP) on upload.
 // GIF is deliberately excluded to preserve animation.
 const REENCODABLE_IMAGE_MIMES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
-// Cap decoded pixels to bound decompression-bomb memory usage.
-const MAX_IMAGE_PIXELS = 30_000_000;
+// Cap decoded pixels to bound decompression-bomb memory usage. Generous enough
+// for large phone photos / big crops (sharp's default is ~268MP); libvips
+// streams-and-downscales so memory stays bounded.
+const MAX_IMAGE_PIXELS = 100_000_000;
 // Max long-edge for the re-encoded main image (lightbox/covers), keeps files small.
 const MAX_MAIN_IMAGE_EDGE = 2560;
-const MAX_PROFILE_IMAGE_EDGE = 1920;
+// Profile images (avatar/cover) are capped at 1200px wide — the site cover is 1200px.
+const MAX_PROFILE_IMAGE_EDGE = 1200;
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -212,38 +215,33 @@ export async function uploadFile(
   const isImage = type === "image";
   const isThumbnailable = isImage && bizType !== "profile";
   const reEncodeImage = isImage && REENCODABLE_IMAGE_MIMES.has(normalizedMime);
-  // Re-encoded raster images are normalized to WebP (smaller + strips metadata).
-  const finalExt = reEncodeImage ? "webp" : extension;
 
   let mainBuffer: Buffer;
   let thumbnailBuffer: Buffer | null = null;
-  const mainContentType = reEncodeImage ? "image/webp" : normalizedMime;
+  // Default: store the original. Set to webp only if re-encode succeeds.
+  let finalExt = extension;
+  let mainContentType = normalizedMime;
 
   if (reEncodeImage) {
-    // Stream input (from the upload route) so the raw file is never fully
-    // buffered; sharp normalizes dimensions/format and strips EXIF metadata.
-    let source: Readable;
-    if (isBufferInput(input)) source = Readable.from(input);
-    else source = webStreamToReadable(input);
+    // Re-encode raster images to WebP (smaller + strips metadata).
+    // Deliberately NO fallback to the original upload (which could be huge).
     const maxEdge = bizType === "profile" ? MAX_PROFILE_IMAGE_EDGE : MAX_MAIN_IMAGE_EDGE;
-
-    mainBuffer = await source.pipe(
-      sharp({ limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true }),
-    )
-      .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-
-    if (isThumbnailable) {
-      try {
-        thumbnailBuffer = await sharp(mainBuffer, { limitInputPixels: MAX_IMAGE_PIXELS })
-          .resize(400, 400, { fit: "cover" })
-          .jpeg({ quality: 80 })
-          .toBuffer();
-      } catch (err) {
-        console.error("Thumbnail generation failed:", err);
-      }
+    if (isBufferInput(input)) {
+      mainBuffer = await sharp(input, { limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true })
+        .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+    } else {
+      const source = webStreamToReadable(input);
+      mainBuffer = await source.pipe(
+        sharp({ limitInputPixels: MAX_IMAGE_PIXELS, autoOrient: true }),
+      )
+        .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
     }
+    finalExt = "webp";
+    mainContentType = "image/webp";
   } else {
     // GIF / video / audio: keep original bytes (preserves GIF animation / lossless audio).
     mainBuffer = isBufferInput(input)
@@ -253,16 +251,17 @@ export async function uploadFile(
     if (!validateMagicBytes(mainBuffer, normalizedMime)) {
       throw new Error(`File content does not match declared MIME type: ${mimeType}`);
     }
+  }
 
-    if (isThumbnailable) {
-      try {
-        thumbnailBuffer = await sharp(mainBuffer, { limitInputPixels: MAX_IMAGE_PIXELS })
-          .resize(400, 400, { fit: "cover" })
-          .jpeg({ quality: 80 })
-          .toBuffer();
-      } catch (err) {
-        console.error("Thumbnail generation failed:", err);
-      }
+  // Generate a thumbnail whenever possible (non-fatal).
+  if (isThumbnailable) {
+    try {
+      thumbnailBuffer = await sharp(mainBuffer, { limitInputPixels: MAX_IMAGE_PIXELS })
+        .resize(400, 400, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    } catch (err) {
+      console.error("Thumbnail generation failed:", err);
     }
   }
 
