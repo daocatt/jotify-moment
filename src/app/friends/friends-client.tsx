@@ -24,10 +24,18 @@ interface SiteProfile {
   cover: string;
 }
 
-export function FriendsClient() {
-  const [siteProfile, setSiteProfile] = useState<SiteProfile | null>(null);
-  const [friends, setFriends] = useState<FriendUser[]>([]);
-  const [loading, setLoading] = useState(true);
+interface FriendsClientProps {
+  initialSiteProfile?: SiteProfile | null;
+  initialFriends?: FriendUser[];
+}
+
+export function FriendsClient({
+  initialSiteProfile = null,
+  initialFriends = [],
+}: FriendsClientProps = {}) {
+  const [siteProfile, setSiteProfile] = useState<SiteProfile | null>(initialSiteProfile);
+  const [friends, setFriends] = useState<FriendUser[]>(initialFriends);
+  const [loading, setLoading] = useState(!initialSiteProfile && initialFriends.length === 0);
 
   const loadProfile = useCallback(async () => {
     const res = await getSiteFcProfileAction();
@@ -46,10 +54,12 @@ export function FriendsClient() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
-    loadProfile();
-    loadFriends();
-  }, [loadProfile, loadFriends]);
+    if (!initialSiteProfile && initialFriends.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
+      loadProfile();
+      loadFriends();
+    }
+  }, [loadProfile, loadFriends, initialSiteProfile, initialFriends.length]);
 
   // Header = the global site (friends-circle) profile, strictly separate from any personal profile.
   const profileUser = {

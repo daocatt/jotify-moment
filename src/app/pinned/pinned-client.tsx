@@ -2,56 +2,51 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
-import { getUserPinnedPostsAction, getUserBySlugAction } from "@/app/actions/posts";
+import { getPinnedPostsAction, getSuperAdminProfileAction } from "@/app/actions/posts";
+import { toast } from "sonner";
 
-interface ProfileUserPinned {
+interface SuperAdminProfile {
   id: string;
   name: string;
   slug: string | null;
   avatar: string | null;
   bio: string | null;
   coverImage: string | null;
-  hidden?: boolean;
 }
 
-interface UserPinnedClientProps {
-  slug: string;
-  isCustomDomain?: boolean;
-  mainHost?: string;
-  initialUser?: ProfileUserPinned | null;
+interface PinnedClientProps {
+  initialSuperAdmin?: SuperAdminProfile | null;
   initialPinnedPosts?: PostData[];
 }
 
-export function UserPinnedClient({
-  slug,
-  isCustomDomain = false,
-  mainHost,
-  initialUser = null,
+export function PinnedClient({
+  initialSuperAdmin = null,
   initialPinnedPosts = [],
-}: UserPinnedClientProps) {
-  const [profileUser, setProfileUser] = useState<ProfileUserPinned | null>(initialUser);
+}: PinnedClientProps = {}) {
+  const [superAdmin, setSuperAdmin] = useState<SuperAdminProfile | null>(initialSuperAdmin);
   const [pinnedPosts, setPinnedPosts] = useState<PostData[]>(initialPinnedPosts);
-  const [loading, setLoading] = useState(!initialUser);
+  const [loading, setLoading] = useState(!initialSuperAdmin);
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [userRes, pinnedRes] = await Promise.all([
-      getUserBySlugAction(slug),
-      getUserPinnedPostsAction(slug),
+    const [adminRes, pinnedRes] = await Promise.all([
+      getSuperAdminProfileAction(),
+      getPinnedPostsAction(),
     ]);
-    if (userRes.user) setProfileUser(userRes.user as ProfileUserPinned);
-    if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[]);
+    if (adminRes.user) setSuperAdmin(adminRes.user as SuperAdminProfile);
+    if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts as PostData[]);
+    else if (pinnedRes.error) toast.error(pinnedRes.error);
     setLoading(false);
-  }, [slug]);
+  }, []);
 
   useEffect(() => {
-    if (!initialUser) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
+    if (!initialSuperAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadData();
     }
-  }, [loadData, initialUser]);
+  }, [loadData, initialSuperAdmin]);
 
-  if (!profileUser) {
+  if (!superAdmin) {
     return (
       <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex items-center justify-center sm:mt-6 sm:rounded-t-xl">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -64,7 +59,7 @@ export function UserPinnedClient({
 
   return (
     <TimelineShell
-      profileUser={profileUser}
+      profileUser={superAdmin}
       posts={pinnedPosts}
       loadingPosts={loading && pinnedPosts.length === 0}
       hasMore={false}
@@ -74,10 +69,6 @@ export function UserPinnedClient({
       onProfileUpdated={loadData}
       showBackButton
       showPostEditor="never"
-      isCustomDomain={isCustomDomain}
-      mainHost={mainHost}
-      isUserHomePage
-      hidden={profileUser.hidden === true}
     />
   );
 }

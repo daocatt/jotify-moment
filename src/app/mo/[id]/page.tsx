@@ -55,9 +55,24 @@ export default async function MomentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const headersList = await headers();
+  const [res, headersList] = await Promise.all([
+    getPostByIdAction(id),
+    headers(),
+  ]);
+
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
   const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
-  return <MoClient id={id} isCustomDomain={isCustomDomain} mainHost={mainHost} />;
+  const initialPost = "post" in res && res.post ? res.post : null;
+  const initialError = "error" in res && res.error ? res.error : (!initialPost ? "日志不存在或已被删除" : null);
+
+  return (
+    <MoClient
+      id={id}
+      isCustomDomain={isCustomDomain}
+      mainHost={mainHost}
+      initialPost={initialPost}
+      initialError={initialError}
+    />
+  );
 }
