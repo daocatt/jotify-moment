@@ -26,17 +26,39 @@ interface ProfileUserFull {
   hidden?: boolean;
 }
 
-export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slug: string; isCustomDomain?: boolean; mainHost?: string }) {
-  const router = useRouter();
-  const [profileUser, setProfileUser] = useState<ProfileUserFull | null>(null);
-  const [notFound, setNotFound] = useState(false);
+export interface UserHomeClientProps {
+  slug: string;
+  isCustomDomain?: boolean;
+  mainHost?: string;
+  initialUser?: ProfileUserFull | null;
+  initialPinnedPosts?: PostData[];
+  initialPosts?: PostData[];
+  initialHasMore?: boolean;
+  initialNextCursor?: string | null;
+  initialNotFound?: boolean;
+}
 
-  const [posts, setPosts] = useState<PostData[]>([]);
-  const [pinnedPosts, setPinnedPosts] = useState<PostData[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+export function UserHomeClient({
+  slug,
+  isCustomDomain = false,
+  mainHost,
+  initialUser = null,
+  initialPinnedPosts = [],
+  initialPosts = [],
+  initialHasMore = false,
+  initialNextCursor = null,
+  initialNotFound = false,
+}: UserHomeClientProps) {
+  const router = useRouter();
+  const [profileUser, setProfileUser] = useState<ProfileUserFull | null>(initialUser);
+  const [notFound, setNotFound] = useState(initialNotFound);
+
+  const [posts, setPosts] = useState<PostData[]>(initialPosts);
+  const [pinnedPosts, setPinnedPosts] = useState<PostData[]>(initialPinnedPosts);
+  const [loadingPosts, setLoadingPosts] = useState(!initialUser && !initialNotFound);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const cursorRef = useRef<string | null>(null);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const cursorRef = useRef<string | null>(initialNextCursor);
 
   const fetchUser = useCallback(async () => {
     const res = await getUserBySlugAction(slug);
@@ -78,10 +100,12 @@ export function UserHomeClient({ slug, isCustomDomain = false, mainHost }: { slu
   }, [slug]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchUser();
-    fetchPosts();
-  }, [fetchUser, fetchPosts]);
+    if (!initialUser && !initialNotFound) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchUser();
+      fetchPosts();
+    }
+  }, [fetchUser, fetchPosts, initialUser, initialNotFound]);
 
   const handleLoadMore = useCallback(() => {
     fetchPosts(true);
