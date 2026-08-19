@@ -17,18 +17,21 @@ interface MoClientProps {
   id: string;
   isCustomDomain?: boolean;
   mainHost?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialPost?: any;
+  initialError?: string | null;
 }
 
-export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps) {
+export function MoClient({ id, isCustomDomain = false, mainHost, initialPost, initialError }: MoClientProps) {
   const router = useRouter();
   const { setTheme } = useTheme();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- post shape from server action extends MomentPostProps (adds user.theme etc.)
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<any>(initialPost || null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- currentUser shape from /api/auth/me is dynamic
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!initialPost && !initialError);
+  const [error, setError] = useState<string | null>(initialError || null);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
@@ -100,8 +103,10 @@ export function MoClient({ id, isCustomDomain = false, mainHost }: MoClientProps
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
     fetchSession();
-    fetchPost();
-  }, [fetchSession, fetchPost]);
+    if (!initialPost && !initialError) {
+      fetchPost();
+    }
+  }, [fetchSession, fetchPost, initialPost, initialError]);
 
   const openLightbox = (images: string[], index: number) => {
     setLightboxImages(images);

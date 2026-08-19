@@ -47,6 +47,8 @@ export async function generateMetadata({
 }
 
 import { headers } from "next/headers";
+import { getUserPostsAction, getUserPinnedPostsAction } from "@/app/actions/posts";
+import type { PostData } from "@/components/timeline-shell";
 
 export default async function UserHomePage({
   params,
@@ -54,9 +56,37 @@ export default async function UserHomePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const headersList = await headers();
+  const [userRes, pinnedRes, postsRes, headersList] = await Promise.all([
+    getUserBySlugAction(slug),
+    getUserPinnedPostsAction(slug),
+    getUserPostsAction(slug),
+    headers(),
+  ]);
+
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
   const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
-  return <UserHomeClient slug={slug} isCustomDomain={isCustomDomain} mainHost={mainHost} />;
+  const initialUser = "user" in userRes && userRes.user ? (userRes.user as any) : null;
+  const initialPinnedPosts =
+    "posts" in pinnedRes && pinnedRes.posts
+      ? (pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[])
+      : [];
+  const initialPosts = "posts" in postsRes && postsRes.posts ? (postsRes.posts as PostData[]) : [];
+  const initialHasMore = "hasMore" in postsRes && typeof postsRes.hasMore === "boolean" ? postsRes.hasMore : false;
+  const initialNextCursor = "nextCursor" in postsRes && typeof postsRes.nextCursor === "string" ? postsRes.nextCursor : null;
+  const initialNotFound = !initialUser;
+
+  return (
+    <UserHomeClient
+      slug={slug}
+      isCustomDomain={isCustomDomain}
+      mainHost={mainHost}
+      initialUser={initialUser}
+      initialPinnedPosts={initialPinnedPosts}
+      initialPosts={initialPosts}
+      initialHasMore={initialHasMore}
+      initialNextCursor={initialNextCursor}
+      initialNotFound={initialNotFound}
+    />
+  );
 }

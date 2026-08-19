@@ -3,16 +3,35 @@
 import { useState, useCallback, useEffect } from "react";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
 import { getUserPinnedPostsAction, getUserBySlugAction } from "@/app/actions/posts";
-import { toast } from "sonner";
 
-export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { slug: string; isCustomDomain?: boolean; mainHost?: string }) {
-  const [profileUser, setProfileUser] = useState<{
-    id: string; name: string; slug: string | null;
-    avatar: string | null; bio: string | null; coverImage: string | null;
-    hidden?: boolean;
-  } | null>(null);
-  const [pinnedPosts, setPinnedPosts] = useState<PostData[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ProfileUserPinned {
+  id: string;
+  name: string;
+  slug: string | null;
+  avatar: string | null;
+  bio: string | null;
+  coverImage: string | null;
+  hidden?: boolean;
+}
+
+interface UserPinnedClientProps {
+  slug: string;
+  isCustomDomain?: boolean;
+  mainHost?: string;
+  initialUser?: ProfileUserPinned | null;
+  initialPinnedPosts?: PostData[];
+}
+
+export function UserPinnedClient({
+  slug,
+  isCustomDomain = false,
+  mainHost,
+  initialUser = null,
+  initialPinnedPosts = [],
+}: UserPinnedClientProps) {
+  const [profileUser, setProfileUser] = useState<ProfileUserPinned | null>(initialUser);
+  const [pinnedPosts, setPinnedPosts] = useState<PostData[]>(initialPinnedPosts);
+  const [loading, setLoading] = useState(!initialUser);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -20,15 +39,17 @@ export function UserPinnedClient({ slug, isCustomDomain = false, mainHost }: { s
       getUserBySlugAction(slug),
       getUserPinnedPostsAction(slug),
     ]);
-    if (userRes.user) setProfileUser(userRes.user as typeof profileUser);
+    if (userRes.user) setProfileUser(userRes.user as ProfileUserPinned);
     if (pinnedRes.posts) setPinnedPosts(pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[]);
     setLoading(false);
   }, [slug]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
-    loadData();
-  }, [loadData]);
+    if (!initialUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
+      loadData();
+    }
+  }, [loadData, initialUser]);
 
   if (!profileUser) {
     return (
