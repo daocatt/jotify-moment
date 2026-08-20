@@ -76,9 +76,22 @@ description: 为用户在 Jotify Moment 平台发布图文动态、日常生活�
 
 ---
 
-## Agent 发帖最佳实践
+## MCP 工具直接调用方式 (首选推荐)
 
-1. **构思内容**：将要发布的内容提炼为精炼且有感染力的短文案，可以适当附带 `#标签`。
-2. **处理配图**：如果有附图或生成的图片，先调用上传接口获取远程 URL，再组合进 `mediaUrls`。
-3. **调用发布**：执行 `POST /api/v1/posts`。
-4. **反馈用户**：发布成功后，主动向用户汇报并提供刚刚生成的 Moment 详情链接。
+如果当前会话已挂载 `jotify-moment` MCP Server，**必须优先调用 MCP 原生工具**，而无需在终端执行长串 Node 脚本：
+
+1. **`jotify_get_profile`**：无入参，测试鉴权并获取当前用户身份。
+2. **`jotify_upload_media`**：入参 `{ "filePath": "/path/to/image.jpg" }`，支持系统任意本地文件路径直接读取并上传。
+3. **`jotify_create_post`**：入参 `{ "content": "正文", "mediaUrls": [...] }`，完成发布并获取 Moment URL。
+4. **`jotify_list_recent_posts`**：入参 `{ "limit": 10 }`，查询最近动态。
+
+---
+
+## Agent 发帖与多媒体处理准则
+
+1. **优先使用 MCP 工具**：当涉及读取外部目录（如 `~/Downloads`、`~/Desktop`）的图片时，优先使用 `jotify_upload_media`，避免使用长串内联 Shell/Node 脚本造成权限确认弹窗刷屏。
+2. **构思内容**：将要发布的内容提炼为精炼且有感染力的短文案，可以适当附带 `#标签`。
+3. **处理配图**：如果有附图或生成的图片，先调用上传接口获取远程 URL，再组合进 `mediaUrls`。
+4. **调用发布**：执行 `jotify_create_post` 或 `POST /api/v1/posts`。
+5. **反馈用户**：发布成功后，主动向用户汇报并提供刚刚生成的 Moment 详情链接。
+
