@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { db } from "@/db";
 import { posts, users } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting } from "@/lib/settings";
@@ -154,9 +154,14 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 50);
+    const tag = searchParams.get("tag")?.trim().replace(/^#/, "");
+
+    const whereClause = tag
+      ? and(eq(posts.status, "approved"), sql`${posts.content} ILIKE ${`%#${tag}%`}`)
+      : eq(posts.status, "approved");
 
     const publicPosts = await db.query.posts.findMany({
-      where: eq(posts.status, "approved"),
+      where: whereClause,
       orderBy: [desc(posts.createdAt)],
       limit,
       columns: {

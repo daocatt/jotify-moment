@@ -889,3 +889,81 @@ export async function getFriendsCircleAction() {
     return { error: "Failed to fetch friends circle" };
   }
 }
+
+/**
+ * Fetch public approved posts containing a specific hashtag.
+ */
+export async function getPostsByTagAction(tag: string, cursor?: string) {
+  const currentUser = await getSessionUser();
+  const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
+  const cleanTag = tag.trim().replace(/^#/, "");
+
+  if (!cleanTag) {
+    return { success: true, posts: [], nextCursor: null, hasMore: false };
+  }
+
+  try {
+    const cursorCond = parseCursor(cursor);
+
+    // Search posts with matching tag (e.g. #摄影)
+    const tagPattern = `%#${cleanTag}%`;
+
+    const tagPosts = await db.query.posts.findMany({
+      where: and(
+        eq(posts.status, "approved"),
+        sql`${posts.content} ILIKE ${tagPattern}`,
+        cursorCond
+          ? or(
+              lt(posts.createdAt, cursorCond.createdAt),
+              and(eq(posts.createdAt, cursorCond.createdAt), lt(posts.id, cursorCond.id))
+            )
+          : undefined
+      ),
+      orderBy: [desc(posts.createdAt), desc(posts.id)],
+      limit: PAGE_SIZE + 1,
+      with: {
+        author: {
+          columns: { id: true, name: true, avatar: true, role: true, slug: true, status: true, displayPermission: true },
+        },
+        comments: {
+          columns: { id: true, status: true },
+          where: isAdmin ? undefined : eq(comments.status, "active"),
+        },
+      },
+    });
+
+    // Filter out inactive/suspended user posts if not admin
+    const filtered = tagPosts.filter(
+      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
+    );
+
+    const hasMore = filtered.length > PAGE_SIZE;
+    const items = hasMore ? filtered.slice(0, PAGE_SIZE) : filtered;
+    const nextCursor = hasMore && items.length > 0 ? makeCursor(items[items.length - 1]) : null;
+
+    const reactionsMap = await loadReactions(items.map((p) => p.id));
+
+    const mapped = items.map((post) => {
+      const summary = reactionsMap.get(post.id);
+      return {
+        ...post,
+        user: post.author,
+        comments: post.comments.map((c) => ({
+          id: c.id,
+          content: "",
+          createdAt: post.createdAt,
+          status: c.status,
+          userId: { id: "", name: "", avatar: null },
+        })),
+        reactions: (summary?.top ?? []).map((r) => ({ id: r.id, emoji: r.emoji, userId: r.userId })),
+        reactionSummary: summary ? { total: summary.total, byEmoji: summary.byEmoji } : undefined,
+      };
+    });
+
+    return { success: true, posts: mapped, nextCursor, hasMore };
+  } catch (error) {
+    console.error("getPostsByTagAction error:", error);
+    return { error: "获取标签动态失败" };
+  }
+}
+
