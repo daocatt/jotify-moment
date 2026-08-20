@@ -191,12 +191,38 @@ export const verificationCodes = pgTable("verification_codes", {
   index("verification_codes_expires_at_idx").on(table.expiresAt),
 ]);
 
+export const apiTokens = pgTable("api_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  name: text("name").notNull(),
+  tokenPrefix: text("token_prefix").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  scopes: jsonb("scopes").default(["posts:write", "upload:write"]).notNull(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("api_tokens_user_id_idx").on(table.userId),
+  index("api_tokens_token_hash_idx").on(table.tokenHash),
+]);
+
 // Relations
 
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
   comments: many(comments),
   reactions: many(reactions),
+  apiTokens: many(apiTokens),
+}));
+
+export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [apiTokens.userId],
+    references: [users.id],
+    relationName: "userApiTokens",
+  }),
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -234,3 +260,4 @@ export const reactionsRelations = relations(reactions, ({ one }) => ({
     relationName: "reactionAuthor",
   }),
 }));
+
