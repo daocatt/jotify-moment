@@ -43,6 +43,9 @@ export async function generateMetadata({
   return {
     title: user.name,
     description: description || `${user.name} 的个人主页`,
+    alternates: {
+      canonical: `/u/${encodeURIComponent(slug)}`,
+    },
   };
 }
 
