@@ -218,13 +218,13 @@ function TokensSettingsPanel() {
               <select
                 value={expiresDays}
                 onChange={(e) => setExpiresDays(Number(e.target.value))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 text-foreground dark:bg-zinc-900"
               >
-                <option value={0}>永不过期 (推荐用于长期运行的 Agent)</option>
-                <option value={7}>7 天</option>
-                <option value={30}>30 天</option>
-                <option value={90}>90 天</option>
-                <option value={365}>1 年</option>
+                <option value={0} className="bg-background text-foreground">永不过期 (推荐用于长期运行的 Agent)</option>
+                <option value={7} className="bg-background text-foreground">7 天</option>
+                <option value={30} className="bg-background text-foreground">30 天</option>
+                <option value={90} className="bg-background text-foreground">90 天</option>
+                <option value={365} className="bg-background text-foreground">1 年</option>
               </select>
             </div>
 
@@ -262,35 +262,37 @@ function TokensSettingsPanel() {
           if (!open) setNewlyCreatedToken(null);
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="w-[92vw] sm:max-w-[480px] max-w-[480px] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-emerald-600">
               <CheckCircle size={20} /> API 密钥创建成功
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 min-w-0">
             <p className="text-xs text-muted-foreground leading-relaxed">
               请立即复制并妥善保管您的密钥。出于安全考量，该明文 Token <strong className="text-foreground">仅展示一次</strong>，后续将无法再次查看！
             </p>
 
-            <div className="relative bg-zinc-900 dark:bg-zinc-950 border border-zinc-700 text-zinc-100 p-3 rounded-lg font-mono text-xs break-all select-all flex items-center justify-between gap-2">
-              <span>{newlyCreatedToken}</span>
+            <div className="w-full bg-zinc-900 dark:bg-zinc-950 border border-zinc-700 text-zinc-100 p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden">
+              <span className="font-mono text-xs break-all select-all flex-1 min-w-0 leading-relaxed pr-2">
+                {newlyCreatedToken}
+              </span>
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={() => copyToClipboard(newlyCreatedToken || "")}
-                className="shrink-0 text-xs h-7 gap-1"
+                className="shrink-0 text-xs h-8 px-2.5 gap-1 self-start"
               >
-                <Copy size={12} /> 复制
+                <Copy size={13} /> 复制
               </Button>
             </div>
 
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-500/20 text-amber-800 dark:text-amber-300 p-3 rounded-md text-[11px] space-y-1">
+            <div className="w-full bg-amber-50 dark:bg-amber-950/30 border border-amber-500/20 text-amber-800 dark:text-amber-300 p-3 rounded-md text-[11px] space-y-1.5 overflow-hidden">
               <p className="font-semibold">使用指南：</p>
               <p>在 Agent 或 MCP 的环境变量中配置：</p>
-              <code className="block font-mono bg-amber-100/60 dark:bg-zinc-900 p-1.5 rounded mt-1 select-all">
+              <div className="font-mono bg-amber-100/60 dark:bg-zinc-900 p-2 rounded text-[11px] break-all select-all border border-amber-300/30 dark:border-zinc-800">
                 JOTIFY_API_TOKEN={newlyCreatedToken}
-              </code>
+              </div>
             </div>
           </div>
           <DialogFooter>
