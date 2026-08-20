@@ -72,7 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         createdAt: true,
       },
       with: {
-        user: {
+        author: {
           columns: {
             status: true,
             displayPermission: true,
@@ -82,7 +82,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
 
     for (const p of activePosts) {
-      if (p.user?.status === "active" && p.user?.displayPermission) {
+      if (p.author?.status === "active" && p.author?.displayPermission) {
         routes.push({
           url: `${baseUrl}/mo/${p.id}`,
           lastModified: p.createdAt,
