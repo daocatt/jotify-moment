@@ -219,13 +219,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "jotify_list_recent_posts",
-                description: "查询 Jotify Moment 平台最近发布的公开动态列表",
+                description: "查询 Jotify Moment 平台最近发布的公开动态列表，支持按 #话题/标签 进行过滤筛选",
                 inputSchema: {
                     type: "object",
                     properties: {
                         limit: {
                             type: "number",
                             description: "返回的动态数量（默认 10）",
+                        },
+                        tag: {
+                            type: "string",
+                            description: "可选的标签/话题筛选条件（例如 \"摄影\" 或 \"#摄影\"）",
                         },
                     },
                 },
@@ -336,7 +340,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         if (name === "jotify_list_recent_posts") {
             const limit = args?.limit || 10;
-            const res = await fetchWithRetry(`${BASE_URL}/api/v1/posts?limit=${limit}`, {
+            const tag = args?.tag ? encodeURIComponent(String(args.tag).replace(/^#/, "")) : "";
+            const url = `${BASE_URL}/api/v1/posts?limit=${limit}${tag ? `&tag=${tag}` : ""}`;
+            const res = await fetchWithRetry(url, {
                 headers: {
                     Authorization: `Bearer ${API_TOKEN}`,
                 },
