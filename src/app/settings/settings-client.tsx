@@ -19,6 +19,12 @@ import {
 import { checkCustomDomainAvailabilityAction } from "@/app/actions/posts";
 import { THEME_LIST } from "@/lib/theme-resolver";
 import {
+  getApiTokensAction,
+  createApiTokenAction,
+  revokeApiTokenAction,
+  type ApiTokenItem,
+} from "@/app/actions/api-tokens";
+import {
   Camera,
   Loader2,
   Eye,
@@ -32,9 +38,269 @@ import {
   Lock,
   KeyRound,
   ExternalLink,
+  Plus,
+  Trash2,
+  Copy,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ImageCropModal } from "@/components/image-crop-modal";
 import type { SessionUser } from "@/lib/auth";
+
+function TokensSettingsPanel() {
+  const [tokens, setTokens] = useState<ApiTokenItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [tokenName, setTokenName] = useState("");
+  const [expiresDays, setExpiresDays] = useState<number>(0);
+  const [creating, setCreating] = useState(false);
+  const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
+
+  const fetchTokens = useCallback(async () => {
+    setLoading(true);
+    const res = await getApiTokensAction();
+    setLoading(false);
+    if (res.success && res.tokens) {
+      setTokens(res.tokens);
+    } else if (res.error) {
+      toast.error(res.error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTokens();
+  }, [fetchTokens]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tokenName.trim()) {
+      toast.error("请输入密钥名称");
+      return;
+    }
+
+    setCreating(true);
+    const res = await createApiTokenAction({
+      name: tokenName.trim(),
+      expiresInDays: expiresDays > 0 ? expiresDays : undefined,
+    });
+    setCreating(false);
+
+    if (res.error) {
+      toast.error(res.error);
+    } else if (res.token) {
+      setNewlyCreatedToken(res.token);
+      setTokenName("");
+      setExpiresDays(0);
+      fetchTokens();
+      toast.success("API 密钥已生成！");
+    }
+  };
+
+  const handleRevoke = async (id: string, name: string) => {
+    if (!confirm(`确定要撤销密钥 "${name}" 吗？撤销后使用该密钥的 AI Agent 将无法继续访问。`)) {
+      return;
+    }
+    const res = await revokeApiTokenAction(id);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("密钥已成功撤销");
+      setTokens((prev) => prev.filter((t) => t.id !== id));
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("已复制到剪贴板");
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">API 密钥 (AI Agent / MCP)</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            用于让 AI Agent（Antigravity、Claude Desktop、Dify、脚本）免交互上传配图和发布 Moment
+          </p>
+        </div>
+        <Button onClick={() => setCreateModalOpen(true)} size="sm" className="text-xs gap-1.5">
+          <Plus size={14} />
+          <span>创建新密钥</span>
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <Loader2 className="animate-spin size-5 mr-2" />
+          <span className="text-xs">加载密钥列表中...</span>
+        </div>
+      ) : tokens.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center space-y-3 bg-muted/10">
+          <KeyRound size={28} className="mx-auto text-muted-foreground" />
+          <h3 className="text-sm font-medium text-foreground">暂无活跃的 API 密钥</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+            点击右上角「创建新密钥」生成 Token，可无缝接入 Claude Desktop、Cursor MCP 或自动化发帖机器人。
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {tokens.map((token) => (
+            <div
+              key={token.id}
+              className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/20 gap-4"
+            >
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-foreground truncate">{token.name}</span>
+                  <span className="text-[10px] font-mono bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">
+                    {token.tokenPrefix}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} />
+                    创建于 {new Date(token.createdAt).toLocaleDateString()}
+                  </span>
+                  {token.lastUsedAt ? (
+                    <span>最后使用: {new Date(token.lastUsedAt).toLocaleString()}</span>
+                  ) : (
+                    <span>从未被使用</span>
+                  )}
+                  {token.expiresAt ? (
+                    <span className="text-amber-600 dark:text-amber-500">
+                      过期时间: {new Date(token.expiresAt).toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 dark:text-emerald-500">永久有效</span>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRevoke(token.id, token.name)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs shrink-0"
+              >
+                <Trash2 size={14} className="mr-1" /> 撤销
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Token Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>创建 API 密钥</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">密钥名称 / 标识</label>
+              <Input
+                type="text"
+                placeholder="例如: Claude Desktop, Dify Bot, My Python Script"
+                value={tokenName}
+                onChange={(e) => setTokenName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">有效期</label>
+              <select
+                value={expiresDays}
+                onChange={(e) => setExpiresDays(Number(e.target.value))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value={0}>永不过期 (推荐用于长期运行的 Agent)</option>
+                <option value={7}>7 天</option>
+                <option value={30}>30 天</option>
+                <option value={90}>90 天</option>
+                <option value={365}>1 年</option>
+              </select>
+            </div>
+
+            <div className="rounded-md border border-border p-3 bg-muted/30 text-[11px] text-muted-foreground space-y-1">
+              <div className="flex items-center gap-1.5 text-foreground font-medium">
+                <ShieldCheck size={14} className="text-primary" />
+                <span>默认已开通权限</span>
+              </div>
+              <p>• 发布 Moment 动态 (`posts:write`)</p>
+              <p>• 上传多媒体配图与音视频 (`upload:write`)</p>
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateModalOpen(false)}
+                disabled={creating}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating && <Loader2 className="mr-2 animate-spin size-4" />}
+                立即创建
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Newly Created Token Display Modal (Only Shown Once) */}
+      <Dialog
+        open={!!newlyCreatedToken}
+        onOpenChange={(open) => {
+          if (!open) setNewlyCreatedToken(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-600">
+              <CheckCircle size={20} /> API 密钥创建成功
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              请立即复制并妥善保管您的密钥。出于安全考量，该明文 Token <strong className="text-foreground">仅展示一次</strong>，后续将无法再次查看！
+            </p>
+
+            <div className="relative bg-zinc-900 dark:bg-zinc-950 border border-zinc-700 text-zinc-100 p-3 rounded-lg font-mono text-xs break-all select-all flex items-center justify-between gap-2">
+              <span>{newlyCreatedToken}</span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => copyToClipboard(newlyCreatedToken || "")}
+                className="shrink-0 text-xs h-7 gap-1"
+              >
+                <Copy size={12} /> 复制
+              </Button>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-500/20 text-amber-800 dark:text-amber-300 p-3 rounded-md text-[11px] space-y-1">
+              <p className="font-semibold">使用指南：</p>
+              <p>在 Agent 或 MCP 的环境变量中配置：</p>
+              <code className="block font-mono bg-amber-100/60 dark:bg-zinc-900 p-1.5 rounded mt-1 select-all">
+                JOTIFY_API_TOKEN={newlyCreatedToken}
+              </code>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setNewlyCreatedToken(null)}>我已复制并妥善保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 interface SettingsClientProps {
   user: SessionUser;
@@ -713,22 +979,9 @@ export function SettingsClient({ user }: SettingsClientProps) {
                 </div>
               )}
 
-              {/* Tab 5: Tokens (Placeholder for Phase 2) */}
+              {/* Tab 5: Tokens */}
               {activeTab === "tokens" && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">API 密钥 (AI Agent 接入)</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">创建 Personal Access Token，用于通过 AI Agent、MCP 或自定义脚本发布 Moment</p>
-                  </div>
-
-                  <div className="rounded-lg border border-dashed border-border p-8 text-center space-y-3 bg-muted/10">
-                    <KeyRound size={28} className="mx-auto text-muted-foreground" />
-                    <h3 className="text-sm font-medium text-foreground">准备就绪</h3>
-                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                      API 密钥管理面板将在下一步接入数据库 Schema 后启用。生成 Token 后，你可以配置到 Claude Desktop、Antigravity 或 Dify 中直接发帖。
-                    </p>
-                  </div>
-                </div>
+                <TokensSettingsPanel />
               )}
 
               {/* Tab 6: Password */}
