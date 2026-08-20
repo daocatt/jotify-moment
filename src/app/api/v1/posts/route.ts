@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 
 const MAX_POST_LENGTH = 2000;
 const postTracker = new Map<string, { count: number; resetTime: number }>();
-const MAX_POSTS_PER_MINUTE = 10;
+const MAX_POSTS_PER_MINUTE = 30;
 
 function checkPostRateLimit(userId: string): boolean {
   const now = Date.now();

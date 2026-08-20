@@ -4,7 +4,7 @@ import { uploadFile, getUploadLimits } from "@/lib/storage";
 
 // In-memory upload rate limiter
 const uploadTracker = new Map<string, { count: number; resetTime: number }>();
-const MAX_UPLOADS_PER_MINUTE = 30;
+const MAX_UPLOADS_PER_MINUTE = 60;
 
 function checkUploadRateLimit(userId: string): boolean {
   const now = Date.now();
