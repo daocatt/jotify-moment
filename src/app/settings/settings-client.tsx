@@ -95,6 +95,7 @@ function TokensSettingsPanel() {
     if (res.error) {
       toast.error(res.error);
     } else if (res.token) {
+      setCreateModalOpen(false);
       setNewlyCreatedToken(res.token);
       setTokenName("");
       setExpiresDays(0);
