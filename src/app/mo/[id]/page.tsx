@@ -32,6 +32,9 @@ export async function generateMetadata({
   return {
     title: `${post.user.name} 的 Moment`,
     description: excerpt || "查看 Moment 详情",
+    alternates: {
+      canonical: `/mo/${id}`,
+    },
     openGraph: {
       title: `${post.user.name} 的 Moment`,
       description: excerpt || "查看 Moment 详情",
