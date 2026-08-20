@@ -176,6 +176,13 @@
       "when": 1786822077673,
       "tag": "0024_gorgeous_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787255697356,
+      "tag": "0025_brown_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

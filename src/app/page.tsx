@@ -28,6 +28,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: profile.name,
     description: profile.bio || `${profile.name} · Jotify Moment`,
+    alternates: {
+      canonical: "/",
+    },
   };
 }
 

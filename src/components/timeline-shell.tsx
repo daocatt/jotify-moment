@@ -547,9 +547,9 @@ export function TimelineShell({
           >
             <button
               type="button"
-              onClick={() => currentUser && (isOwnPage ? setProfileModalOpen(true) : goToOwnHome())}
+              onClick={() => currentUser && (isOwnPage ? router.push("/settings") : goToOwnHome())}
               className={`block size-full relative ${currentUser ? "cursor-pointer" : "cursor-default"}`}
-              title={currentUser ? (isOwnPage ? "编辑个人资料" : "我的主页") : undefined}
+              title={currentUser ? (isOwnPage ? "个人设置" : "我的主页") : undefined}
             >
               {currentUser?.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -619,8 +619,8 @@ export function TimelineShell({
                   </DropdownMenuItem>
                 )}
                 {currentUser.role !== "guest" && (
-                  <DropdownMenuItem onClick={() => setProfileModalOpen(true)} className="whitespace-nowrap text-xs">
-                    <Pen size={13} /> 编辑个人资料
+                  <DropdownMenuItem onClick={() => router.push("/settings")} className="whitespace-nowrap text-xs">
+                    <Pen size={13} /> 个人设置
                   </DropdownMenuItem>
                 )}
                 {isUserHomePage && isOwnPage && currentUser.customDomain && (

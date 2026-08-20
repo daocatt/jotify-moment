@@ -32,6 +32,9 @@ export async function generateMetadata({
   return {
     title: `${post.user.name} 的 Moment`,
     description: excerpt || "查看 Moment 详情",
+    alternates: {
+      canonical: `/mo/${id}`,
+    },
     openGraph: {
       title: `${post.user.name} 的 Moment`,
       description: excerpt || "查看 Moment 详情",
@@ -63,16 +66,46 @@ export default async function MomentDetailPage({
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
   const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
+  const nonce = headersList.get("x-nonce") ?? undefined;
+
   const initialPost = "post" in res && res.post ? res.post : null;
   const initialError = "error" in res && res.error ? res.error : (!initialPost ? "日志不存在或已被删除" : null);
 
+  let jsonLd = null;
+  if (initialPost) {
+    const mediaUrls = initialPost.mediaUrls as Array<{ type: string; url: string }> | undefined;
+    const images = mediaUrls?.filter((m) => m.type === "image").map((m) => m.url) || [];
+    jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SocialMediaPosting",
+      "headline": plainExcerpt(initialPost.content, 50),
+      "articleBody": initialPost.content,
+      "datePublished": initialPost.createdAt,
+      "author": {
+        "@type": "Person",
+        "name": initialPost.user?.name,
+        "image": initialPost.user?.avatar,
+      },
+      "image": images.length > 0 ? images : undefined,
+    };
+  }
+
   return (
-    <MoClient
-      id={id}
-      isCustomDomain={isCustomDomain}
-      mainHost={mainHost}
-      initialPost={initialPost}
-      initialError={initialError}
-    />
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <MoClient
+        id={id}
+        isCustomDomain={isCustomDomain}
+        mainHost={mainHost}
+        initialPost={initialPost}
+        initialError={initialError}
+      />
+    </>
   );
 }

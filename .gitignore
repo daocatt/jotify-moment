@@ -43,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# planning & roadmap docs
+/docs/ai_agent_roadmap.md
+

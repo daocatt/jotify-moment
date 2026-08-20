@@ -22,7 +22,20 @@ const geistMono = localFont({
   display: "swap",
 });
 
+function getMetadataBase(): URL {
+  const betterAuthUrl = process.env.BETTER_AUTH_URL;
+  if (betterAuthUrl && !betterAuthUrl.includes("localhost")) {
+    return new URL(betterAuthUrl);
+  }
+  const mainHost = process.env.MAIN_HOST?.split(",")[0]?.trim();
+  if (mainHost && !mainHost.includes("localhost") && !mainHost.includes("127.0.0.1")) {
+    return new URL(`https://${mainHost}`);
+  }
+  return new URL(betterAuthUrl || "http://localhost:3000");
+}
+
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: {
     default: "Jotify Moment",
     template: "%s · Jotify Moment",
