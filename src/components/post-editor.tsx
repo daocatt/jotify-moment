@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List } from "lucide-react";
+import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 
@@ -88,6 +88,35 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       const offset = hasPrefix ? -prefix.length : prefix.length;
       ta.selectionStart = ta.selectionEnd = Math.max(lineStart, start + offset);
     });
+  };
+
+  const insertHashtag = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = content.slice(start, end);
+    
+    if (selected.trim()) {
+      // Wrap selection as hashtag
+      const tagText = selected.startsWith("#") ? selected : `#${selected}`;
+      const newText = content.slice(0, start) + tagText + " " + content.slice(end);
+      setContent(newText);
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + tagText.length + 1;
+      });
+    } else {
+      // Insert # and focus
+      const needsLeadingSpace = start > 0 && !/\s/.test(content[start - 1]);
+      const insertStr = needsLeadingSpace ? " #" : "#";
+      const newText = content.slice(0, start) + insertStr + content.slice(end);
+      setContent(newText);
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + insertStr.length;
+      });
+    }
   };
 
   // Detect any supported embed URL in content
@@ -396,6 +425,14 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
               title="列表"
             >
               <List size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={insertHashtag}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              title="添加话题标签 (#话题)"
+            >
+              <Hash size={18} />
             </button>
           </div>
 
