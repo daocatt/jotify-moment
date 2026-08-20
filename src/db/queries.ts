@@ -85,7 +85,8 @@ export async function loadReactions(postIds: string[]): Promise<Map<string, Reac
 }
 
 /** Cursor format: `${createdAtMs}_${postId}` — a stable (time, id) tiebreaker. */
-export function parseCursor(cursor: string): { createdAt: Date; id: string } | null {
+export function parseCursor(cursor?: string | null): { createdAt: Date; id: string } | null {
+  if (!cursor) return null;
   const idx = cursor.lastIndexOf("_");
   if (idx <= 0) return null;
   const ms = Number(cursor.slice(0, idx));

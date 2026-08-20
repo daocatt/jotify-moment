@@ -16,6 +16,7 @@ import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
+import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 import { toast } from "sonner";
 
 export interface MomentPostProps {
@@ -445,7 +446,20 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               rehypePlugins={[rehypeHighlight]}
               components={{
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                a: ({ node, href, children, ...props }) => {
+                  const isTag = typeof href === "string" && href.startsWith("/tag/");
+                  if (isTag) {
+                    return (
+                      <Link
+                        href={href}
+                        className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded text-xs font-medium text-primary hover:bg-primary/10 transition-colors no-underline"
+                      >
+                        {children}
+                      </Link>
+                    );
+                  }
+                  return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
+                },
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 table: ({ node, children, ...props }) => (
                   <div className="overflow-x-auto my-2">
@@ -458,7 +472,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                 ),
               }}
             >
-              {post.content}
+              {transformHashtagsToMarkdownLinks(post.content)}
             </ReactMarkdown>
           </div>
         )}
