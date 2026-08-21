@@ -476,12 +476,15 @@ export function TimelineShell({
 
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
   const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
-  const menuBtnClass = `inline-flex items-center justify-center h-8 rounded-full px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${
+  const menuBtnBase = "inline-flex items-center justify-center h-8 rounded-full px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring";
+  const menuBtnClass = `${menuBtnBase} ${
     coverStyle
       ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
       : "text-muted-foreground hover:bg-muted hover:text-foreground"
   }`;
-  const menuBtnActiveClass = "text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15";
+  const menuBtnActiveClass = `${menuBtnBase} text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 ${
+    coverStyle ? "backdrop-blur-sm" : ""
+  }`;
 
   return (
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
