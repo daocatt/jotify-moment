@@ -28,7 +28,7 @@ export interface MomentPostProps {
     ytVideoId: string | null;
     embedType?: string | null;
     embedId?: string | null;
-    embedMeta?: { thumbnailUrl?: string; title?: string } | null;
+    embedMeta?: { thumbnailUrl?: string; title?: string; description?: string } | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
     profilePinned?: boolean;
