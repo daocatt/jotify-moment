@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Globe } from "lucide-react";
 import { getEmbedIframeSrc, getEmbedDimensions, type EmbedType } from "@/lib/embed-parser";
 
 // Platform brand colors and labels for placeholder UI
@@ -103,6 +103,8 @@ export function MediaEmbed({ embedType, embedId, embedMeta }: MediaEmbedProps) {
     let hostname = embedId;
     try { hostname = new URL(embedId).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
 
+    const displayTitle = embedMeta?.title || hostname;
+
     return (
       <a
         href={embedId}
@@ -111,8 +113,8 @@ export function MediaEmbed({ embedType, embedId, embedMeta }: MediaEmbedProps) {
         className="mt-2 flex overflow-hidden rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors duration-150 no-underline group"
         style={{ maxWidth: "28rem" }}
       >
-        {/* Cover image */}
-        {embedMeta?.thumbnailUrl && (
+        {/* Cover image or favicon/globe placeholder */}
+        {embedMeta?.thumbnailUrl ? (
           <div className="shrink-0 w-24 bg-muted overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -123,15 +125,17 @@ export function MediaEmbed({ embedType, embedId, embedMeta }: MediaEmbedProps) {
               decoding="async"
             />
           </div>
+        ) : (
+          <div className="shrink-0 w-12 bg-muted/60 flex items-center justify-center border-r border-border/40">
+            <Globe className="size-5 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
         )}
 
         {/* Text content */}
-        <div className="flex flex-col justify-center gap-1 px-3 py-2.5 min-w-0">
-          {embedMeta?.title ? (
-            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-              {embedMeta.title}
-            </p>
-          ) : null}
+        <div className="flex flex-col justify-center gap-1 px-3 py-2.5 min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+            {displayTitle}
+          </p>
           {embedMeta?.description ? (
             <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
               {embedMeta.description}
