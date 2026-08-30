@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, memo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -11,13 +11,22 @@ import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
+import { parseEmbedUrl } from "@/lib/embed-parser";
 import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 import { toast } from "sonner";
+
+const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
+    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
+  </svg>
+);
 
 export interface MomentPostProps {
   post: {
@@ -87,6 +96,79 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   const [editingContent, setEditingContent] = useState<string>("");
   const [editingPost, setEditingPost] = useState(false);
   const [editPostContent, setEditPostContent] = useState("");
+  const editPostTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wrapEditSelection = (before: string, after: string) => {
+    const ta = editPostTextareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = editPostContent.slice(start, end);
+    const newText = editPostContent.slice(0, start) + before + selected + after + editPostContent.slice(end);
+    setEditPostContent(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      if (selected.length === 0) {
+        ta.selectionStart = ta.selectionEnd = start + before.length;
+      } else {
+        ta.selectionStart = start;
+        ta.selectionEnd = start + before.length + selected.length + after.length;
+      }
+    });
+  };
+
+  const toggleEditLinePrefix = (prefix: string) => {
+    const ta = editPostTextareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const lineStart = editPostContent.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = editPostContent.indexOf("\n", start);
+    const realLineEnd = lineEnd === -1 ? editPostContent.length : lineEnd;
+    const line = editPostContent.slice(lineStart, realLineEnd);
+    const hasPrefix = line.startsWith(prefix);
+    const newLine = hasPrefix ? line.slice(prefix.length) : prefix + line;
+    const newText = editPostContent.slice(0, lineStart) + newLine + editPostContent.slice(realLineEnd);
+    setEditPostContent(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const offset = hasPrefix ? -prefix.length : prefix.length;
+      ta.selectionStart = ta.selectionEnd = Math.max(lineStart, start + offset);
+    });
+  };
+
+  const insertEditHashtag = () => {
+    const ta = editPostTextareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = editPostContent.slice(start, end);
+
+    if (selected.trim()) {
+      const tagText = selected.startsWith("#") ? selected : `#${selected}`;
+      const newText = editPostContent.slice(0, start) + tagText + " " + editPostContent.slice(end);
+      setEditPostContent(newText);
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + tagText.length + 1;
+      });
+    } else {
+      const needsLeadingSpace = start > 0 && !/\s/.test(editPostContent[start - 1]);
+      const insertStr = needsLeadingSpace ? " #" : "#";
+      const newText = editPostContent.slice(0, start) + insertStr + editPostContent.slice(end);
+      setEditPostContent(newText);
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + insertStr.length;
+      });
+    }
+  };
+  const editEmbedInfo = useMemo(() => {
+    if (!editingPost) return null;
+    const urlMatch = editPostContent.match(/https?:\/\/[^\s]+/);
+    if (!urlMatch) return null;
+    return parseEmbedUrl(urlMatch[0]);
+  }, [editingPost, editPostContent]);
+
   const [showPinMenu, setShowPinMenu] = useState(false);
   const [profilePinLoading, setProfilePinLoading] = useState(false);
 
@@ -424,16 +506,86 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
         {/* Content Body (Markdown) */}
         {editingPost ? (
-          <div className="space-y-2">
-            <textarea
-              value={editPostContent}
-              onChange={(e) => setEditPostContent(e.target.value)}
-              className="w-full min-h-[80px] text-sm p-2 border border-border bg-background rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-ring"
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
-              <Button size="sm" variant="outline" onClick={() => setEditingPost(false)} className="h-7 text-xs">取消</Button>
-              <Button size="sm" onClick={handleSaveEditPost} className="h-7 text-xs">保存</Button>
+          <div className="bg-card border border-border rounded-xl p-3 shadow-sm space-y-3">
+            <div className="relative">
+              <Textarea
+                ref={editPostTextareaRef}
+                value={editPostContent}
+                maxLength={1000}
+                onChange={(e) => setEditPostContent(e.target.value)}
+                placeholder="这一刻的想法..."
+                className="min-h-[90px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-sm bg-transparent"
+                autoFocus
+              />
+              <span className={`absolute bottom-0 right-0 text-[10px] ${editPostContent.length > 1000 * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {editPostContent.length}/1000
+              </span>
+            </div>
+
+            {/* Embed Preview */}
+            {editEmbedInfo && (
+              <div className="border border-border rounded-lg p-2 bg-muted flex items-center gap-3">
+                <div className="flex items-center justify-center size-8 rounded-lg bg-background border border-border shrink-0">
+                  {editEmbedInfo.embedType === "link" ? (
+                    <Globe className="size-4 text-primary" />
+                  ) : (
+                    <Youtube className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground/80">
+                    {editEmbedInfo.embedType === "link" ? "已检测到网页链接（保存后将生成链接卡片）" : `已检测到嵌入媒体 · ${editEmbedInfo.embedType}`}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate font-mono">{editEmbedInfo.embedId}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/60">
+              {/* Markdown toolbar */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => toggleEditLinePrefix("### ")}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  title="标题"
+                >
+                  <Heading3 size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapEditSelection("**", "**")}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  title="加粗"
+                >
+                  <Bold size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleEditLinePrefix("- ")}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  title="列表"
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={insertEditHashtag}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  title="添加话题标签 (#话题)"
+                >
+                  <Hash size={16} />
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditingPost(false)} className="h-7 text-xs">
+                  取消
+                </Button>
+                <Button size="sm" onClick={handleSaveEditPost} className="h-7 text-xs">
+                  保存
+                </Button>
+              </div>
             </div>
           </div>
         ) : post.content && (
