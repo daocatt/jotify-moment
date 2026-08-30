@@ -119,6 +119,11 @@ export function parseEmbedUrl(url: string): EmbedInfo | null {
       }
     }
 
+    // ── Generic Web Link (Link Preview Card) ─────────────────
+    if (u.protocol === "http:" || u.protocol === "https:") {
+      return { embedType: "link", embedId: url.trim() };
+    }
+
     return null;
   } catch {
     return null;
