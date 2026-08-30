@@ -171,6 +171,8 @@ export async function createPostAction(data: {
   }
 }
 
+import { fetchLinkOgMeta } from "@/lib/link-meta";
+
 /**
  * Fetch thumbnail + title for an embed from its platform API.
  * Called once at post-creation time; result stored in embedMeta.
@@ -178,7 +180,7 @@ export async function createPostAction(data: {
 async function fetchEmbedMeta(
   embedType: string,
   embedId: string
-): Promise<{ thumbnailUrl?: string; title?: string }> {
+): Promise<{ thumbnailUrl?: string; title?: string; description?: string }> {
   // Guard: reject malformed IDs before making any external request
   if (!isValidEmbedId(embedType as EmbedType, embedId)) {
     return {};
@@ -249,6 +251,11 @@ async function fetchEmbedMeta(
           const json = await res.json() as { title?: string; thumbnail_url?: string };
           return { title: json.title, thumbnailUrl: json.thumbnail_url };
         }
+        break;
+      }
+      case "link": {
+        const meta = await fetchLinkOgMeta(embedId, ctrl.signal);
+        if (meta) return meta;
         break;
       }
       // Netease / Apple Music / Apple Podcast don't have easy public oEmbed APIs
