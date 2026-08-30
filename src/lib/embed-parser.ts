@@ -11,7 +11,8 @@ export type EmbedType =
   | "spotify-podcast"
   | "netease"
   | "apple-music"
-  | "apple-podcast";
+  | "apple-podcast"
+  | "link";
 
 export interface EmbedInfo {
   embedType: EmbedType;
@@ -165,6 +166,9 @@ export function getEmbedIframeSrc(embedType: EmbedType, embedId: string): string
       const [region, podcastId] = embedId.split("/");
       return `https://embed.podcasts.apple.com/${region}/podcast/${podcastId}`;
     }
+    case "link":
+      // Link preview cards are rendered directly — no iframe needed.
+      return "";
   }
 }
 
@@ -187,6 +191,9 @@ export function getEmbedDimensions(embedType: EmbedType): { aspectRatio?: string
       return { height: "175px" };
     case "apple-podcast":
       return { height: "175px" };
+    case "link":
+      // Link preview cards are self-sizing.
+      return {};
   }
 }
 
@@ -195,7 +202,7 @@ export function getEmbedDimensions(embedType: EmbedType): { aspectRatio?: string
  * Prevents malformed or injected IDs from being used in server-side fetches.
  */
 export function isValidEmbedId(embedType: EmbedType, embedId: string): boolean {
-  if (!embedId || embedId.length > 256) return false;
+  if (!embedId || embedId.length > 2048) return false;
 
   switch (embedType) {
     case "youtube":
@@ -221,6 +228,9 @@ export function isValidEmbedId(embedType: EmbedType, embedId: string): boolean {
     case "apple-podcast":
       // {region}/idNNNNN
       return /^[a-z]{2}\/id\d{1,20}$/.test(embedId);
+    case "link":
+      // Plain URL — must start with http:// or https://
+      return /^https?:\/\/.{1,2040}$/.test(embedId);
     default:
       return false;
   }
