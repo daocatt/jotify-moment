@@ -5,7 +5,7 @@ import { posts, comments, reactions, users, userPinned } from "@/db/schema";
 import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray, ne, sql } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
+import { isValidEmbedId, resolveBilibiliShortLink, parseEmbedUrl, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
@@ -326,12 +326,52 @@ export async function updatePostAction(postId: string, content: string) {
 
     if (!post) return { error: "Post not found" };
     if (post.userId !== user.id) return { error: "Unauthorized" };
-    if (!content.trim()) return { error: "内容不能为空" };
-    if (content.length > MAX_POST_LENGTH) {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) return { error: "内容不能为空" };
+    if (trimmedContent.length > MAX_POST_LENGTH) {
       return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
     }
 
-    await db.update(posts).set({ content: content.trim() }).where(eq(posts.id, postId));
+    // Detect link / embed from updated content
+    const embedInfo = parseEmbedUrl(trimmedContent.match(/https?:\/\/[^\s]+/)?.[0] || "");
+    let embedType: string | null = embedInfo?.embedType ?? null;
+    let embedId: string | null = embedInfo?.embedId ?? null;
+
+    if (embedType && embedId) {
+      if (!isValidEmbedId(embedType as EmbedType, embedId)) {
+        embedType = null;
+        embedId = null;
+      } else if (embedType === "bilibili") {
+        const isBV = embedId.toUpperCase().startsWith("BV");
+        const isAV = embedId.toLowerCase().startsWith("av");
+        if (!isBV && !isAV) {
+          const resolved = await resolveBilibiliShortLink(embedId);
+          if (resolved) embedId = resolved;
+        }
+      }
+    }
+
+    await db.update(posts).set({
+      content: trimmedContent,
+      ytVideoId: embedType === "youtube" ? embedId : null,
+      embedType,
+      embedId,
+      embedMeta: null,
+    }).where(eq(posts.id, postId));
+
+    if (embedType && embedId) {
+      void (async () => {
+        try {
+          const meta = await fetchEmbedMeta(embedType as EmbedType, embedId);
+          if (meta && (meta.title || meta.thumbnailUrl)) {
+            await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+          }
+        } catch (err) {
+          console.error("embedMeta update background enrichment failed:", err);
+        }
+      })();
+    }
+
     revalidatePath("/");
     invalidateFeedCache();
     return { success: true };
