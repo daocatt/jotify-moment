@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash } from "lucide-react";
+import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash, Globe } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 
@@ -374,11 +374,15 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       {embedInfo && (
         <div className="border border-border rounded-lg p-2 bg-muted flex items-center gap-3">
           <div className="flex items-center justify-center size-10 rounded-lg bg-background border border-border">
-            <Youtube className="size-5 text-muted-foreground" />
+            {embedInfo.embedType === "link" ? (
+              <Globe className="size-5 text-primary" />
+            ) : (
+              <Youtube className="size-5 text-muted-foreground" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-muted-foreground">
-              已检测到嵌入链接 · {embedInfo.embedType}
+            <p className="text-xs font-semibold text-foreground/80">
+              {embedInfo.embedType === "link" ? "已检测到网页链接（发布后将生成链接卡片）" : `已检测到嵌入媒体 · ${embedInfo.embedType}`}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 truncate font-mono">{embedInfo.embedId}</p>
           </div>
