@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { getEmbedIframeSrc, getEmbedDimensions, type EmbedType } from "@/lib/embed-parser";
 
 // Platform brand colors and labels for placeholder UI
@@ -80,16 +81,70 @@ const PLATFORM_META: Record<
       </svg>
     ),
   },
+  // "link" is handled separately below — no PLATFORM_META entry needed.
+  link: {
+    label: "Link",
+    color: "#6366f1",
+    icon: null,
+  },
 };
 
 interface MediaEmbedProps {
   embedType: string;
   embedId: string;
-  embedMeta?: { thumbnailUrl?: string; title?: string } | null;
+  embedMeta?: { thumbnailUrl?: string; title?: string; description?: string } | null;
 }
 
 export function MediaEmbed({ embedType, embedId, embedMeta }: MediaEmbedProps) {
   const [active, setActive] = useState(false);
+
+  // Link preview card — rendered inline, no iframe
+  if (embedType === "link") {
+    let hostname = embedId;
+    try { hostname = new URL(embedId).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
+
+    return (
+      <a
+        href={embedId}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 flex overflow-hidden rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors duration-150 no-underline group"
+        style={{ maxWidth: "28rem" }}
+      >
+        {/* Cover image */}
+        {embedMeta?.thumbnailUrl && (
+          <div className="shrink-0 w-24 bg-muted overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={embedMeta.thumbnailUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        )}
+
+        {/* Text content */}
+        <div className="flex flex-col justify-center gap-1 px-3 py-2.5 min-w-0">
+          {embedMeta?.title ? (
+            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+              {embedMeta.title}
+            </p>
+          ) : null}
+          {embedMeta?.description ? (
+            <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+              {embedMeta.description}
+            </p>
+          ) : null}
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground/70 mt-0.5 truncate">
+            <ExternalLink className="size-3 shrink-0" aria-hidden />
+            {hostname}
+          </span>
+        </div>
+      </a>
+    );
+  }
 
   const type = embedType as EmbedType;
   const meta = PLATFORM_META[type];
