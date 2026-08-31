@@ -17,6 +17,7 @@ import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
+import { ImageCarousel } from "@/components/image-carousel";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 import { toast } from "sonner";
@@ -37,7 +38,7 @@ export interface MomentPostProps {
     ytVideoId: string | null;
     embedType?: string | null;
     embedId?: string | null;
-    embedMeta?: { thumbnailUrl?: string; title?: string; description?: string } | null;
+    embedMeta?: { thumbnailUrl?: string; title?: string; description?: string; imageLayout?: "grid" | "carousel" } | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
     profilePinned?: boolean;
@@ -96,6 +97,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   const [editingContent, setEditingContent] = useState<string>("");
   const [editingPost, setEditingPost] = useState(false);
   const [editPostContent, setEditPostContent] = useState("");
+  const [editImageLayout, setEditImageLayout] = useState<"grid" | "carousel">("grid");
   const editPostTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const wrapEditSelection = (before: string, after: string) => {
@@ -392,15 +394,20 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
   const handleStartEditPost = () => {
     setEditPostContent(post.content);
+    setEditImageLayout(post.embedMeta?.imageLayout === "carousel" ? "carousel" : "grid");
     setEditingPost(true);
   };
 
   const handleSaveEditPost = async () => {
-    if (!editPostContent.trim()) {
+    if (!editPostContent.trim() && images.length === 0) {
       toast.error("内容不能为空");
       return;
     }
-    const res = await updatePostAction(post.id, editPostContent);
+    const res = await updatePostAction(
+      post.id,
+      editPostContent,
+      images.length >= 2 ? editImageLayout : null
+    );
     if (res.error) {
       toast.error(res.error);
     } else {
@@ -521,6 +528,37 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                 {editPostContent.length}/1000
               </span>
             </div>
+
+            {/* Layout Mode Toggle if 2+ images */}
+            {images.length >= 2 && (
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+                <span className="text-[11px] font-medium">图片排版：</span>
+                <div className="inline-flex p-0.5 rounded-lg bg-muted border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setEditImageLayout("grid")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                      editImageLayout === "grid"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    九宫格 (Grid)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditImageLayout("carousel")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                      editImageLayout === "carousel"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    横向轮播 (Carousel)
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Embed Preview */}
             {editEmbedInfo && (
@@ -691,31 +729,38 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           </div>
         ) : null}
 
-        {/* Images Grid */}
+        {/* Images Grid or Carousel */}
         {images.length > 0 && (
-          <div
-            className={`grid gap-1.5 mt-2 ${
-              images.length === 1
-                ? "grid-cols-1 max-w-[240px]"
-                : images.length === 2 || images.length === 4
-                ? "grid-cols-2 max-w-[320px]"
-                : "grid-cols-3 max-w-[400px]"
-            }`}
-          >
-            {images.map((img, idx) => (
-              <div
-                key={idx}
-                className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border cursor-zoom-in"
-                onClick={() => onOpenLightbox(imageUrls, idx)}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <LazyImage
-                  src={img.thumbnailUrl || img.url}
-                  alt={`Log file ${idx}`}
-                />
-              </div>
-            ))}
-          </div>
+          post.embedMeta?.imageLayout === "carousel" ? (
+            <ImageCarousel
+              images={images}
+              onOpenLightbox={onOpenLightbox}
+            />
+          ) : (
+            <div
+              className={`grid gap-1.5 mt-2 ${
+                images.length === 1
+                  ? "grid-cols-1 max-w-[240px]"
+                  : images.length === 2 || images.length === 4
+                  ? "grid-cols-2 max-w-[320px]"
+                  : "grid-cols-3 max-w-[400px]"
+              }`}
+            >
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border cursor-zoom-in"
+                  onClick={() => onOpenLightbox(imageUrls, idx)}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
+                  <LazyImage
+                    src={img.thumbnailUrl || img.url}
+                    alt={`Log file ${idx}`}
+                  />
+                </div>
+              ))}
+            </div>
+          )
         )}
 
         {/* Footer actions: comment, reaction picker, approvals */}
