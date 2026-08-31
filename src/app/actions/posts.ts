@@ -322,7 +322,8 @@ export async function deletePostAction(postId: string) {
 export async function updatePostAction(
   postId: string,
   content: string,
-  imageLayout?: "grid" | "carousel" | null
+  imageLayout?: "grid" | "carousel" | null,
+  mediaUrls?: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>
 ) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -335,9 +336,44 @@ export async function updatePostAction(
     if (!post) return { error: "Post not found" };
     if (post.userId !== user.id) return { error: "Unauthorized" };
     const trimmedContent = content.trim();
-    if (!trimmedContent) return { error: "内容不能为空" };
+    if (!trimmedContent && (!mediaUrls || mediaUrls.length === 0)) {
+      return { error: "内容不能为空" };
+    }
     if (trimmedContent.length > MAX_POST_LENGTH) {
       return { error: `内容不能超过 ${MAX_POST_LENGTH} 字` };
+    }
+
+    let finalMediaUrls = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
+    if (mediaUrls !== undefined) {
+      if (mediaUrls.length > 9) {
+        return { error: "每条动态最多附带 9 个媒体文件" };
+      }
+      const VALID_MEDIA_TYPES = ["image", "video", "audio"];
+      for (const m of mediaUrls) {
+        if (!VALID_MEDIA_TYPES.includes(m.type)) {
+          return { error: "无效的媒体类型" };
+        }
+        if (typeof m.name !== "string" || m.name.length > 200) {
+          return { error: "无效的媒体文件名" };
+        }
+        if (typeof m.url !== "string" || !(await isAllowedMediaUrl(m.url))) {
+          return { error: "无效的媒体 URL" };
+        }
+        if (m.duration !== undefined && (typeof m.duration !== "number" || m.duration < 0 || m.duration > 24 * 3600)) {
+          return { error: "无效的媒体时长" };
+        }
+        if (m.thumbnailUrl !== undefined && (typeof m.thumbnailUrl !== "string" || !(await isAllowedMediaUrl(m.thumbnailUrl)))) {
+          return { error: "无效的缩略图 URL" };
+        }
+      }
+
+      // Cleanup removed media files
+      const newUrls = new Set(mediaUrls.map((m) => m.url));
+      const removed = finalMediaUrls.filter((m) => !newUrls.has(m.url));
+      if (removed.length > 0) {
+        await deleteMediaFiles(removed);
+      }
+      finalMediaUrls = mediaUrls;
     }
 
     // Detect link / embed from updated content
@@ -370,6 +406,7 @@ export async function updatePostAction(
 
     await db.update(posts).set({
       content: trimmedContent,
+      mediaUrls: finalMediaUrls,
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,

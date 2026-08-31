@@ -12,7 +12,7 @@ import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal } from "lucide-react";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal, Image as ImageIcon, Video, Mic, Square } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
@@ -98,7 +98,132 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   const [editingPost, setEditingPost] = useState(false);
   const [editPostContent, setEditPostContent] = useState("");
   const [editImageLayout, setEditImageLayout] = useState<"grid" | "carousel">("grid");
+  const [editMediaFiles, setEditMediaFiles] = useState<Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>>([]);
+  const [editUploading, setEditUploading] = useState(false);
+  const [editIsRecording, setEditIsRecording] = useState(false);
+  const [editRecordingDuration, setEditRecordingDuration] = useState(0);
+  const editMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const editAudioChunksRef = useRef<Blob[]>([]);
+  const editTimerRef = useRef<NodeJS.Timeout | null>(null);
   const editPostTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fileType: "image" | "video") => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setEditUploading(true);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (fileType === "image" && !file.type.startsWith("image/")) {
+        toast.error("只能上传图片文件");
+        continue;
+      }
+      if (fileType === "video" && !file.type.startsWith("video/")) {
+        toast.error("只能上传视频文件");
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/api/upload?biz=moment", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.error) {
+          toast.error(data.error);
+        } else {
+          setEditMediaFiles((prev) => [...prev, { type: data.type, url: data.url, name: data.name, thumbnailUrl: data.thumbnailUrl }]);
+        }
+      } catch {
+        toast.error("文件上传失败");
+      }
+    }
+    setEditUploading(false);
+    e.target.value = "";
+  };
+
+  const startEditRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      editAudioChunksRef.current = [];
+      let mimeType = "audio/webm";
+      if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4";
+      } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+        mimeType = "audio/ogg";
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      editMediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          editAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(editAudioChunksRef.current, { type: mimeType });
+        setEditUploading(true);
+        const file = new File([audioBlob], `voice_recording.${mimeType.split("/")[1]}`, { type: mimeType });
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const res = await fetch("/api/upload?biz=moment", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (data.error) {
+            toast.error(data.error);
+          } else {
+            setEditMediaFiles((prev) => [...prev, { type: "audio", url: data.url, name: "语音消息" }]);
+            toast.success("语音录制并上传成功");
+          }
+        } catch {
+          toast.error("录音上传失败");
+        } finally {
+          setEditUploading(false);
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setEditIsRecording(true);
+      setEditRecordingDuration(0);
+
+      editTimerRef.current = setInterval(() => {
+        setEditRecordingDuration((prev) => {
+          if (prev + 1 >= 60) {
+            if (editMediaRecorderRef.current && editMediaRecorderRef.current.state === "recording") {
+              editMediaRecorderRef.current.stop();
+            }
+            setEditIsRecording(false);
+            if (editTimerRef.current) clearInterval(editTimerRef.current);
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("获取麦克风权限失败，无法录音");
+    }
+  };
+
+  const stopEditRecording = () => {
+    if (editMediaRecorderRef.current && editIsRecording) {
+      editMediaRecorderRef.current.stop();
+      setEditIsRecording(false);
+      if (editTimerRef.current) clearInterval(editTimerRef.current);
+    }
+  };
+
+  const removeEditMedia = (index: number) => {
+    setEditMediaFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const wrapEditSelection = (before: string, after: string) => {
     const ta = editPostTextareaRef.current;
@@ -395,18 +520,21 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
   const handleStartEditPost = () => {
     setEditPostContent(post.content);
     setEditImageLayout(post.embedMeta?.imageLayout === "carousel" ? "carousel" : "grid");
+    setEditMediaFiles([...post.mediaUrls]);
     setEditingPost(true);
   };
 
   const handleSaveEditPost = async () => {
-    if (!editPostContent.trim() && images.length === 0) {
+    const imageCount = editMediaFiles.filter((f) => f.type === "image").length;
+    if (!editPostContent.trim() && editMediaFiles.length === 0) {
       toast.error("内容不能为空");
       return;
     }
     const res = await updatePostAction(
       post.id,
       editPostContent,
-      images.length >= 2 ? editImageLayout : null
+      imageCount >= 2 ? editImageLayout : null,
+      editMediaFiles
     );
     if (res.error) {
       toast.error(res.error);
@@ -530,12 +658,12 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
             </div>
 
             {/* Media Attachments Preview in Edit Mode */}
-            {mediaFiles.length > 0 && (
+            {editMediaFiles.length > 0 && (
               <div className="space-y-2 py-1">
                 {/* Images & videos: compact grid preview */}
-                {mediaFiles.some((f) => f.type === "image" || f.type === "video") && (
+                {editMediaFiles.some((f) => f.type === "image" || f.type === "video") && (
                   <div className="grid grid-cols-6 gap-1.5">
-                    {mediaFiles.map((file, idx) => {
+                    {editMediaFiles.map((file, idx) => {
                       if (file.type !== "image" && file.type !== "video") return null;
                       return (
                         <div key={idx} className="relative aspect-square bg-muted rounded overflow-hidden group border border-border">
@@ -546,11 +674,38 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                           {file.type === "video" && (
                             <video src={file.url} className="h-full w-full object-cover" muted />
                           )}
+                          <button
+                            type="button"
+                            onClick={() => removeEditMedia(idx)}
+                            className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-black/80 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="删除此媒体"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       );
                     })}
                   </div>
                 )}
+
+                {/* Voice messages: separate long-bar rows */}
+                {editMediaFiles.map((file, idx) => {
+                  if (file.type !== "audio") return null;
+                  return (
+                    <div key={idx} className="relative flex items-center gap-2 px-3 h-10 bg-[#F2F2F2] dark:bg-muted rounded-lg border border-border group">
+                      <Mic className="size-4 text-green-500 shrink-0" />
+                      <span className="text-xs text-neutral-600 dark:text-neutral-300 font-medium flex-1">语音消息</span>
+                      <button
+                        type="button"
+                        onClick={() => removeEditMedia(idx)}
+                        className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="删除此语音"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -570,6 +725,19 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 truncate font-mono">{editEmbedInfo.embedId}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Audio Recording overlay in Edit Mode */}
+            {editIsRecording && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 flex items-center justify-between text-green-600 dark:text-green-400">
+                <div className="flex items-center gap-2">
+                  <Mic className="animate-pulse size-4" />
+                  <span className="text-xs font-semibold">正在录制语音... {Math.floor(editRecordingDuration / 60)}:{(editRecordingDuration % 60).toString().padStart(2, "0")} <span className="text-[10px] font-normal text-green-500/70">/ 1:00</span></span>
+                </div>
+                <Button size="sm" variant="destructive" onClick={stopEditRecording} className="h-7 text-xs">
+                  <Square className="mr-1 size-2.5 fill-current" /> 停止
+                </Button>
               </div>
             )}
 
@@ -611,8 +779,52 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
                   </button>
                 </div>
 
+                {/* Image upload button */}
+                <label className={`p-1.5 text-muted-foreground rounded-full transition-colors ${
+                  editUploading || editIsRecording ? "cursor-not-allowed pointer-events-none opacity-50" : "hover:text-foreground hover:bg-muted cursor-pointer"
+                }`} title="添加图片">
+                  <ImageIcon size={18} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleEditFileUpload(e, "image")}
+                    disabled={editUploading || editIsRecording}
+                    aria-label="添加图片"
+                  />
+                </label>
+
+                {/* Video upload button */}
+                <label className={`p-1.5 text-muted-foreground rounded-full transition-colors ${
+                  editUploading || editIsRecording ? "cursor-not-allowed pointer-events-none opacity-50" : "hover:text-foreground hover:bg-muted cursor-pointer"
+                }`} title="添加视频">
+                  <Video size={18} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="video/mp4,video/webm"
+                    onChange={(e) => handleEditFileUpload(e, "video")}
+                    disabled={editUploading || editIsRecording}
+                    aria-label="添加视频"
+                  />
+                </label>
+
+                {/* Mic button */}
+                <button
+                  type="button"
+                  onClick={editIsRecording ? stopEditRecording : startEditRecording}
+                  className={`p-1.5 rounded-full transition-colors ${
+                    editIsRecording ? "text-red-500 bg-red-500/10 hover:bg-red-500/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                  disabled={editUploading}
+                  title={editIsRecording ? "停止录音" : "录制语音消息"}
+                >
+                  <Mic size={18} />
+                </button>
+
                 {/* Layout Mode Toggle in toolbar if 2+ images (pure icon buttons) */}
-                {images.length >= 2 && (
+                {editMediaFiles.filter((f) => f.type === "image").length >= 2 && (
                   <div className="inline-flex items-center bg-muted/80 rounded-lg p-0.5 border border-border/80 ml-1">
                     <button
                       type="button"
@@ -645,10 +857,11 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setEditingPost(false)} className="h-7 text-xs">
+                <Button size="sm" variant="outline" onClick={() => setEditingPost(false)} className="h-7 text-xs" disabled={editUploading || editIsRecording}>
                   取消
                 </Button>
-                <Button size="sm" onClick={handleSaveEditPost} className="h-7 text-xs">
+                <Button size="sm" onClick={handleSaveEditPost} className="h-7 text-xs" disabled={editUploading || editIsRecording}>
+                  {editUploading && <Loader2 className="mr-1 size-3 animate-spin" />}
                   保存
                 </Button>
               </div>
