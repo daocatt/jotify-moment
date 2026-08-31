@@ -12,7 +12,7 @@ import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe } from "lucide-react";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
@@ -529,34 +529,28 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               </span>
             </div>
 
-            {/* Layout Mode Toggle if 2+ images */}
-            {images.length >= 2 && (
-              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-                <span className="text-[11px] font-medium">图片排版：</span>
-                <div className="inline-flex p-0.5 rounded-lg bg-muted border border-border">
-                  <button
-                    type="button"
-                    onClick={() => setEditImageLayout("grid")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      editImageLayout === "grid"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    九宫格 (Grid)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditImageLayout("carousel")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      editImageLayout === "carousel"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    横向轮播 (Carousel)
-                  </button>
-                </div>
+            {/* Media Attachments Preview in Edit Mode */}
+            {mediaFiles.length > 0 && (
+              <div className="space-y-2 py-1">
+                {/* Images & videos: compact grid preview */}
+                {mediaFiles.some((f) => f.type === "image" || f.type === "video") && (
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {mediaFiles.map((file, idx) => {
+                      if (file.type !== "image" && file.type !== "video") return null;
+                      return (
+                        <div key={idx} className="relative aspect-square bg-muted rounded overflow-hidden group border border-border">
+                          {file.type === "image" && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={file.thumbnailUrl || file.url} alt={file.name} className="h-full w-full object-cover" />
+                          )}
+                          {file.type === "video" && (
+                            <video src={file.url} className="h-full w-full object-cover" muted />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -580,40 +574,74 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
             )}
 
             <div className="flex items-center justify-between pt-2 border-t border-border/60">
-              {/* Markdown toolbar */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => toggleEditLinePrefix("### ")}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                  title="标题"
-                >
-                  <Heading3 size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => wrapEditSelection("**", "**")}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                  title="加粗"
-                >
-                  <Bold size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleEditLinePrefix("- ")}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                  title="列表"
-                >
-                  <List size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={insertEditHashtag}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                  title="添加话题标签 (#话题)"
-                >
-                  <Hash size={16} />
-                </button>
+              <div className="flex items-center gap-1">
+                {/* Markdown toolbar */}
+                <div className="flex items-center gap-0.5 mr-1 pr-1 border-r border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => toggleEditLinePrefix("### ")}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                    title="标题"
+                  >
+                    <Heading3 size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => wrapEditSelection("**", "**")}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                    title="加粗"
+                  >
+                    <Bold size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleEditLinePrefix("- ")}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                    title="列表"
+                  >
+                    <List size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={insertEditHashtag}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                    title="添加话题标签 (#话题)"
+                  >
+                    <Hash size={16} />
+                  </button>
+                </div>
+
+                {/* Layout Mode Toggle in toolbar if 2+ images (pure icon buttons) */}
+                {images.length >= 2 && (
+                  <div className="inline-flex items-center bg-muted/80 rounded-lg p-0.5 border border-border/80 ml-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditImageLayout("grid")}
+                      className={`p-1.5 rounded-md transition-all ${
+                        editImageLayout === "grid"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="九宫格排版"
+                      aria-label="九宫格排版"
+                    >
+                      <LayoutGrid size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditImageLayout("carousel")}
+                      className={`p-1.5 rounded-md transition-all ${
+                        editImageLayout === "carousel"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="横向轮播排版"
+                      aria-label="横向轮播排版"
+                    >
+                      <GalleryHorizontal size={15} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -626,7 +654,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               </div>
             </div>
           </div>
-        ) : post.content && (
+        ) : post.content ? (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
             <ReactMarkdown
               // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw HTML.
@@ -665,7 +693,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               {transformHashtagsToMarkdownLinks(post.content)}
             </ReactMarkdown>
           </div>
-        )}
+        ) : null}
 
         {/* Audio voice bubble player (Wechat-Style long bar with progress) */}
         {voiceFile && (
