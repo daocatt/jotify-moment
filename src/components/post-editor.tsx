@@ -47,6 +47,7 @@ interface PostEditorProps {
 export function PostEditor({ onSuccess }: PostEditorProps) {
   const [content, setContent] = useState("");
   const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string; thumbnailUrl?: string }>>([]);
+  const [imageLayout, setImageLayout] = useState<"grid" | "carousel">("grid");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -281,12 +282,14 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       return;
     }
 
+    const imageCount = mediaFiles.filter((m) => m.type === "image").length;
     setLoading(true);
     const res = await createPostAction({
       content,
       mediaUrls: mediaFiles,
       embedType: embedInfo?.embedType ?? null,
       embedId: embedInfo?.embedId ?? null,
+      imageLayout: imageCount >= 2 ? imageLayout : null,
     });
     setLoading(false);
 
@@ -296,6 +299,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
       toast.success(res.pending ? "已提交，等待管理员审核" : "发布成功");
       setContent("");
       setMediaFiles([]);
+      setImageLayout("grid");
       onSuccess(res.post);
     }
   };
@@ -305,6 +309,8 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
     const secs = sec % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const imageFilesCount = mediaFiles.filter((f) => f.type === "image").length;
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-4">
@@ -324,8 +330,39 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
 
       {/* Media Attachments Preview */}
       {mediaFiles.length > 0 && (
-        <div className="space-y-2 py-2">
-          {/* Images & videos: compact grid (6+ per row) */}
+        <div className="space-y-2.5 py-1">
+          {/* Layout Mode Toggle if 2+ images */}
+          {imageFilesCount >= 2 && (
+            <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+              <span className="text-[11px] font-medium">图片排版：</span>
+              <div className="inline-flex p-0.5 rounded-lg bg-muted border border-border">
+                <button
+                  type="button"
+                  onClick={() => setImageLayout("grid")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    imageLayout === "grid"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  九宫格 (Grid)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageLayout("carousel")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    imageLayout === "carousel"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  横向轮播 (Carousel)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Images & videos: compact grid */}
           {mediaFiles.some((f) => f.type === "image" || f.type === "video") && (
             <div className="grid grid-cols-6 gap-1.5">
               {mediaFiles.map((file, idx) => {
@@ -455,6 +492,36 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
                 aria-label="上传图片"
               />
           </label>
+
+          {/* Image Layout Toggle Pill if images >= 2 */}
+          {imageFilesCount >= 2 && (
+            <div className="flex items-center bg-muted/80 rounded-lg p-0.5 border border-border/80 text-xs ml-1">
+              <button
+                type="button"
+                onClick={() => setImageLayout("grid")}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  imageLayout === "grid"
+                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="九宫格展示"
+              >
+                九宫格
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageLayout("carousel")}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  imageLayout === "carousel"
+                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="横向轮播展示"
+              >
+                横向轮播
+              </button>
+            </div>
+          )}
 
           {/* Video button */}
           <label className={`p-2 text-muted-foreground rounded-full transition-colors ${
