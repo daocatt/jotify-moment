@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash, Globe } from "lucide-react";
+import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 
@@ -330,38 +330,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
 
       {/* Media Attachments Preview */}
       {mediaFiles.length > 0 && (
-        <div className="space-y-2.5 py-1">
-          {/* Layout Mode Toggle if 2+ images */}
-          {imageFilesCount >= 2 && (
-            <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-              <span className="text-[11px] font-medium">图片排版：</span>
-              <div className="inline-flex p-0.5 rounded-lg bg-muted border border-border">
-                <button
-                  type="button"
-                  onClick={() => setImageLayout("grid")}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    imageLayout === "grid"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  九宫格 (Grid)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageLayout("carousel")}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                    imageLayout === "carousel"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  横向轮播 (Carousel)
-                </button>
-              </div>
-            </div>
-          )}
-
+        <div className="space-y-2 py-1">
           {/* Images & videos: compact grid */}
           {mediaFiles.some((f) => f.type === "image" || f.type === "video") && (
             <div className="grid grid-cols-6 gap-1.5">
@@ -493,32 +462,34 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
               />
           </label>
 
-          {/* Image Layout Toggle Pill if images >= 2 */}
+          {/* Image Layout Toggle Pill if images >= 2 (pure icon buttons with tooltips) */}
           {imageFilesCount >= 2 && (
-            <div className="flex items-center bg-muted/80 rounded-lg p-0.5 border border-border/80 text-xs ml-1">
+            <div className="inline-flex items-center bg-muted/80 rounded-lg p-0.5 border border-border/80 ml-1">
               <button
                 type="button"
                 onClick={() => setImageLayout("grid")}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                className={`p-1.5 rounded-md transition-all ${
                   imageLayout === "grid"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="九宫格展示"
+                title="九宫格排版"
+                aria-label="九宫格排版"
               >
-                九宫格
+                <LayoutGrid size={16} />
               </button>
               <button
                 type="button"
                 onClick={() => setImageLayout("carousel")}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                className={`p-1.5 rounded-md transition-all ${
                   imageLayout === "carousel"
-                    ? "bg-background text-foreground shadow-sm font-semibold"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="横向轮播展示"
+                title="横向轮播排版"
+                aria-label="横向轮播排版"
               >
-                横向轮播
+                <GalleryHorizontal size={16} />
               </button>
             </div>
           )}
