@@ -319,11 +319,13 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
   const postStatus = (requireApproval && !isAdminUser) ? "pending" : "approved";
 
   const postId = await generateUniquePostId();
+  const imageCount = mediaUrls.filter((m) => m.type === "image").length;
   await db.insert(posts).values({
     id: postId,
     userId: authorUser.id,
     content: content || "",
     mediaUrls,
+    embedMeta: imageCount > 0 ? { imageLayout: "carousel" } : null,
     status: postStatus,
   });
 
@@ -444,6 +446,9 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     const postStatus = (requireApproval && !isAdminUser) ? "pending" : "approved";
 
     const postId = await generateUniquePostId();
+    const imageCount = mediaUrls.filter((m) => m.type === "image").length;
+    const initialEmbedMeta = imageCount > 0 ? { imageLayout: "carousel" } : null;
+
     await db.insert(posts).values({
       id: postId,
       userId: authorUser.id,
@@ -452,7 +457,7 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta: null,
+      embedMeta: initialEmbedMeta,
       status: postStatus,
     });
 
@@ -486,7 +491,8 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
               meta = await fetchLinkOgMeta(embedId, ctrl.signal);
             }
             if (meta && (meta.title || meta.thumbnailUrl)) {
-              await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+              const mergedMeta = { ...initialEmbedMeta, ...meta };
+              await db.update(posts).set({ embedMeta: mergedMeta }).where(eq(posts.id, postId));
             }
           } finally { clearTimeout(timer); }
         } catch (err) {
