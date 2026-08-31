@@ -35,6 +35,7 @@ export async function createPostAction(data: {
   ytVideoId?: string | null;
   embedType?: string | null;
   embedId?: string | null;
+  imageLayout?: "grid" | "carousel" | null;
 }) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
@@ -105,6 +106,8 @@ export async function createPostAction(data: {
 
     const postId = await generateUniquePostId();
 
+    const initialEmbedMeta = data.imageLayout ? { imageLayout: data.imageLayout } : null;
+
     await db.insert(posts).values({
       id: postId,
       userId: user.id,
@@ -114,7 +117,7 @@ export async function createPostAction(data: {
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta: null,
+      embedMeta: initialEmbedMeta,
       status: status as "approved" | "pending",
     });
 
@@ -128,7 +131,8 @@ export async function createPostAction(data: {
         try {
           const meta = await fetchEmbedMeta(embedType as EmbedType, embedId);
           if (meta && (meta.title || meta.thumbnailUrl)) {
-            await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+            const mergedMeta = { ...initialEmbedMeta, ...meta };
+            await db.update(posts).set({ embedMeta: mergedMeta }).where(eq(posts.id, postId));
           }
         } catch (err) {
           console.error("embedMeta background enrichment failed:", err);
@@ -315,7 +319,11 @@ export async function deletePostAction(postId: string) {
   }
 }
 
-export async function updatePostAction(postId: string, content: string) {
+export async function updatePostAction(
+  postId: string,
+  content: string,
+  imageLayout?: "grid" | "carousel" | null
+) {
   const user = await getSessionUser();
   if (!user) return { error: "Unauthorized" };
 
@@ -351,12 +359,21 @@ export async function updatePostAction(postId: string, content: string) {
       }
     }
 
+    const existingMeta = (post.embedMeta && typeof post.embedMeta === "object" ? post.embedMeta : {}) as Record<string, any>;
+    const targetLayout = imageLayout !== undefined ? imageLayout : existingMeta.imageLayout;
+    const baseEmbedMeta: Record<string, any> = { ...existingMeta };
+    if (targetLayout) {
+      baseEmbedMeta.imageLayout = targetLayout;
+    } else {
+      delete baseEmbedMeta.imageLayout;
+    }
+
     await db.update(posts).set({
       content: trimmedContent,
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta: null,
+      embedMeta: Object.keys(baseEmbedMeta).length > 0 ? baseEmbedMeta : null,
     }).where(eq(posts.id, postId));
 
     if (embedType && embedId) {
@@ -364,7 +381,8 @@ export async function updatePostAction(postId: string, content: string) {
         try {
           const meta = await fetchEmbedMeta(embedType as EmbedType, embedId);
           if (meta && (meta.title || meta.thumbnailUrl)) {
-            await db.update(posts).set({ embedMeta: meta }).where(eq(posts.id, postId));
+            const mergedMeta = { ...baseEmbedMeta, ...meta };
+            await db.update(posts).set({ embedMeta: mergedMeta }).where(eq(posts.id, postId));
           }
         } catch (err) {
           console.error("embedMeta update background enrichment failed:", err);
