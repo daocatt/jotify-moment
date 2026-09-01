@@ -42,9 +42,19 @@ export const metadata: Metadata = {
   },
   description: "记录生活，分享此刻。",
   icons: {
-    icon: "/api/favicon",
-    shortcut: "/api/favicon",
-    apple: "/api/favicon",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/api/favicon", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Jotify Moment",
   },
 };
 
