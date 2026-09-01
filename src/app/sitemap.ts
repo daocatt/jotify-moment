@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { db } from "@/db";
 import { users, posts } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    // 2. Public User Profiles
+    // 2. Public User Profiles (excluding those with a custom domain — they are
+    //    canonicalized to their own domain and served via /sitemap.xml there)
     const publicUsers = await db.query.users.findMany({
       where: and(
         eq(users.status, "active"),
         eq(users.publicHomepage, true),
+        isNull(users.customDomain),
       ),
       columns: {
         slug: true,
@@ -76,6 +78,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           columns: {
             status: true,
             displayPermission: true,
+            customDomain: true,
+            allowCustomDomain: true,
           },
         },
       },
@@ -83,6 +87,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     for (const p of activePosts) {
       if (p.author?.status === "active" && p.author?.displayPermission) {
+        // Custom-domain owners are canonicalized to their own domain — skip here.
+        if (p.author.customDomain && p.author.allowCustomDomain) continue;
         routes.push({
           url: `${baseUrl}/mo/${p.id}`,
           lastModified: p.createdAt,
