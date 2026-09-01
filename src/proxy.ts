@@ -192,6 +192,19 @@ export async function proxy(request: NextRequest) {
             return new NextResponse(null, { status: 404 });
           }
 
+          if (pathname === "/sitemap.xml" || pathname === "/robots.txt") {
+            const target = pathname === "/sitemap.xml"
+              ? "/api/custom-domain/sitemap"
+              : "/api/custom-domain/robots";
+            const { requestHeaders, csp } = buildNonce(request);
+            const response = NextResponse.rewrite(
+              new URL(target, request.url),
+              { request: { headers: requestHeaders } },
+            );
+            applySecurityHeaders(response, request, csp);
+            return response;
+          }
+
           const primaryHost = mainHosts[0] || "localhost:3000";
           const protocol = request.headers.get("x-forwarded-proto") || "https";
           return NextResponse.redirect(`${protocol}://${primaryHost}${pathname}${request.nextUrl.search}`);
