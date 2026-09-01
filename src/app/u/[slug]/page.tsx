@@ -40,11 +40,41 @@ export async function generateMetadata({
     description = (description ? description + " " : "") + excerpt;
   }
 
+  const hdrs = await headers();
+  const isCustomDomain = hdrs.get("x-custom-domain") === "true";
+  const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
+  const proto = hdrs.get("x-forwarded-proto") === "https" ? "https" : "http";
+
+  // Canonical strategy: the custom domain is the authoritative origin.
+  //  - Served on a custom domain → canonical to that domain's root.
+  //  - Served on the main host but user owns a custom domain → canonical there
+  //    (avoids duplicate content between main-host /u/{slug} and the domain).
+  //  - Otherwise → keep the main-host /u/{slug} path.
+  let canonical: string;
+  if (isCustomDomain) {
+    canonical = `${proto}://${host}/`;
+  } else if (user.customDomain && user.allowCustomDomain) {
+    canonical = `https://${user.customDomain}/`;
+  } else {
+    canonical = `/u/${encodeURIComponent(slug)}`;
+  }
+
   return {
     title: user.name,
     description: description || `${user.name} 的个人主页`,
-    alternates: {
-      canonical: `/u/${encodeURIComponent(slug)}`,
+    alternates: { canonical },
+    openGraph: {
+      title: user.name,
+      description: description || `${user.name} 的个人主页`,
+      type: "profile",
+      images: user.avatar ? [{ url: user.avatar }] : undefined,
+      url: canonical,
+    },
+    twitter: {
+      card: "summary",
+      title: user.name,
+      description: description || `${user.name} 的个人主页`,
+      images: user.avatar ? [user.avatar] : undefined,
     },
   };
 }

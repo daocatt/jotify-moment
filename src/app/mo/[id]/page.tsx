@@ -29,17 +29,37 @@ export async function generateMetadata({
   const mediaUrls = post.mediaUrls as Array<{ type: string; url: string }> | undefined;
   const firstImage = mediaUrls?.find((m) => m.type === "image")?.url;
 
+  const hdrs = await headers();
+  const isCustomDomain = hdrs.get("x-custom-domain") === "true";
+  const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
+  const proto = hdrs.get("x-forwarded-proto") === "https" ? "https" : "http";
+  const author = post.user as { customDomain?: string | null; allowCustomDomain?: boolean };
+  const authorCustomDomain =
+    author.customDomain && author.allowCustomDomain ? author.customDomain : null;
+
+  // Custom domain is authoritative: canonical to it when served there, or when
+  // the main-host copy belongs to a custom-domain owner (dedup).
+  let canonical: string;
+  if (isCustomDomain) {
+    canonical = `${proto}://${host}/mo/${id}`;
+  } else if (authorCustomDomain) {
+    canonical = `https://${authorCustomDomain}/mo/${id}`;
+  } else {
+    canonical = `/mo/${id}`;
+  }
+
   return {
     title: `${post.user.name} 的 Moment`,
     description: excerpt || "查看 Moment 详情",
     alternates: {
-      canonical: `/mo/${id}`,
+      canonical,
     },
     openGraph: {
       title: `${post.user.name} 的 Moment`,
       description: excerpt || "查看 Moment 详情",
       type: "article",
       images: firstImage ? [{ url: firstImage }] : undefined,
+      url: canonical,
     },
     twitter: {
       card: firstImage ? "summary_large_image" : "summary",
