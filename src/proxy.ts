@@ -70,6 +70,10 @@ function buildNonce(request: NextRequest): { requestHeaders: Headers; csp: strin
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  // SECURITY: strip client-supplied custom-domain markers — only the proxy may
+  // set these, so a visitor can't impersonate the custom-domain UI/auth flow.
+  requestHeaders.delete("x-custom-domain");
+  requestHeaders.delete("x-custom-domain-slug");
   return { requestHeaders, csp };
 }
 
@@ -155,9 +159,9 @@ export async function proxy(request: NextRequest) {
           if (pathname === "/") {
             const rewriteUrl = new URL(`/u/${slug}`, request.url);
             const { requestHeaders, csp } = buildNonce(request);
+            requestHeaders.set("x-custom-domain", "true");
+            requestHeaders.set("x-custom-domain-slug", slug);
             const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
-            response.headers.set("x-custom-domain", "true");
-            response.headers.set("x-custom-domain-slug", slug);
             applySecurityHeaders(response, request, csp);
             return response;
           }
@@ -177,15 +181,28 @@ export async function proxy(request: NextRequest) {
 
               if (post && owner && post.userId === owner.id) {
                 const { requestHeaders, csp } = buildNonce(request);
+                requestHeaders.set("x-custom-domain", "true");
+                requestHeaders.set("x-custom-domain-slug", slug);
                 const response = NextResponse.next({ request: { headers: requestHeaders } });
-                response.headers.set("x-custom-domain", "true");
-                response.headers.set("x-custom-domain-slug", slug);
                 applySecurityHeaders(response, request, csp);
                 return response;
               }
             }
 
             return new NextResponse(null, { status: 404 });
+          }
+
+          if (pathname === "/sitemap.xml" || pathname === "/robots.txt") {
+            const target = pathname === "/sitemap.xml"
+              ? "/api/custom-domain/sitemap"
+              : "/api/custom-domain/robots";
+            const { requestHeaders, csp } = buildNonce(request);
+            const response = NextResponse.rewrite(
+              new URL(target, request.url),
+              { request: { headers: requestHeaders } },
+            );
+            applySecurityHeaders(response, request, csp);
+            return response;
           }
 
           const primaryHost = mainHosts[0] || "localhost:3000";

@@ -46,15 +46,26 @@ const MAGIC_BYTES: Record<string, number[]> = {
   "image/png": [0x89, 0x50, 0x4e, 0x47],
   "image/gif": [0x47, 0x49, 0x46],
   "image/webp": [0x52, 0x49, 0x46, 0x46],
-  "video/mp4": [0x00, 0x00, 0x00],
   "video/webm": [0x1a, 0x45, 0xdf, 0xa3],
   "audio/mpeg": [0xff, 0xfb],
   "audio/ogg": [0x4f, 0x67, 0x67, 0x53],
   "audio/wav": [0x52, 0x49, 0x46, 0x46],
-  "audio/m4a": [0x00, 0x00, 0x00],
 };
 
+// MP4/M4A begin with an ISO BMFF box whose payload starts with "ftyp".
+// Requiring it rejects arbitrary byte streams while accepting real MP4/M4A.
+function isMp4Family(buffer: Buffer): boolean {
+  return (
+    buffer.length >= 8 &&
+    buffer.slice(4, 8).toString("latin1") === "ftyp"
+  );
+}
+
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  // mp4 / m4a share the ISO BMFF "ftyp" box signature.
+  if (mimeType === "video/mp4" || mimeType === "audio/m4a") {
+    return isMp4Family(buffer);
+  }
   const signature = MAGIC_BYTES[mimeType];
   if (!signature) return true;
   if (buffer.length < signature.length) return false;

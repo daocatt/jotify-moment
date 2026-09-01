@@ -906,7 +906,7 @@ export async function getPostByIdAction(postId: string) {
       where: eq(posts.id, postId),
       with: {
         author: {
-          columns: { id: true, name: true, avatar: true, role: true, slug: true, publicHomepage: true },
+          columns: { id: true, name: true, avatar: true, role: true, slug: true, publicHomepage: true, customDomain: true, allowCustomDomain: true },
         },
         comments: {
           orderBy: [asc(comments.createdAt)],
