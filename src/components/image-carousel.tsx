@@ -21,89 +21,52 @@ export const ImageCarousel = memo(function ImageCarousel({
   className = "",
 }: ImageCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [scrollProgress, setScrollProgress] = useState(0); // continuous float 0 to images.length - 1
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(images.length > 1);
   const [isHovered, setIsHovered] = useState(false);
-  const isScrollingRef = useRef(false);
 
   const imageUrls = images.map((img) => img.url);
 
-  // Update progress based on horizontal scroll position
-  const handleScroll = useCallback(() => {
+  // Only the edge booleans live here (same-value setState bails out, so
+  // per-scroll-frame calls are free until an edge is actually crossed).
+  // The continuous scroll progress lives inside CarouselIndicators —
+  // keeping it here would re-render the whole image track every frame.
+  const updateEdges = useCallback(() => {
     const el = containerRef.current;
-    if (!el || images.length <= 1) {
-      setScrollProgress(0);
-      return;
-    }
+    if (!el || images.length <= 1) return;
 
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const maxScrollLeft = scrollWidth - clientWidth;
 
     setCanScrollLeft(scrollLeft > 4);
-    setCanScrollRight(scrollLeft < maxScrollLeft - 4);
-
-    if (maxScrollLeft <= 0) {
-      setScrollProgress(0);
-      return;
-    }
-
-    const children = Array.from(el.children) as HTMLElement[];
-    if (!children.length) return;
-
-    let activeProgress = 0;
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      const childLeft = child.offsetLeft;
-      const childWidth = child.offsetWidth;
-      const nextChild = children[i + 1];
-
-      // Distance from this child's start to the next child's start
-      const span = nextChild ? nextChild.offsetLeft - childLeft : childWidth;
-
-      if (i === children.length - 1) {
-        if (scrollLeft >= childLeft - 10) {
-          activeProgress = i;
-          break;
-        }
-      } else if (scrollLeft >= childLeft && scrollLeft < childLeft + span) {
-        const fraction = (scrollLeft - childLeft) / (span || 1);
-        activeProgress = i + fraction;
-        break;
-      }
-    }
-
-    const clamped = Math.max(0, Math.min(images.length - 1, activeProgress));
-    setScrollProgress(clamped);
+    setCanScrollRight(maxScrollLeft > 0 && scrollLeft < maxScrollLeft - 4);
   }, [images.length]);
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || images.length <= 1) return;
 
+    let ticking = false;
     const onScrollThrottled = () => {
-      if (!isScrollingRef.current) {
-        isScrollingRef.current = true;
-        requestAnimationFrame(() => {
-          handleScroll();
-          isScrollingRef.current = false;
-        });
-      }
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        updateEdges();
+        ticking = false;
+      });
     };
 
     el.addEventListener("scroll", onScrollThrottled, { passive: true });
-    handleScroll();
+    updateEdges();
 
-    const resizeObserver = new ResizeObserver(() => {
-      handleScroll();
-    });
+    const resizeObserver = new ResizeObserver(onScrollThrottled);
     resizeObserver.observe(el);
 
     return () => {
       el.removeEventListener("scroll", onScrollThrottled);
       resizeObserver.disconnect();
     };
-  }, [handleScroll]);
+  }, [updateEdges, images.length]);
 
   const scrollToDirection = (direction: "left" | "right") => {
     const el = containerRef.current;
@@ -123,51 +86,7 @@ export const ImageCarousel = memo(function ImageCarousel({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Top Indicators: Placed above the images (below the author name/text), not overlapping pictures */}
-      {images.length > 1 && (
-        <div className="flex items-center gap-1 py-0.5 pointer-events-none">
-          {images.map((_, idx) => {
-            // X.com progress indicator logic:
-            // Selected length: 24px (w-6); Inactive length: 7px (w-1.5);
-            // As we scroll between floor and ceil:
-            // idx === floor -> transitions from 24px down to 7px
-            // idx === ceil  -> transitions from 7px up to 24px
-            // Other items remain 7px (w-1.5)
-            const floor = Math.floor(scrollProgress);
-            const ceil = Math.min(images.length - 1, floor + 1);
-            const fraction = scrollProgress - floor; // 0 to 1
-
-            let currentWidth = 7; // base inactive width
-            let isCurrentOrNext = false;
-
-            if (idx === floor) {
-              // Sliding away from floor towards ceil: decreases from 24 to 7
-              currentWidth = 24 - fraction * (24 - 7);
-              isCurrentOrNext = true;
-            } else if (idx === ceil) {
-              // Sliding towards ceil: increases from 7 to 24
-              currentWidth = 7 + fraction * (24 - 7);
-              isCurrentOrNext = true;
-            }
-
-            const isHighlit = Math.abs(scrollProgress - idx) < 0.5;
-
-            return (
-              <div
-                key={idx}
-                className="h-1 rounded-full overflow-hidden transition-colors duration-200"
-                style={{
-                  width: `${currentWidth}px`,
-                  backgroundColor: isCurrentOrNext
-                    ? isHighlit
-                      ? "rgba(120, 120, 120, 0.9)"
-                      : "rgba(150, 150, 150, 0.5)"
-                    : "rgba(180, 180, 180, 0.35)",
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+      <CarouselIndicators count={images.length} containerRef={containerRef} />
 
       {/* Image Viewport Container */}
       <div className="relative group rounded-2xl overflow-hidden">
@@ -235,3 +154,127 @@ export const ImageCarousel = memo(function ImageCarousel({
     </div>
   );
 });
+
+/**
+ * X.com-style progress dots for the carousel. Owns the continuous scroll
+ * position so its high-frequency updates re-render only these dots, never
+ * the carousel's image track.
+ */
+function CarouselIndicators({
+  count,
+  containerRef,
+}: {
+  count: number;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const [scrollProgress, setScrollProgress] = useState(0); // continuous float 0 to count - 1
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || count <= 1) return;
+
+    let ticking = false;
+    const update = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      const maxScrollLeft = scrollWidth - clientWidth;
+      if (maxScrollLeft <= 0) {
+        setScrollProgress(0);
+        return;
+      }
+
+      const children = Array.from(el.children) as HTMLElement[];
+      if (!children.length) return;
+
+      let activeProgress = 0;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        const childLeft = child.offsetLeft;
+        const childWidth = child.offsetWidth;
+        const nextChild = children[i + 1];
+
+        // Distance from this child's start to the next child's start
+        const span = nextChild ? nextChild.offsetLeft - childLeft : childWidth;
+
+        if (i === children.length - 1) {
+          if (scrollLeft >= childLeft - 10) {
+            activeProgress = i;
+            break;
+          }
+        } else if (scrollLeft >= childLeft && scrollLeft < childLeft + span) {
+          const fraction = (scrollLeft - childLeft) / (span || 1);
+          activeProgress = i + fraction;
+          break;
+        }
+      }
+
+      setScrollProgress(Math.max(0, Math.min(count - 1, activeProgress)));
+    };
+
+    const onScrollThrottled = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    };
+
+    el.addEventListener("scroll", onScrollThrottled, { passive: true });
+    update();
+
+    const resizeObserver = new ResizeObserver(onScrollThrottled);
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", onScrollThrottled);
+      resizeObserver.disconnect();
+    };
+  }, [count, containerRef]);
+
+  if (count <= 1) return null;
+
+  return (
+    <div className="flex items-center gap-1 py-0.5 pointer-events-none">
+      {Array.from({ length: count }, (_, idx) => {
+        // Selected length: 24px (w-6); Inactive length: 7px (w-1.5);
+        // As we scroll between floor and ceil:
+        // idx === floor -> transitions from 24px down to 7px
+        // idx === ceil  -> transitions from 7px up to 24px
+        // Other items remain 7px (w-1.5)
+        const floor = Math.floor(scrollProgress);
+        const ceil = Math.min(count - 1, floor + 1);
+        const fraction = scrollProgress - floor; // 0 to 1
+
+        let currentWidth = 7; // base inactive width
+        let isCurrentOrNext = false;
+
+        if (idx === floor) {
+          // Sliding away from floor towards ceil: decreases from 24 to 7
+          currentWidth = 24 - fraction * (24 - 7);
+          isCurrentOrNext = true;
+        } else if (idx === ceil) {
+          // Sliding towards ceil: increases from 7 to 24
+          currentWidth = 7 + fraction * (24 - 7);
+          isCurrentOrNext = true;
+        }
+
+        const isHighlit = Math.abs(scrollProgress - idx) < 0.5;
+
+        return (
+          <div
+            key={idx}
+            className="h-1 rounded-full overflow-hidden transition-colors duration-200"
+            style={{
+              width: `${currentWidth}px`,
+              backgroundColor: isCurrentOrNext
+                ? isHighlit
+                  ? "rgba(120, 120, 120, 0.9)"
+                  : "rgba(150, 150, 150, 0.5)"
+                : "rgba(180, 180, 180, 0.35)",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}

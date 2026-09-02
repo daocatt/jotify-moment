@@ -533,13 +533,15 @@ export function TimelineShell({
 
       {/* Sticky Top Bar */}
       <div
-        className={`fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-xl z-30 transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-xl z-30 transition-[opacity,transform] duration-300 ease-in-out ${
           showStickyBar
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="flex items-center justify-between px-4 h-12 bg-background/90 backdrop-blur-md border-b border-border/60 shadow-sm">
+        {/* The blur layer only exists while the bar is shown — an always-on
+            backdrop-filter would force recompositing behind an invisible bar. */}
+        <div className={`flex items-center justify-between px-4 h-12 bg-background/90 border-b border-border/60 shadow-sm ${showStickyBar ? "backdrop-blur-md" : ""}`}>
           <span className="font-semibold text-sm text-foreground truncate">
             {profileUser.name}
           </span>
