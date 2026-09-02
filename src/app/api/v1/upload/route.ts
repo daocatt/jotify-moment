@@ -69,10 +69,9 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = (searchParams.get("biz") as "profile" | "moment" | null) || "moment";
 
-    const rawBytes = new Uint8Array(await file.arrayBuffer());
-    const cleanBytes = new Uint8Array(rawBytes.byteLength);
-    cleanBytes.set(rawBytes);
-    const fileBuffer = Buffer.from(cleanBytes.buffer);
+    // See /api/upload: no defensive byte copy needed — file.arrayBuffer()
+    // yields a plain ArrayBuffer, and uploadFile()'s toBuffer() re-checks it.
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const result = await uploadFile(fileBuffer, file.name, file.type, biz);
 
