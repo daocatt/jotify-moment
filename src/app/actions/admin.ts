@@ -749,7 +749,11 @@ export async function integrateTelegramAction(botName: string, botToken: string,
     return { success: true };
   } catch (error) {
     console.error("integrateTelegramAction error:", error);
-    const detail = error instanceof Error ? error.message : String(error);
+    let detail = error instanceof Error ? error.message : String(error);
+    if (error && typeof error === "object" && "cause" in error && error.cause) {
+      const cause = error.cause as Error;
+      detail += ` (${cause.message || cause.name || String(cause)})`;
+    }
     return { error: `集成过程中发生网络错误: ${detail}` };
   }
 }
