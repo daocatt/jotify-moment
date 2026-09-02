@@ -749,7 +749,8 @@ export async function integrateTelegramAction(botName: string, botToken: string,
     return { success: true };
   } catch (error) {
     console.error("integrateTelegramAction error:", error);
-    return { error: "集成过程中发生网络错误" };
+    const detail = error instanceof Error ? error.message : String(error);
+    return { error: `集成过程中发生网络错误: ${detail}` };
   }
 }
 
