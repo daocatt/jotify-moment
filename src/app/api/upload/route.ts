@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { uploadFile, getUploadLimits } from "@/lib/storage";
-import { toBuffer } from "@/lib/to-buffer";
 
 // In-memory user upload rate limiter (max 30 uploads per minute)
 const uploadTracker = new Map<string, { count: number; resetTime: number }>();
@@ -59,13 +58,11 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const biz = searchParams.get("biz") as "profile" | "moment" | null;
 
-    // Some Node/undici versions return a SharedArrayBuffer from file.arrayBuffer(),
-    // which Buffer.from() rejects. Creating a fresh TypedArray and copying bytes
-    // guarantees a clean Uint8Array backed by a standard ArrayBuffer.
-    const rawBytes = new Uint8Array(await file.arrayBuffer());
-    const cleanBytes = new Uint8Array(rawBytes.byteLength);
-    cleanBytes.set(rawBytes);
-    const fileBuffer = Buffer.from(cleanBytes.buffer);
+    // file.arrayBuffer() returns a fresh, plain ArrayBuffer sized to the file
+    // (never a SharedArrayBuffer). Should a runtime ever deviate, Buffer.from
+    // still accepts it and uploadFile()'s toBuffer() re-checks the backing
+    // buffer — so no defensive byte copy is needed here.
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const result = await uploadFile(fileBuffer, file.name, file.type, biz || undefined);
 
