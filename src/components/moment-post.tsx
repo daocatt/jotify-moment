@@ -356,11 +356,6 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
     }
   }, [isDetailsView, commentsExpanded, loadComments]);
   
-  // Custom Voice Player States
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const mediaFiles = post.mediaUrls;
   const images = mediaFiles.filter((f) => f.type === "image");
   const imageUrls = images.map((f) => f.url);
@@ -372,33 +367,6 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
   // Format date relative to now
   const relativeTime = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: zhCN });
-
-  // Handle voice play/pause
-  const togglePlayVoice = () => {
-      if (!voiceFile || !audioRef.current) return;
-
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play().catch(() => {
-          toast.error("播放音频失败");
-        });
-        setIsPlaying(true);
-      }
-  };
-
-  const handleAudioEnded = () => {
-    setIsPlaying(false);
-    setProgress(0);
-  };
-
-  const handleTimeUpdate = () => {
-    const a = audioRef.current;
-    if (a && a.duration) {
-      setProgress(Math.min(1, a.currentTime / a.duration));
-    }
-  };
 
   const handleReaction = async (emoji: string) => {
     if (!currentUser) {
@@ -909,30 +877,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
         ) : null}
 
         {/* Audio voice bubble player (Wechat-Style long bar with progress) */}
-        {voiceFile && (
-          <div className="py-1">
-            <audio
-              ref={audioRef}
-              src={voiceFile.url}
-              onEnded={handleAudioEnded}
-              onTimeUpdate={handleTimeUpdate}
-              className="hidden"
-            />
-            <div
-              onClick={togglePlayVoice}
-              className="inline-flex items-center gap-2.5 h-10 px-3 bg-[#F2F2F2] dark:bg-muted active:opacity-80 border border-border rounded-full cursor-pointer transition-all hover:bg-neutral-200 dark:hover:bg-neutral-800 whitespace-nowrap"
-              style={{ width: `${Math.min(280, Math.max(200, 140 + (voiceFile.duration || 5) * 8))}px` }}
-            >
-              <Volume2 className={`size-4 shrink-0 ${isPlaying ? "text-green-500" : "text-neutral-600 dark:text-neutral-400"}`} />
-              <div className="flex-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600 overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
-              </div>
-              <span className="text-xs text-neutral-600 dark:text-neutral-400 font-semibold shrink-0 tabular-nums">
-                {voiceFile.duration ? `${voiceFile.duration}"` : '5"'}
-              </span>
-            </div>
-          </div>
-        )}
+        {voiceFile && <VoicePlayer file={voiceFile} />}
 
         {/* Videos Display */}
         {videoFile && (
@@ -1364,6 +1309,56 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
     </div>
   );
 });
+
+// Playback progress ticks (~4 events/sec) are localized here so they never
+// re-render the parent post (and re-parse its markdown) while a voice plays.
+function VoicePlayer({ file }: { file: { url: string; duration?: number } }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio.play().catch(() => toast.error("播放音频失败"));
+      setIsPlaying(true);
+    }
+  };
+
+  return (
+    <div className="py-1">
+      <audio
+        ref={audioRef}
+        src={file.url}
+        onEnded={() => { setIsPlaying(false); setProgress(0); }}
+        onTimeUpdate={() => {
+          const audio = audioRef.current;
+          if (audio && audio.duration) {
+            setProgress(Math.min(1, audio.currentTime / audio.duration));
+          }
+        }}
+        className="hidden"
+      />
+      <div
+        onClick={togglePlay}
+        className="inline-flex items-center gap-2.5 h-10 px-3 bg-[#F2F2F2] dark:bg-muted active:opacity-80 border border-border rounded-full cursor-pointer transition-all hover:bg-neutral-200 dark:hover:bg-neutral-800 whitespace-nowrap"
+        style={{ width: `${Math.min(280, Math.max(200, 140 + (file.duration || 5) * 8))}px` }}
+      >
+        <Volume2 className={`size-4 shrink-0 ${isPlaying ? "text-green-500" : "text-neutral-600 dark:text-neutral-400"}`} />
+        <div className="flex-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600 overflow-hidden">
+          <div className="h-full bg-green-500 rounded-full transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
+        </div>
+        <span className="text-xs text-neutral-600 dark:text-neutral-400 font-semibold shrink-0 tabular-nums">
+          {file.duration ? `${file.duration}"` : '5"'}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function LazyImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
