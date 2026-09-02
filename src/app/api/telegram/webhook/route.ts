@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import { fetchLinkOgMeta } from "@/lib/link-meta";
+import { invalidateFeedCache } from "@/lib/feed-cache";
 import type { TelegramMessage, TelegramPhotoSize } from "@/lib/telegram-types";
 import crypto from "crypto";
 
@@ -43,11 +44,19 @@ const HELP_TEXT = `📖 Moment Bot 使用指南
 
 async function sendTelegramMessage(botToken: string, chatId: number | string, text: string) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  }).catch((e) => console.error("Telegram reply error:", e));
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error(`Telegram sendMessage failed (${res.status}):`, errBody);
+    }
+  } catch (e) {
+    console.error("Telegram reply network error:", e);
+  }
 }
 
 async function downloadTelegramFile(botToken: string, fileId: string): Promise<{ buffer: Buffer; name: string; mimeType: string }> {
@@ -55,7 +64,7 @@ async function downloadTelegramFile(botToken: string, fileId: string): Promise<{
   const fileInfo = await fileInfoResponse.json();
 
   if (!fileInfo.ok || !fileInfo.result?.file_path) {
-    throw new Error("Failed to get file info from Telegram");
+    throw new Error(`Failed to get file info from Telegram: ${fileInfo.description || "unknown"}`);
   }
 
   const filePath = fileInfo.result.file_path;
@@ -290,11 +299,12 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
 
   const messages = cached.messages;
   const chatId = messages[0].chat.id;
-  const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
+  try {
+    const mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
 
-  let content = "";
-  for (const msg of messages) {
-    if (msg.caption && !content) content = msg.caption;
+    let content = "";
+    for (const msg of messages) {
+      if (msg.caption && !content) content = msg.caption;
   }
 
   for (const msg of messages) {
@@ -330,12 +340,18 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
   });
 
   await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));
+  invalidateFeedCache();
 
   if (postStatus === "pending") {
     await sendTelegramMessage(botToken, chatId, `📝 相册动态已提交（${mediaUrls.length} 张图片），等待管理员审核。`);
   } else {
     await sendTelegramMessage(botToken, chatId, `✅ 相册动态已发布（${mediaUrls.length} 张图片）！`);
   }
+} catch (err: unknown) {
+  console.error("processMediaGroup error:", err);
+  const detail = err instanceof Error ? err.message : "未知错误";
+  await sendTelegramMessage(botToken, chatId, `❌ 相册发布失败：${detail}`);
+}
 }
 
 async function processSingleMessage(botToken: string, message: TelegramMessage, authorUser: { id: string; role: string }): Promise<NextResponse> {
@@ -462,6 +478,7 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     });
 
     await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));
+    invalidateFeedCache();
 
     // Background embed meta enrichment (thumbnail + title) — non-blocking.
     if (embedType && embedId) {
@@ -511,6 +528,8 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     console.error("processSingleMessage error:", error);
+    const detail = error instanceof Error ? error.message : "未知错误";
+    await sendTelegramMessage(botToken, message.chat.id, `❌ 动态发布失败：${detail}`);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
