@@ -262,7 +262,7 @@ export async function POST(req: Request) {
       if (message.chat.type === "private") {
         await sendTelegramMessage(botToken, chatId, `⚠️ 你还没有绑定 Moment 账户。\n请先在 Moment 个人主页生成绑定 Token，然后发送 /start <token>`);
       }
-      return NextResponse.json({ error: "Sender not bound" }, { status: 403 });
+      return NextResponse.json({ ok: true });
     }
 
     // Handle media_group (album) - buffer messages and merge
@@ -530,6 +530,6 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     console.error("processSingleMessage error:", error);
     const detail = error instanceof Error ? error.message : "未知错误";
     await sendTelegramMessage(botToken, message.chat.id, `❌ 动态发布失败：${detail}`);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 }
