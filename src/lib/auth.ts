@@ -131,6 +131,19 @@ export async function setSessionCookie(token: string) {}
 export async function clearSessionCookie() {
   try {
     const cookieStore = await cookies();
-    cookieStore.delete("better-auth.session_token");
+    // Explicitly set an expired cookie instead of delete() so that the
+    // attributes (Secure, HttpOnly, SameSite) mirror how the cookie was
+    // originally set. Per RFC 6265bis "leave secure cookies alone", a
+    // clearing Set-Cookie without the Secure attribute is silently
+    // rejected by modern browsers (Chrome 89+, Firefox 104+) when the
+    // stored cookie was set with Secure (i.e. in production).
+    cookieStore.set("better-auth.session_token", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+    });
   } catch {}
 }
