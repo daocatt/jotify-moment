@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", config.clientId);
   authorizeUrl.searchParams.set("redirect_uri", config.redirectUri);
-  authorizeUrl.searchParams.set("scope", "basic email");
+  authorizeUrl.searchParams.set("scope", config.scope);
   authorizeUrl.searchParams.set("state", stateRandom);
 
   const response = NextResponse.redirect(authorizeUrl.toString());
