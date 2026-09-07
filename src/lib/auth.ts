@@ -3,6 +3,7 @@ import { cache } from "react";
 
 export { MIN_PASSWORD_LENGTH };
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -132,8 +133,6 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
  * Falls back to deleting just the single token row when the token no
  * longer resolves to a user.
  */
-import type { NextResponse } from "next/server";
-
 export async function revokeUserSessionsByToken(token: string): Promise<void> {
   if (!token) return;
   const currentSession = await db.query.sessions.findFirst({
