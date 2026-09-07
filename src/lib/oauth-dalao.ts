@@ -17,10 +17,13 @@ export function getDalaoOAuthConfig(requestUrl?: string) {
     redirectUri = `${baseUrl.replace(/\/$/, "")}/api/auth/dalao/callback`;
   }
 
+  const scope = process.env.DALAO_OAUTH_SCOPE || "basic email";
+
   return {
     clientId,
     clientSecret,
     redirectUri,
+    scope,
     authorizeUrl: "https://www.dalao.net/oauth-authorize.htm",
     tokenUrl: "https://www.dalao.net/oauth-token.htm",
     userInfoUrl: "https://www.dalao.net/oauth-userinfo.htm",
