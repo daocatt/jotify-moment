@@ -5,6 +5,7 @@ import { accounts, users, sessions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getSetting } from "@/lib/settings";
 import { getSessionUser } from "@/lib/auth";
+import { SESSION_EXPIRY_MS } from "@/lib/constants";
 import {
   getDalaoOAuthConfig,
   exchangeDalaoCode,
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
 
     // Issue session token
     const sessionToken = crypto.randomUUID().replace(/-/g, "");
-    const sessionExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRY_MS);
 
     await db.insert(sessions).values({
       id: crypto.randomUUID(),

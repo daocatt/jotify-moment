@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { accounts, users, sessions } from "@/db/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
+import { SESSION_EXPIRY_MS } from "@/lib/constants";
 import { getSetting } from "@/lib/settings";
 import { verifyPendingPayload } from "@/lib/oauth-dalao";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
@@ -104,7 +105,7 @@ export async function directOAuthLoginAction() {
 
   // Issue session
   const sessionToken = crypto.randomUUID().replace(/-/g, "");
-  const sessionExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRY_MS);
 
   await db.insert(sessions).values({
     id: crypto.randomUUID(),
@@ -187,7 +188,7 @@ export async function bindExistingAccountAction(data: { email: string; password?
 
   // Issue session
   const sessionToken = crypto.randomUUID().replace(/-/g, "");
-  const sessionExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRY_MS);
 
   await db.insert(sessions).values({
     id: crypto.randomUUID(),
