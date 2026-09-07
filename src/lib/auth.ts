@@ -132,7 +132,10 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
  * Falls back to deleting just the single token row when the token no
  * longer resolves to a user.
  */
+import type { NextResponse } from "next/server";
+
 export async function revokeUserSessionsByToken(token: string): Promise<void> {
+  if (!token) return;
   const currentSession = await db.query.sessions.findFirst({
     where: eq(sessions.token, token),
     columns: { userId: true },
@@ -145,7 +148,21 @@ export async function revokeUserSessionsByToken(token: string): Promise<void> {
   }
 }
 
-export async function clearSessionCookie() {
+export async function clearSessionCookie(response?: NextResponse) {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  };
+
+  if (response) {
+    // Explicitly set on response instance for Route Handlers
+    response.cookies.set("better-auth.session_token", "", cookieOptions);
+  }
+
   try {
     const cookieStore = await cookies();
     // Explicitly set an expired cookie instead of delete() so that the
@@ -154,13 +171,6 @@ export async function clearSessionCookie() {
     // clearing Set-Cookie without the Secure attribute is silently
     // rejected by modern browsers (Chrome 89+, Firefox 104+) when the
     // stored cookie was set with Secure (i.e. in production).
-    cookieStore.set("better-auth.session_token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-      expires: new Date(0),
-    });
+    cookieStore.set("better-auth.session_token", "", cookieOptions);
   } catch {}
 }
