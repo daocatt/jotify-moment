@@ -147,29 +147,22 @@ export async function revokeUserSessionsByToken(token: string): Promise<void> {
   }
 }
 
-export async function clearSessionCookie(response?: NextResponse) {
-  const cookieOptions = {
+/**
+ * Clear the session cookie on an outgoing Route Handler response.
+ *
+ * Explicitly set an expired cookie with the same attributes the cookie was
+ * originally set with (Secure in production, HttpOnly, SameSite). Per
+ * RFC 6265bis "leave secure cookies alone", a clearing Set-Cookie without
+ * the Secure attribute is silently rejected by modern browsers
+ * (Chrome 89+, Firefox 104+) when the stored cookie was set with Secure.
+ */
+export async function clearSessionCookie(response: NextResponse): Promise<void> {
+  response.cookies.set("better-auth.session_token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    sameSite: "lax",
     path: "/",
     maxAge: 0,
     expires: new Date(0),
-  };
-
-  if (response) {
-    // Explicitly set on response instance for Route Handlers
-    response.cookies.set("better-auth.session_token", "", cookieOptions);
-  }
-
-  try {
-    const cookieStore = await cookies();
-    // Explicitly set an expired cookie instead of delete() so that the
-    // attributes (Secure, HttpOnly, SameSite) mirror how the cookie was
-    // originally set. Per RFC 6265bis "leave secure cookies alone", a
-    // clearing Set-Cookie without the Secure attribute is silently
-    // rejected by modern browsers (Chrome 89+, Firefox 104+) when the
-    // stored cookie was set with Secure (i.e. in production).
-    cookieStore.set("better-auth.session_token", "", cookieOptions);
-  } catch {}
+  });
 }
