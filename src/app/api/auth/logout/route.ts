@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/lib/auth";
-import { db } from "@/db";
-import { sessions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { clearSessionCookie, revokeUserSessionsByToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 export async function POST() {
@@ -11,18 +8,7 @@ export async function POST() {
     const token = cookieStore.get("better-auth.session_token")?.value;
 
     if (token) {
-      const currentSession = await db.query.sessions.findFirst({
-        where: eq(sessions.token, token),
-        columns: { userId: true },
-      });
-
-      if (currentSession?.userId) {
-        // Cascading session revocation: revoke all sessions belonging to this user
-        // across main host and all custom domains (e.g. a.com, b.com).
-        await db.delete(sessions).where(eq(sessions.userId, currentSession.userId));
-      } else {
-        await db.delete(sessions).where(eq(sessions.token, token));
-      }
+      await revokeUserSessionsByToken(token);
     }
 
     await clearSessionCookie();

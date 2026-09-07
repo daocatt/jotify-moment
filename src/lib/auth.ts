@@ -128,6 +128,31 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
 // Stubs to avoid breaking compilation elsewhere
 export async function setSessionCookie(token: string) {}
 
+/**
+ * Cascading session revocation: revoke all sessions belonging to the owner
+ * of the given token, across the main host and all custom domains (e.g.
+ * a.com, b.com) — cookies cannot be shared across those domains, so each
+ * domain may hold a separate session row for the same user.
+ *
+ * Intentional UX trade-off: because sessions cannot be scoped per-domain,
+ * this logs the user out on ALL devices, not just the current one.
+ *
+ * Falls back to deleting just the single token row when the token no
+ * longer resolves to a user.
+ */
+export async function revokeUserSessionsByToken(token: string): Promise<void> {
+  const currentSession = await db.query.sessions.findFirst({
+    where: eq(sessions.token, token),
+    columns: { userId: true },
+  });
+
+  if (currentSession?.userId) {
+    await db.delete(sessions).where(eq(sessions.userId, currentSession.userId));
+  } else {
+    await db.delete(sessions).where(eq(sessions.token, token));
+  }
+}
+
 export async function clearSessionCookie() {
   try {
     const cookieStore = await cookies();

@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { users, verificationCodes, accounts, sessions } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser, revokeUserSessionsByToken } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import { getSetting } from "@/lib/settings";
@@ -407,33 +407,12 @@ export async function loginAction(data: { email: string; password?: string; turn
 
 export async function logoutAction() {
   try {
-    const { cookies, headers } = await import("next/headers");
+    const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
     const token = cookieStore.get("better-auth.session_token")?.value;
 
     if (token) {
-      const currentSession = await db.query.sessions.findFirst({
-        where: eq(sessions.token, token),
-        columns: { userId: true },
-      });
-
-      if (currentSession?.userId) {
-        // Cascading session revocation: revoke all sessions belonging to this user
-        // across main host and all custom domains (e.g. a.com, b.com).
-        await db.delete(sessions).where(eq(sessions.userId, currentSession.userId));
-      } else {
-        await db.delete(sessions).where(eq(sessions.token, token));
-      }
-    }
-
-    const { auth } = await import("@/lib/auth-better");
-
-    try {
-      await auth.api.signOut({
-        headers: await headers(),
-      });
-    } catch {
-      // Ignore if session was already deleted from db
+      await revokeUserSessionsByToken(token);
     }
 
     await clearSessionCookie();
