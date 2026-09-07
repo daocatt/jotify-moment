@@ -407,12 +407,34 @@ export async function loginAction(data: { email: string; password?: string; turn
 
 export async function logoutAction() {
   try {
-    const { headers } = await import("next/headers");
+    const { cookies, headers } = await import("next/headers");
+    const cookieStore = await cookies();
+    const token = cookieStore.get("better-auth.session_token")?.value;
+
+    if (token) {
+      const currentSession = await db.query.sessions.findFirst({
+        where: eq(sessions.token, token),
+        columns: { userId: true },
+      });
+
+      if (currentSession?.userId) {
+        // Cascading session revocation: revoke all sessions belonging to this user
+        // across main host and all custom domains (e.g. a.com, b.com).
+        await db.delete(sessions).where(eq(sessions.userId, currentSession.userId));
+      } else {
+        await db.delete(sessions).where(eq(sessions.token, token));
+      }
+    }
+
     const { auth } = await import("@/lib/auth-better");
 
-    await auth.api.signOut({
-      headers: await headers(),
-    });
+    try {
+      await auth.api.signOut({
+        headers: await headers(),
+      });
+    } catch {
+      // Ignore if session was already deleted from db
+    }
 
     await clearSessionCookie();
 
@@ -462,6 +484,9 @@ export async function resetPasswordAction(data: {
     await db.update(accounts)
       .set({ password: passwordHash })
       .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
+
+    // Revoke all sessions across all domains on password reset
+    await db.delete(sessions).where(eq(sessions.userId, user.id));
 
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 
