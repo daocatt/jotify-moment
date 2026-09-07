@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/lib/auth";
-import { db } from "@/db";
-import { sessions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { clearSessionCookie, revokeUserSessionsByToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 export async function POST() {
@@ -11,11 +8,12 @@ export async function POST() {
     const token = cookieStore.get("better-auth.session_token")?.value;
 
     if (token) {
-      await db.delete(sessions).where(eq(sessions.token, token));
+      await revokeUserSessionsByToken(token);
     }
 
-    await clearSessionCookie();
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    await clearSessionCookie(response);
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json({ error: "Failed to logout" }, { status: 500 });

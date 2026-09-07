@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, clearSessionCookie } from "@/lib/auth";
+import { cookies } from "next/headers";
 
 export async function GET() {
   try {
     const user = await getSessionUser();
     if (!user) {
-      return NextResponse.json({ user: null }, { status: 401 });
+      const response = NextResponse.json({ user: null }, { status: 401 });
+      const cookieStore = await cookies();
+      if (cookieStore.has("better-auth.session_token")) {
+        await clearSessionCookie(response);
+      }
+      return response;
     }
     return NextResponse.json({
       user: {

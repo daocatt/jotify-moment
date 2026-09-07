@@ -3,6 +3,7 @@ import { cache } from "react";
 
 export { MIN_PASSWORD_LENGTH };
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -52,11 +53,6 @@ export async function ensureUserSlug(userId: string, _name: string): Promise<str
   const slug = await generateUniqueUserSlug(userId);
   await db.update(users).set({ slug }).where(eq(users.id, userId));
   return slug;
-}
-
-// Keeping this as a stub since Better Auth manages its own tokens
-export async function generateToken(user: SessionUser): Promise<string> {
-  return "";
 }
 
 // Memoized per request: getSessionUser is called from many server actions/routes
@@ -125,12 +121,48 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
   }
 });
 
-// Stubs to avoid breaking compilation elsewhere
-export async function setSessionCookie(token: string) {}
+/**
+ * Cascading session revocation: revoke all sessions belonging to the owner
+ * of the given token, across the main host and all custom domains (e.g.
+ * a.com, b.com) — cookies cannot be shared across those domains, so each
+ * domain may hold a separate session row for the same user.
+ *
+ * Intentional UX trade-off: because sessions cannot be scoped per-domain,
+ * this logs the user out on ALL devices, not just the current one.
+ *
+ * Falls back to deleting just the single token row when the token no
+ * longer resolves to a user.
+ */
+export async function revokeUserSessionsByToken(token: string): Promise<void> {
+  if (!token) return;
+  const currentSession = await db.query.sessions.findFirst({
+    where: eq(sessions.token, token),
+    columns: { userId: true },
+  });
 
-export async function clearSessionCookie() {
-  try {
-    const cookieStore = await cookies();
-    cookieStore.delete("better-auth.session_token");
-  } catch {}
+  if (currentSession?.userId) {
+    await db.delete(sessions).where(eq(sessions.userId, currentSession.userId));
+  } else {
+    await db.delete(sessions).where(eq(sessions.token, token));
+  }
+}
+
+/**
+ * Clear the session cookie on an outgoing Route Handler response.
+ *
+ * Explicitly set an expired cookie with the same attributes the cookie was
+ * originally set with (Secure in production, HttpOnly, SameSite). Per
+ * RFC 6265bis "leave secure cookies alone", a clearing Set-Cookie without
+ * the Secure attribute is silently rejected by modern browsers
+ * (Chrome 89+, Firefox 104+) when the stored cookie was set with Secure.
+ */
+export async function clearSessionCookie(response: NextResponse): Promise<void> {
+  response.cookies.set("better-auth.session_token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }

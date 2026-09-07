@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { users, verificationCodes, accounts, sessions } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import { getSetting } from "@/lib/settings";
@@ -405,24 +405,6 @@ export async function loginAction(data: { email: string; password?: string; turn
   }
 }
 
-export async function logoutAction() {
-  try {
-    const { headers } = await import("next/headers");
-    const { auth } = await import("@/lib/auth-better");
-
-    await auth.api.signOut({
-      headers: await headers(),
-    });
-
-    await clearSessionCookie();
-
-    return { success: true };
-  } catch (error) {
-    console.error("logoutAction error:", error);
-    return { error: "Failed to logout" };
-  }
-}
-
 export async function resetPasswordAction(data: {
   token: string;
   password?: string;
@@ -462,6 +444,9 @@ export async function resetPasswordAction(data: {
     await db.update(accounts)
       .set({ password: passwordHash })
       .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
+
+    // Revoke all sessions across all domains on password reset
+    await db.delete(sessions).where(eq(sessions.userId, user.id));
 
     await db.delete(verificationCodes).where(eq(verificationCodes.id, validCode.id));
 
