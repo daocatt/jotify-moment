@@ -9,7 +9,6 @@ import { MomentPost } from "@/components/moment-post";
 const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => m.AuthModals), { ssr: false });
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
 const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
-const ProfileEditModal = dynamic(() => import("@/components/profile-edit-modal").then((m) => m.ProfileEditModal), { ssr: false });
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
@@ -160,7 +159,6 @@ export function TimelineShell({
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [friendProfileOpen, setFriendProfileOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
@@ -429,7 +427,7 @@ export function TimelineShell({
   const handleBannerAvatarClick = () => {
     if (isOwnPage) {
       if (onOwnAvatarClick) onOwnAvatarClick();
-      else setProfileModalOpen(true);
+      else router.push("/settings");
     } else if (!profileUser.id && isAdmin) {
       // Site (friends-circle) header: only admins may edit the global site profile.
       setFriendProfileOpen(true);
@@ -951,29 +949,6 @@ export function TimelineShell({
         />
       )}
 
-      {profileModalOpen && currentUser && (
-        <ProfileEditModal
-          user={currentUser}
-          isOpen={profileModalOpen}
-          onClose={() => setProfileModalOpen(false)}
-          onSuccess={(newSlug?: string) => {
-            fetchSession();
-            onProfileUpdated?.();
-            if (newSlug !== undefined) {
-              if (isCustomDomain) {
-                window.location.reload();
-              } else {
-                const slugValue = newSlug || currentUser?.slug || "";
-                if (slugValue) {
-                  router.replace(`/u/${slugValue}`);
-                } else {
-                  router.replace("/");
-                }
-              }
-            }
-          }}
-        />
-      )}
 
       {friendProfileOpen && (
         <FriendCircleProfileModal

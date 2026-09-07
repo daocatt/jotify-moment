@@ -83,6 +83,7 @@ export const accounts = pgTable("accounts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("accounts_user_provider_idx").on(table.userId, table.providerId),
+  uniqueIndex("accounts_provider_account_idx").on(table.providerId, table.accountId),
 ]);
 
 export const verifications = pgTable("verifications", {
