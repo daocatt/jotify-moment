@@ -96,7 +96,6 @@ export async function GET(request: NextRequest) {
       accountId,
       providerId: "dalao",
       userId: currentUser.id,
-      accessToken: tokenData.access_token,
       scope: tokenData.scope || "basic email",
     });
 
@@ -117,17 +116,6 @@ export async function GET(request: NextRequest) {
 
     if (!boundUser || boundUser.status === "suspended") {
       return NextResponse.redirect(new URL("/?error=account_disabled", request.url));
-    }
-
-    // Update access token opportunistically
-    try {
-      await db.update(accounts).set({
-        accessToken: tokenData.access_token,
-        scope: tokenData.scope || "basic email",
-        updatedAt: new Date(),
-      }).where(eq(accounts.id, existingAccount.id));
-    } catch {
-      // Non-critical
     }
 
     // Issue session token
