@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { users, verificationCodes, accounts, sessions } from "@/db/schema";
 import { eq, and, gt, lt } from "drizzle-orm";
-import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser, revokeUserSessionsByToken } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import { getSetting } from "@/lib/settings";
@@ -402,25 +402,6 @@ export async function loginAction(data: { email: string; password?: string; turn
   } catch (error: unknown) {
     console.error("loginAction error:", error);
     return { error: "邮箱或密码错误" };
-  }
-}
-
-export async function logoutAction() {
-  try {
-    const { cookies } = await import("next/headers");
-    const cookieStore = await cookies();
-    const token = cookieStore.get("better-auth.session_token")?.value;
-
-    if (token) {
-      await revokeUserSessionsByToken(token);
-    }
-
-    await clearSessionCookie();
-
-    return { success: true };
-  } catch (error) {
-    console.error("logoutAction error:", error);
-    return { error: "Failed to logout" };
   }
 }
 
