@@ -130,6 +130,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     global_theme: "default",
     allow_custom_domains: "true",
     friends_circle_enabled: "false",
+    dalao_oauth_enabled: "false",
   });
 
   // Telegram states
@@ -818,6 +819,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                 <Switch
                   checked={sysSettings.friends_circle_enabled === "true"}
                   onCheckedChange={() => handleToggleSetting("friends_circle_enabled", sysSettings.friends_circle_enabled)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">大佬论坛账号登录</h3>
+                  <p className="text-xs text-muted-foreground">开启后，登录弹窗将展示大佬论坛登录入口，允许用户通过大佬论坛授权登录与注册（默认关闭）</p>
+                </div>
+                <Switch
+                  checked={sysSettings.dalao_oauth_enabled === "true"}
+                  onCheckedChange={() => handleToggleSetting("dalao_oauth_enabled", sysSettings.dalao_oauth_enabled)}
                 />
               </div>
 

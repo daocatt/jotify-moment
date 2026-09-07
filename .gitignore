@@ -46,4 +46,6 @@ next-env.d.ts
 
 # planning & roadmap docs
 /docs/ai_agent_roadmap.md
+/docs/oauth_dalao.md
+
 

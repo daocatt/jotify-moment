@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, accounts, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
+import { SESSION_EXPIRY_MS } from "@/lib/constants";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -76,7 +77,7 @@ export async function initializeSystemAction(data: {
       });
 
       const sessionToken = crypto.randomUUID().replace(/-/g, "");
-      const sessionExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRY_MS);
 
       // 3. Directly create a session record in the database sessions table
       await tx.insert(sessions).values({

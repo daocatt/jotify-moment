@@ -7,6 +7,7 @@ import { generateToken, setSessionCookie, clearSessionCookie, getSessionUser } f
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { sendVerificationCode, sendWelcomeEmail, sendResetPasswordLink } from "@/lib/mail";
 import { getSetting } from "@/lib/settings";
+import { SESSION_EXPIRY_MS } from "@/lib/constants";
 import crypto from "crypto";
 
 function hashToken(token: string): string {
@@ -385,7 +386,7 @@ export async function loginAction(data: { email: string; password?: string; turn
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      expires: new Date(Date.now() + SESSION_EXPIRY_MS),
       path: "/",
     });
 

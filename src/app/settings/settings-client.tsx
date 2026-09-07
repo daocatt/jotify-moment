@@ -43,7 +43,14 @@ import {
   Copy,
   Clock,
   ShieldCheck,
+  Globe,
+  Unlink,
 } from "lucide-react";
+import {
+  getDalaoBindingStatusAction,
+  unbindDalaoAccountAction,
+  setInitialPasswordAction,
+} from "@/app/actions/oauth-dalao";
 import {
   Dialog,
   DialogContent,
@@ -359,6 +366,21 @@ export function SettingsClient({ user }: SettingsClientProps) {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropTarget, setCropTarget] = useState<"avatar" | "cover">("avatar");
 
+  // Dalao OAuth Binding States
+  const [dalaoBinding, setDalaoBinding] = useState<{
+    isBound: boolean;
+    dalaoAccountId: string | null;
+    hasCredentialPassword: boolean;
+    loading: boolean;
+  }>({
+    isBound: false,
+    dalaoAccountId: null,
+    hasCredentialPassword: true,
+    loading: true,
+  });
+  const [unbindingDalao, setUnbindingDalao] = useState(false);
+  const [settingInitialPassword, setSettingInitialPassword] = useState(false);
+
   useEffect(() => {
     getTelegramBotNameAction().then((res) => {
       if (res.success && res.botName) {
@@ -370,7 +392,33 @@ export function SettingsClient({ user }: SettingsClientProps) {
         setGlobalCustomDomainsAllowed(res.allowed);
       }
     });
+    getDalaoBindingStatusAction().then((res) => {
+      if (res.success) {
+        setDalaoBinding({
+          isBound: res.isBound,
+          dalaoAccountId: res.dalaoAccountId || null,
+          hasCredentialPassword: res.hasCredentialPassword,
+          loading: false,
+        });
+      } else {
+        setDalaoBinding((prev) => ({ ...prev, loading: false }));
+      }
+    });
   }, []);
+
+  useEffect(() => {
+    const successParam = searchParams.get("success");
+    const errorParam = searchParams.get("error");
+    const infoParam = searchParams.get("info");
+
+    if (successParam === "dalao_bound") {
+      toast.success("大佬论坛账号绑定成功！");
+    } else if (infoParam === "already_bound") {
+      toast.info("该大佬论坛账号此前已与您的账号完成绑定");
+    } else if (errorParam === "bound_to_other") {
+      toast.error("该大佬论坛账号已被其他用户绑定，无法重复绑定");
+    }
+  }, [searchParams]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, target: "avatar" | "cover") => {
     const file = e.target.files?.[0];
@@ -503,6 +551,57 @@ export function SettingsClient({ user }: SettingsClientProps) {
     }
   };
 
+  const handleInitialPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      toast.error("请填写完整表单项");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("新密码长度至少为 8 位");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("两次输入的新密码不一致");
+      return;
+    }
+
+    setSettingInitialPassword(true);
+    const res = await setInitialPasswordAction(newPassword);
+    setSettingInitialPassword(false);
+
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("登录密码已成功设置！现在您已具备独立登录和解绑权限。");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowNew(false);
+      setShowConfirm(false);
+      setDalaoBinding((prev) => ({ ...prev, hasCredentialPassword: true }));
+      router.refresh();
+    }
+  };
+
+  const handleUnbindDalao = async () => {
+    if (!dalaoBinding.hasCredentialPassword) {
+      toast.error("当前账号尚未设置独立登录密码，解绑后将无法通过邮箱登录。请先设置密码后再解绑。");
+      return;
+    }
+    if (!confirm("确定要解除大佬论坛账号的绑定吗？")) return;
+
+    setUnbindingDalao(true);
+    const res = await unbindDalaoAccountAction();
+    setUnbindingDalao(false);
+
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("已成功解除大佬论坛账号绑定");
+      setDalaoBinding((prev) => ({ ...prev, isBound: false, dalaoAccountId: null }));
+    }
+  };
+
   const handleGenerateBindToken = async () => {
     setTgLoading(true);
     const res = await generateTelegramBindTokenAction();
@@ -558,7 +657,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
     ...(user.role !== "guest" ? [{ id: "theme", label: "个性主题", icon: Palette }] : []),
     ...(tgBotName && user.role !== "guest" ? [{ id: "telegram", label: "Telegram 机器人", icon: Send }] : []),
     { id: "tokens", label: "API 密钥 (AI Agent)", icon: KeyRound },
-    { id: "password", label: "账号与密码", icon: Lock },
+    { id: "password", label: "账号与安全", icon: Lock },
   ];
 
   return (
@@ -987,89 +1086,226 @@ export function SettingsClient({ user }: SettingsClientProps) {
                 <TokensSettingsPanel />
               )}
 
-              {/* Tab 6: Password */}
+              {/* Tab 6: Password & Account Security */}
               {activeTab === "password" && (
-                <form onSubmit={handlePasswordSubmit} className="space-y-5">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">修改登录密码</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">定期更新密码以保证账号安全</p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">当前旧密码</label>
-                    <div className="relative">
-                      <Input
-                        type={showCurrent ? "text" : "password"}
-                        placeholder="输入当前使用的密码"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        required
-                        className="pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrent((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
-                        tabIndex={-1}
-                      >
-                        {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
+                <div className="space-y-8">
+                  {/* Third-party Binding: Dalao */}
+                  <div className="space-y-4 pb-6 border-b border-border/70">
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">第三方账号绑定</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">绑定第三方账号后可直接免密授权登录</p>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">新密码</label>
-                    <div className="relative">
-                      <Input
-                        type={showNew ? "text" : "password"}
-                        placeholder="长度至少 8 位"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        required
-                        minLength={8}
-                        className="pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNew((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
-                        tabIndex={-1}
-                      >
-                        {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
+                    <div className="flex items-center justify-between p-4 rounded-lg border border-border/80 bg-muted/20">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                          <Globe size={18} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-foreground">大佬论坛账号</span>
+                            {dalaoBinding.isBound && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20">
+                                已绑定
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {dalaoBinding.isBound
+                              ? `已绑定论坛账号 ID: ${dalaoBinding.dalaoAccountId}`
+                              : "绑定后可一键通过论坛登录入驻"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        {dalaoBinding.isBound ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs text-destructive hover:bg-destructive/10 border-destructive/30 h-8 gap-1.5"
+                            onClick={handleUnbindDalao}
+                            disabled={unbindingDalao}
+                          >
+                            {unbindingDalao ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Unlink size={13} />
+                            )}
+                            <span>解除绑定</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 gap-1.5"
+                            onClick={() => {
+                              window.location.href = "/api/auth/dalao/login?action=bind";
+                            }}
+                          >
+                            <Globe size={13} className="text-primary" />
+                            <span>立即绑定</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
+                    {dalaoBinding.isBound && !dalaoBinding.hasCredentialPassword && (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                        ⚠️ <strong>安全提示：</strong>当前账号尚未设置独立登录密码。为避免账号锁死，在解绑大佬论坛前，请务必在下方先设置登录密码。
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">确认新密码</label>
-                    <div className="relative">
-                      <Input
-                        type={showConfirm ? "text" : "password"}
-                        placeholder="再次输入新密码以确认"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        minLength={8}
-                        className="pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirm((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
-                        tabIndex={-1}
-                      >
-                        {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
+                  {/* Password Section */}
+                  {!dalaoBinding.hasCredentialPassword ? (
+                    <form onSubmit={handleInitialPasswordSubmit} className="space-y-5">
+                      <div>
+                        <h2 className="text-base font-semibold text-foreground">设置初始登录密码</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          您目前是通过第三方授权登录，尚未设置独立密码。设置后可使用邮箱和密码直接登录系统，并支持解绑第三方账号。
+                        </p>
+                      </div>
 
-                  <div className="flex justify-end pt-2">
-                    <Button type="submit" disabled={passwordLoading}>
-                      {passwordLoading && <Loader2 className="mr-2 animate-spin size-4" />}
-                      更新密码
-                    </Button>
-                  </div>
-                </form>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">新密码</label>
+                        <div className="relative">
+                          <Input
+                            type={showNew ? "text" : "password"}
+                            placeholder="长度至少 8 位"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            required
+                            minLength={8}
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNew((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                            tabIndex={-1}
+                          >
+                            {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">确认新密码</label>
+                        <div className="relative">
+                          <Input
+                            type={showConfirm ? "text" : "password"}
+                            placeholder="再次输入新密码以确认"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            minLength={8}
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirm((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                            tabIndex={-1}
+                          >
+                            {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button type="submit" disabled={settingInitialPassword}>
+                          {settingInitialPassword && <Loader2 className="mr-2 animate-spin size-4" />}
+                          设置初始密码
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <form onSubmit={handlePasswordSubmit} className="space-y-5">
+                      <div>
+                        <h2 className="text-base font-semibold text-foreground">修改登录密码</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">定期更新密码以保证账号安全</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">当前旧密码</label>
+                        <div className="relative">
+                          <Input
+                            type={showCurrent ? "text" : "password"}
+                            placeholder="输入当前使用的密码"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            required
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrent((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                            tabIndex={-1}
+                          >
+                            {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">新密码</label>
+                        <div className="relative">
+                          <Input
+                            type={showNew ? "text" : "password"}
+                            placeholder="长度至少 8 位"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            required
+                            minLength={8}
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNew((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                            tabIndex={-1}
+                          >
+                            {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">确认新密码</label>
+                        <div className="relative">
+                          <Input
+                            type={showConfirm ? "text" : "password"}
+                            placeholder="再次输入新密码以确认"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            minLength={8}
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirm((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground outline-none"
+                            tabIndex={-1}
+                          >
+                            {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button type="submit" disabled={passwordLoading}>
+                          {passwordLoading && <Loader2 className="mr-2 animate-spin size-4" />}
+                          更新密码
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           </div>
