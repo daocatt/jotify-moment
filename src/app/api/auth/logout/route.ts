@@ -11,8 +11,9 @@ export async function POST() {
       await revokeUserSessionsByToken(token);
     }
 
-    await clearSessionCookie();
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    await clearSessionCookie(response);
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json({ error: "Failed to logout" }, { status: 500 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, clearSessionCookie } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 export async function GET() {
@@ -9,18 +9,7 @@ export async function GET() {
       const response = NextResponse.json({ user: null }, { status: 401 });
       const cookieStore = await cookies();
       if (cookieStore.has("better-auth.session_token")) {
-        // Mirror the attributes the cookie was set with (Secure in
-        // production, HttpOnly, SameSite). Without them, per RFC 6265bis
-        // "leave secure cookies alone", browsers silently reject clearing
-        // the cookie.
-        response.cookies.set("better-auth.session_token", "", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 0,
-          expires: new Date(0),
-        });
+        await clearSessionCookie(response);
       }
       return response;
     }
