@@ -228,7 +228,7 @@ export async function getDalaoBindingStatusAction() {
     success: true,
     isBound: !!dalaoAccount,
     dalaoAccountId: dalaoAccount?.accountId || null,
-    hasCredentialPassword: !!credentialAccount?.password,
+    hasCredentialPassword: !!credentialAccount,
   };
 }
 
