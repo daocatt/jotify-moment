@@ -54,11 +54,6 @@ export async function ensureUserSlug(userId: string, _name: string): Promise<str
   return slug;
 }
 
-// Keeping this as a stub since Better Auth manages its own tokens
-export async function generateToken(user: SessionUser): Promise<string> {
-  return "";
-}
-
 // Memoized per request: getSessionUser is called from many server actions/routes
 // within a single request; this avoids repeated session+user DB lookups.
 export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
@@ -124,9 +119,6 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
     throw new Error("Session lookup failed");
   }
 });
-
-// Stubs to avoid breaking compilation elsewhere
-export async function setSessionCookie(token: string) {}
 
 /**
  * Cascading session revocation: revoke all sessions belonging to the owner
