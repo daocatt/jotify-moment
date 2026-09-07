@@ -170,13 +170,11 @@ export async function bindExistingAccountAction(data: { email: string; password?
     where: and(eq(accounts.providerId, "dalao"), eq(accounts.accountId, accountId)),
   });
 
-  if (existingBound) {
-    if (existingBound.userId === user.id) {
-      // Already bound to this user
-    } else {
-      return { error: "该论坛账号已被其他用户绑定" };
-    }
-  } else {
+  if (existingBound && existingBound.userId !== user.id) {
+    return { error: "该论坛账号已被其他用户绑定" };
+  }
+
+  if (!existingBound) {
     // Insert binding
     await db.insert(accounts).values({
       id: crypto.randomUUID(),
