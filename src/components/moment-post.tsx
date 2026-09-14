@@ -12,7 +12,7 @@ import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal, Image as ImageIcon, Video, Mic, Square } from "lucide-react";
+import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal, Image as ImageIcon, Video, Mic, Square, ChevronRight } from "lucide-react";
 import { toggleReactionAction, addCommentAction, deletePostAction, pinPostAction, unpinPostAction, updatePostAction, pinPostToProfileAction, unpinPostFromProfileAction } from "@/app/actions/posts";
 import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction, getPostCommentsAction } from "@/app/actions/comments";
 import { approvePostAction } from "@/app/actions/admin";
@@ -1118,9 +1118,11 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           {!isDetailsView && (
             <Link
               href={`/mo/${post.id}`}
-              className="ml-auto text-[11px] sm:text-xs text-[#576B95] dark:text-blue-400 font-medium hover:underline flex items-center"
+              aria-label="查看更多"
+              title="查看更多"
+              className="ml-auto group size-7 flex items-center justify-center bg-transparent p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
             >
-              查看更多
+              <ChevronRight size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-orange-500 dark:group-hover:stroke-orange-400" />
             </Link>
           )}
         </div>

@@ -11,10 +11,13 @@ const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => 
 const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
 import { getPublicSettingsAction } from "@/app/actions/admin";
+import { searchPostsAction, type PostSearchResult } from "@/app/actions/posts";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { zhCN } from "date-fns/locale";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users, Search, X, Loader2 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -167,6 +170,13 @@ export function TimelineShell({
   const [revealed, setRevealed] = useState(false);
   const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
 
+  // Header post search dropdown
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<PostSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
   // Preload cover/avatar and only swap them in once loaded, so the header never
   // flashes black while the image is still downloading.
   const targetCoverSrc = profileUser.coverImage || "/default-cover.jpg";
@@ -191,6 +201,39 @@ export function TimelineShell({
     };
     img.src = targetCoverSrc;
   }, [targetCoverSrc, coverSrc]);
+
+  // Debounced post search: fires 350ms after the keyword settles.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const keyword = searchKeyword.trim();
+    if (!keyword) return;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const res = await searchPostsAction(keyword);
+      setSearchResults(res.success && res.posts ? res.posts : []);
+      setSearching(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchKeyword, searchOpen]);
+
+  // Close the search dropdown on outside click or Escape.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [searchOpen]);
 
   // Cached covers can complete before React attaches onLoad; sync with the
   // synchronous `complete` state so the cover never stays invisible.
@@ -483,6 +526,13 @@ export function TimelineShell({
   const menuBtnActiveClass = `${menuBtnBase} text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 ${
     coverStyle ? "backdrop-blur-sm" : ""
   }`;
+  // Shared circular icon-button style for all icon-only header controls
+  // (back / friends-circle / search / theme / about) — 32px round, 16px icon.
+  const iconBtnClass = `size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+    coverStyle
+      ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+  }`;
 
   return (
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
@@ -494,7 +544,7 @@ export function TimelineShell({
             variant="ghost"
             size="icon"
             onClick={() => router.push("/")}
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={iconBtnClass}
           >
             <ArrowLeft size={16} />
           </Button>
@@ -505,11 +555,69 @@ export function TimelineShell({
             size="icon"
             onClick={() => router.push("/friends")}
             title="好友圈"
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={iconBtnClass}
           >
             <Users size={16} />
           </Button>
         )}
+        <div className="relative" ref={searchContainerRef}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSearchOpen((v) => !v)}
+            title="搜索"
+            className={iconBtnClass}
+          >
+            {searchOpen ? <X size={16} /> : <Search size={16} />}
+          </Button>
+
+          {searchOpen && (
+            <div className={`absolute left-0 top-10 z-40 w-72 sm:w-80 border border-border bg-popover shadow-lg ${coverStyle ? "bg-popover/95 backdrop-blur-md" : ""}`}>
+              <div className="p-2.5 border-b border-border/60">
+                <div className="relative">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    placeholder="搜索发布的图文…"
+                    className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
+                  />
+                  {searching && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+                </div>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto">
+                {searchKeyword.trim() && !searching && searchResults.length === 0 && (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">未找到相关内容</div>
+                )}
+                {!searchKeyword.trim() && (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">输入关键词，搜索全部已发布的图文动态</div>
+                )}
+                {searchKeyword.trim() && searchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setSearchOpen(false);
+                      setSearchKeyword("");
+                      router.push(`/mo/${item.id}`);
+                    }}
+                    className="w-full text-left px-3 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                      <span className="font-medium text-foreground">{item.authorName}</span>
+                      <span>·</span>
+                      <span>{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: zhCN })}</span>
+                    </div>
+                    <p className="text-xs text-foreground/90 line-clamp-2 leading-relaxed">{item.content}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         {isCustomDomain && (
           <a
             href="https://jotify.me"
@@ -575,13 +683,13 @@ export function TimelineShell({
       {/* Top-right: functional menu (aligned with the top-left controls) */}
       <div className={`absolute top-4 right-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
         {showThemeToggle && (
-          <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={menuBtnClass} title="切换主题">
-            {isDark ? <Sun size={13} /> : <Moon size={13} />}
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => setTheme(isDark ? "light" : "dark")} className={iconBtnClass} title="切换主题">
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </Button>
         )}
-        <button type="button" onClick={() => setAboutOpen(true)} className={menuBtnClass} title="关于">
-          <Info size={13} />
-        </button>
+        <Button variant="ghost" size="icon" onClick={() => setAboutOpen(true)} className={iconBtnClass} title="关于">
+          <Info size={16} />
+        </Button>
 
         {!currentUser && (
           <>
