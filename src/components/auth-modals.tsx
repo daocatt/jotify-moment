@@ -19,6 +19,17 @@ import { getPublicSettingsAction } from "@/app/actions/admin";
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const TURNSTILE_ENABLED = !!TURNSTILE_SITE_KEY;
 
+// Sunken / inset input: carved into the surface, lightens on focus.
+// Straight corners (--radius: 0) per the project's square design.
+const sunkenInputClass =
+  "h-10 rounded-none border-black/[0.08] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.04] shadow-[inset_0_1.5px_3px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_1.5px_3px_rgba(0,0,0,0.35)] focus-visible:bg-background dark:focus-visible:bg-zinc-900/60 focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:border-ring/60 transition-all duration-150";
+
+// Floating button: lifts with a deeper shadow on hover, settles on press.
+const floatHoverClass =
+  "transition-all duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0";
+const primaryFloatClass = `${floatHoverClass} shadow-[0_2px_8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.08)] active:shadow-[0_1px_3px_rgba(0,0,0,0.14)]`;
+const secondaryFloatClass = `${floatHoverClass} shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_3px_10px_rgba(0,0,0,0.1)]`;
+
 interface AuthModalsProps {
   isOpen: boolean;
   onClose: () => void;
@@ -196,7 +207,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           {mode === "register" && (
             <>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground">昵称</label>
                 <Input
                   type="text"
@@ -204,12 +215,13 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  className={sunkenInputClass}
                 />
               </div>
             </>
           )}
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground">电子邮箱</label>
             <Input
               type="email"
@@ -217,11 +229,12 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className={sunkenInputClass}
             />
           </div>
 
           {mode === "register" && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground">验证码</label>
               <div className="flex gap-2">
                 <Input
@@ -231,13 +244,14 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                   onChange={(e) => setCode(e.target.value)}
                   maxLength={6}
                   required
+                  className={sunkenInputClass}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleSendCode}
                   disabled={loading || countdown > 0}
-                  className="whitespace-nowrap min-w-[100px]"
+                  className={`whitespace-nowrap min-w-[100px] h-10 rounded-none ${secondaryFloatClass}`}
                 >
                   {countdown > 0 ? `${countdown}s` : "获取验证码"}
                 </Button>
@@ -246,7 +260,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
           )}
 
           {(mode === "login" || mode === "register") && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground">密码</label>
               <Input
                 type="password"
@@ -254,6 +268,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className={sunkenInputClass}
               />
             </div>
           )}
@@ -274,7 +289,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
             </div>
           )}
 
-          <Button type="submit" className="w-full mt-2" disabled={loading}>
+          <Button type="submit" className={`w-full mt-2 h-10 rounded-none ${primaryFloatClass}`} disabled={loading}>
             {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
 
@@ -292,7 +307,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
               <Button
                 type="button"
                 variant="outline"
-                className="w-full text-xs font-medium h-9 gap-2 border-border/80 hover:bg-muted/50"
+                className={`w-full text-xs font-medium h-10 gap-2 rounded-none ${secondaryFloatClass}`}
                 onClick={() => {
                   window.location.href = "/api/auth/dalao/login";
                 }}
