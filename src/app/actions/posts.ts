@@ -1069,3 +1069,60 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
   }
 }
 
+export interface PostSearchResult {
+  id: string;
+  content: string;
+  createdAt: string;
+  authorName: string;
+  authorAvatar: string | null;
+}
+
+/**
+ * Keyword search across public approved posts for the header search box.
+ */
+export async function searchPostsAction(keyword: string) {
+  const currentUser = await getSessionUser();
+  const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
+  const cleanKeyword = keyword.trim().slice(0, 50);
+
+  if (!cleanKeyword) {
+    return { success: true, posts: [] as PostSearchResult[] };
+  }
+
+  try {
+    const pattern = `%${cleanKeyword}%`;
+
+    const results = await db.query.posts.findMany({
+      where: and(
+        eq(posts.status, "approved"),
+        sql`${posts.content} ILIKE ${pattern}`
+      ),
+      orderBy: [desc(posts.createdAt), desc(posts.id)],
+      limit: 8,
+      with: {
+        author: {
+          columns: { id: true, name: true, avatar: true, slug: true, status: true, displayPermission: true },
+        },
+      },
+    });
+
+    // Filter out inactive/suspended user posts if not admin
+    const filtered = results.filter(
+      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
+    );
+
+    const matches: PostSearchResult[] = filtered.map((p) => ({
+      id: p.id,
+      content: p.content,
+      createdAt: p.createdAt.toISOString(),
+      authorName: p.author?.name ?? "",
+      authorAvatar: p.author?.avatar ?? null,
+    }));
+
+    return { success: true, posts: matches };
+  } catch (error) {
+    console.error("searchPostsAction error:", error);
+    return { error: "搜索失败" };
+  }
+}
+
