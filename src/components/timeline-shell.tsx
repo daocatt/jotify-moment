@@ -526,6 +526,13 @@ export function TimelineShell({
   const menuBtnActiveClass = `${menuBtnBase} text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 ${
     coverStyle ? "backdrop-blur-sm" : ""
   }`;
+  // Shared circular icon-button style for all icon-only header controls
+  // (back / friends-circle / search / theme / about) — 32px round, 16px icon.
+  const iconBtnClass = `size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+    coverStyle
+      ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+  }`;
 
   return (
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
@@ -537,7 +544,7 @@ export function TimelineShell({
             variant="ghost"
             size="icon"
             onClick={() => router.push("/")}
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={iconBtnClass}
           >
             <ArrowLeft size={16} />
           </Button>
@@ -548,7 +555,7 @@ export function TimelineShell({
             size="icon"
             onClick={() => router.push("/friends")}
             title="好友圈"
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${themeReady && resolvedTheme.features.showCoverImage ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={iconBtnClass}
           >
             <Users size={16} />
           </Button>
@@ -559,7 +566,7 @@ export function TimelineShell({
             size="icon"
             onClick={() => setSearchOpen((v) => !v)}
             title="搜索"
-            className={`size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${coverStyle ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={iconBtnClass}
           >
             {searchOpen ? <X size={16} /> : <Search size={16} />}
           </Button>
@@ -676,13 +683,13 @@ export function TimelineShell({
       {/* Top-right: functional menu (aligned with the top-left controls) */}
       <div className={`absolute top-4 right-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
         {showThemeToggle && (
-          <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={menuBtnClass} title="切换主题">
-            {isDark ? <Sun size={13} /> : <Moon size={13} />}
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => setTheme(isDark ? "light" : "dark")} className={iconBtnClass} title="切换主题">
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </Button>
         )}
-        <button type="button" onClick={() => setAboutOpen(true)} className={menuBtnClass} title="关于">
-          <Info size={13} />
-        </button>
+        <Button variant="ghost" size="icon" onClick={() => setAboutOpen(true)} className={iconBtnClass} title="关于">
+          <Info size={16} />
+        </Button>
 
         {!currentUser && (
           <>
