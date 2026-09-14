@@ -251,7 +251,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                   variant="outline"
                   onClick={handleSendCode}
                   disabled={loading || countdown > 0}
-                  className={`whitespace-nowrap min-w-[100px] h-10 rounded-none ${secondaryFloatClass}`}
+                  className={`whitespace-nowrap min-w-[100px] h-10 rounded-none border-transparent dark:border-transparent focus-visible:border-transparent ${secondaryFloatClass}`}
                 >
                   {countdown > 0 ? `${countdown}s` : "获取验证码"}
                 </Button>
@@ -307,7 +307,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
               <Button
                 type="button"
                 variant="outline"
-                className={`w-full text-xs font-medium h-10 gap-2 rounded-none ${secondaryFloatClass}`}
+                className={`w-full text-xs font-medium h-10 gap-2 rounded-none border-transparent dark:border-transparent focus-visible:border-transparent ${secondaryFloatClass}`}
                 onClick={() => {
                   window.location.href = "/api/auth/dalao/login";
                 }}
