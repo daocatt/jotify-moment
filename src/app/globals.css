@@ -252,10 +252,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Latin: bundled Geist webfont → native system UI fonts (matches jotify-forum).
+       CJK: PingFang SC (macOS) / Hiragino Sans GB (macOS legacy) / Microsoft YaHei (Windows)
+       fall through after the Latin faces, so no extra webfont is needed for Chinese. */
     font-family: var(--theme-font-sans, var(--font-geist-sans)), -apple-system, BlinkMacSystemFont,
-      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui, sans-serif;
+      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, 'Noto Sans CJK SC', system-ui, sans-serif;
     font-size: 15px;
     line-height: var(--theme-line-height, 1.6);
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;

@@ -1,5 +1,6 @@
 [data-theme="default"] {
-  --theme-font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  /* No generic families here — the body-level CJK/system fallbacks must stay reachable */
+  --theme-font-sans: var(--font-geist-sans);
   --theme-line-height: 1.5;
 
   --theme-radius-card: 12px;
