@@ -50,14 +50,19 @@ export default async function Home() {
   const initialPinnedPosts = (pinnedRes.posts as PostData[] | undefined) ?? [];
   const initialSettings = settingsRes.settings ?? {};
 
+  const coverUrl = profile.coverImage || "/default-cover.jpg";
+
   return (
-    <HomeClient
-      initialProfile={profile}
-      initialPosts={initialPosts}
-      initialHasMore={initialHasMore}
-      initialNextCursor={initialNextCursor}
-      initialPinnedPosts={initialPinnedPosts}
-      initialSettings={initialSettings}
-    />
+    <>
+      <link rel="preload" as="image" href={coverUrl} fetchPriority="high" />
+      <HomeClient
+        initialProfile={profile}
+        initialPosts={initialPosts}
+        initialHasMore={initialHasMore}
+        initialNextCursor={initialNextCursor}
+        initialPinnedPosts={initialPinnedPosts}
+        initialSettings={initialSettings}
+      />
+    </>
   );
 }
