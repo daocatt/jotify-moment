@@ -3,10 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
-import rehypeHighlight from "rehype-highlight";
+import { MarkdownContent } from "@/components/markdown-content";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,7 +16,6 @@ import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { ImageCarousel } from "@/components/image-carousel";
 import { parseEmbedUrl } from "@/lib/embed-parser";
-import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 import { toast } from "sonner";
 
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
@@ -837,42 +833,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           </div>
         ) : post.content ? (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
-            <ReactMarkdown
-              // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw HTML.
-              // post.content is user-generated — enabling raw HTML would allow XSS attacks.
-              // If you need HTML rendering, sanitize with DOMPurify first.
-              remarkPlugins={[remarkGfm, remarkBreaks]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                a: ({ node, href, children, ...props }) => {
-                  const isTag = typeof href === "string" && href.startsWith("/tag/");
-                  if (isTag) {
-                    return (
-                      <Link
-                        href={href}
-                        className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded text-xs font-medium text-primary hover:bg-primary/10 transition-colors no-underline"
-                      >
-                        {children}
-                      </Link>
-                    );
-                  }
-                  return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
-                },
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                table: ({ node, children, ...props }) => (
-                  <div className="overflow-x-auto my-2">
-                    <table {...props} className="w-full">{children}</table>
-                  </div>
-                ),
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                pre: ({ node, children, ...props }) => (
-                  <pre {...props} className="overflow-x-auto">{children}</pre>
-                ),
-              }}
-            >
-              {transformHashtagsToMarkdownLinks(post.content)}
-            </ReactMarkdown>
+            <MarkdownContent content={post.content} />
           </div>
         ) : null}
 
