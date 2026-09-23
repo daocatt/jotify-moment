@@ -18,11 +18,15 @@ export function HomeClient({
   initialPosts = [],
   initialHasMore = false,
   initialNextCursor = null,
+  initialPinnedPosts = [],
+  initialSettings = {},
 }: {
   initialProfile: HomeHeaderProfile;
   initialPosts?: PostData[];
   initialHasMore?: boolean;
   initialNextCursor?: string | null;
+  initialPinnedPosts?: PostData[];
+  initialSettings?: Record<string, string>;
 }) {
   const router = useRouter();
 
@@ -34,7 +38,9 @@ export function HomeClient({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const cursorRef = useRef<string | null>(initialNextCursor);
 
-  const [pinned, setPinned] = useState<PinnedPreview | null>(null);
+  const [pinned, setPinned] = useState<PinnedPreview | null>(
+    initialPinnedPosts && initialPinnedPosts.length > 0 ? { posts: initialPinnedPosts } : null
+  );
 
   const fetchProfile = useCallback(async () => {
     const res = await getSiteFcProfileAction();
@@ -80,10 +86,8 @@ export function HomeClient({
     }
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
-    fetchPinned();
-  }, [fetchPinned]);
+  // fetchPinned is now only called on handleRefresh and handlePostCreated
+  // as the initial pinned posts are preloaded via SSR.
 
   const handleLoadMore = useCallback(() => {
     fetchPosts(true);
@@ -178,6 +182,7 @@ export function HomeClient({
       onAvatarClick={() => router.push("/friends")}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
+      initialSettings={initialSettings}
     />
   );
 }
