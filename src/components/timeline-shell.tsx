@@ -773,6 +773,9 @@ export function TimelineShell({
             ref={coverImgRef}
             src={coverSrc}
             alt="Timeline Cover"
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
             onLoad={() => setCoverLoaded(true)}
             className={`w-full h-full object-cover transition-all duration-500 ${coverLoaded ? (coverExpanded ? "opacity-30 blur-sm scale-105" : "opacity-85") : "opacity-0"}`}
           />
