@@ -37,10 +37,14 @@ export async function sendVerificationCode(email: string, code: string): Promise
 
   const client = await getResendClient();
   if (!client) {
-    console.log("\n==================================================");
-    console.log(`[DEV/TEST ONLY] Verification code for ${email}: ${code}`);
-    console.log("==================================================\n");
-    return { sent: true, emailConfigured: false };
+    if (process.env.NODE_ENV === "development") {
+      console.log("\n==================================================");
+      console.log(`[DEV/TEST ONLY] Verification code for ${email}: ${code}`);
+      console.log("==================================================\n");
+      return { sent: true, emailConfigured: false };
+    }
+    console.error(`[Mail] Resend is not configured. Verification code to ${email} not sent.`);
+    return { sent: false, emailConfigured: false };
   }
 
   try {
@@ -60,7 +64,9 @@ export async function sendVerificationCode(email: string, code: string): Promise
 export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
   const client = await getResendClient();
   if (!client) {
-    console.log(`[DEV/TEST ONLY] Welcome email for ${email} (${name})`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[DEV/TEST ONLY] Welcome email for ${email} (${name})`);
+    }
     return;
   }
 
@@ -106,10 +112,14 @@ export async function sendResetPasswordLink(email: string, token: string, origin
 
   const client = await getResendClient();
   if (!client) {
-    console.log("\n==================================================");
-    console.log(`[DEV/TEST ONLY] Reset password link for ${email}: ${resetLink}`);
-    console.log("==================================================\n");
-    return { sent: true, emailConfigured: false };
+    if (process.env.NODE_ENV === "development") {
+      console.log("\n==================================================");
+      console.log(`[DEV/TEST ONLY] Reset password link for ${email}: ${resetLink}`);
+      console.log("==================================================\n");
+      return { sent: true, emailConfigured: false };
+    }
+    console.error(`[Mail] Resend is not configured. Reset password link to ${email} not sent.`);
+    return { sent: false, emailConfigured: false };
   }
 
   try {

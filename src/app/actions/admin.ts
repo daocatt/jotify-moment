@@ -45,7 +45,16 @@ export async function getSettingsAction() {
       require_approval: "false",
     };
 
+    const EXCLUDED_PREFIXES = ["storage_", "resend_", "telegram_"];
+    const SENSITIVE_KEY_PATTERN = /(?:secret|token|api_key|password)/i;
+
     for (const s of allSettings) {
+      if (EXCLUDED_PREFIXES.some((prefix) => s.key.startsWith(prefix))) {
+        continue;
+      }
+      if (SENSITIVE_KEY_PATTERN.test(s.key)) {
+        continue;
+      }
       settingsMap[s.key] = s.value;
     }
 
