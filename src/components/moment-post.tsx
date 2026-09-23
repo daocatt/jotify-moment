@@ -600,7 +600,17 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               </div>
             )}
           </div>
-          <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
+          {isDetailsView ? (
+            <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
+          ) : (
+            <Link
+              href={`/mo/${post.id}`}
+              className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+              title="查看此动态详情"
+            >
+              {relativeTime}
+            </Link>
+          )}
         </div>
 
         {/* Content Body (Markdown) */}
@@ -917,7 +927,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           {/* Reaction Button */}
           <div className="relative">
             <button
-              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+              className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
               onClick={() => {
                 if (!currentUser) {
                   toast.error("请先登录账户");
@@ -959,7 +969,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           </div>
 
           <button
-            className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+            className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
             onClick={() => {
               if (!currentUser) {
                 toast.error("请先登录账户");
