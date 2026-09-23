@@ -133,6 +133,8 @@ interface TimelineShellProps {
   isUserHomePage?: boolean;
   /** Owner disabled public homepage: show only basic info + a stealth notice. */
   hidden?: boolean;
+  /** Server-side preloaded public settings to eliminate client waterfall */
+  initialSettings?: Record<string, string>;
 }
 
 export function TimelineShell({
@@ -155,6 +157,7 @@ export function TimelineShell({
   mainHost,
   isUserHomePage = false,
   hidden = false,
+  initialSettings,
 }: TimelineShellProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -168,7 +171,7 @@ export function TimelineShell({
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
+  const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(initialSettings || null);
 
   // Header post search dropdown
   const [searchOpen, setSearchOpen] = useState(false);
@@ -420,8 +423,10 @@ export function TimelineShell({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSession();
-    fetchSettings();
-  }, [fetchSession, fetchSettings]);
+    if (!initialSettings || Object.keys(initialSettings).length === 0) {
+      fetchSettings();
+    }
+  }, [fetchSession, fetchSettings, initialSettings]);
 
   useEffect(() => {
     const el = coverRef.current;
