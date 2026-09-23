@@ -548,7 +548,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
 
   return (
-    <div className="flex gap-4 p-4 border-b border-border bg-card">
+    <div className="flex gap-4 p-4 border-b border-border/80 bg-card hover:bg-muted/15 transition-colors duration-200">
       <button
         type="button"
         onClick={goToUserHome}
@@ -896,14 +896,16 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               {images.map((img, idx) => (
                 <div
                   key={idx}
-                  className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border cursor-zoom-in"
+                  className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border/80 cursor-zoom-in group/img"
                   onClick={() => onOpenLightbox(imageUrls, idx)}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <LazyImage
-                    src={img.thumbnailUrl || img.url}
-                    alt={`Log file ${idx}`}
-                  />
+                  <div className="w-full h-full transition-transform duration-300 ease-out group-hover/img:scale-105">
+                    <LazyImage
+                      src={img.thumbnailUrl || img.url}
+                      alt={`Log file ${idx}`}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
