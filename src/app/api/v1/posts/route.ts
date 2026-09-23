@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { db } from "@/db";
 import { posts, users } from "@/db/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting } from "@/lib/settings";
@@ -156,9 +156,35 @@ export async function GET(req: Request) {
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 50);
     const tag = searchParams.get("tag")?.trim().replace(/^#/, "");
 
+    // Respect privacy and visibility controls: only return posts from active users
+    // who have publishToFeed enabled and displayPermission granted.
+    const visibleUsers = await db.query.users.findMany({
+      where: and(
+        eq(users.publishToFeed, true),
+        eq(users.displayPermission, true),
+        eq(users.status, "active")
+      ),
+      columns: { id: true },
+    });
+    const visibleUserIds = visibleUsers.map((u) => u.id);
+
+    if (visibleUserIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        posts: [],
+      });
+    }
+
     const whereClause = tag
-      ? and(eq(posts.status, "approved"), sql`${posts.content} ILIKE ${`%#${tag}%`}`)
-      : eq(posts.status, "approved");
+      ? and(
+          eq(posts.status, "approved"),
+          inArray(posts.userId, visibleUserIds),
+          sql`${posts.content} ILIKE ${`%#${tag}%`}`
+        )
+      : and(
+          eq(posts.status, "approved"),
+          inArray(posts.userId, visibleUserIds)
+        );
 
     const publicPosts = await db.query.posts.findMany({
       where: whereClause,
