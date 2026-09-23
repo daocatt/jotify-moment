@@ -976,20 +976,31 @@ export function TimelineShell({
             ))}
           </>
         ) : posts.length === 0 ? (
-          <div>
-            <div className="divide-y divide-border/60 opacity-30 pointer-events-none">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex gap-4 p-4">
-                  <div className="size-10 rounded bg-border/50 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 bg-border/50 rounded w-20" />
-                    <div className="h-3 bg-border/50 rounded w-full" />
-                    <div className="h-3 bg-border/50 rounded w-2/3" />
-                  </div>
-                </div>
-              ))}
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="size-14 rounded-2xl bg-muted/60 border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5 shadow-xs">
+              <Pen className="size-6 text-muted-foreground/70" strokeWidth={1.75} />
             </div>
-            <p className="text-center text-xs text-muted-foreground py-3">时间线上空空如也，发布第一条日志吧。</p>
+            <h3 className="text-sm font-medium text-foreground">时间线上空空如也</h3>
+            <p className="text-xs text-muted-foreground max-w-xs mt-1 leading-relaxed">
+              记录生活，珍藏瞬间。快来记录此刻的灵感或随笔吧。
+            </p>
+            {renderEditor && currentUser && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditorOpen(true);
+                  setTimeout(() => {
+                    const el = document.getElementById("post-editor");
+                    el?.scrollIntoView({ behavior: "smooth" });
+                  }, 50);
+                }}
+                className="mt-4 h-8 text-xs rounded-lg gap-1.5"
+              >
+                <Pen size={13} />
+                发布第一条动态
+              </Button>
+            )}
           </div>
         ) : (
           <div className={`t-skel ${revealed ? "is-revealed" : ""}`}>
