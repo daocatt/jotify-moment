@@ -1089,9 +1089,13 @@ export interface PostSearchResult {
 }
 
 /**
- * Keyword search across public approved posts for the header search box.
+ * Keyword search across approved posts for the header search box.
+ *
+ * `ownerSlug` scopes the search to a single user's posts — the personal
+ * homepage passes it so the box searches the page owner rather than the whole
+ * site. Omitted (main feed, tag, pinned, friends) the search stays global.
  */
-export async function searchPostsAction(keyword: string) {
+export async function searchPostsAction(keyword: string, ownerSlug?: string) {
   const currentUser = await getSessionUser();
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
   const cleanKeyword = keyword.trim().slice(0, 50);
@@ -1108,6 +1112,22 @@ export async function searchPostsAction(keyword: string) {
     const escaped = cleanKeyword.replace(/[\\%_]/g, "\\$&");
     const pattern = `%${escaped}%`;
 
+    // Scoped search deliberately does NOT reuse visibleFeedUsers: a homepage
+    // lists its owner's posts even when the owner opted out of the main feed,
+    // so requiring publishToFeed would hide their own content from them.
+    let ownerId: string | undefined;
+    if (ownerSlug) {
+      const owner = await db.query.users.findFirst({
+        where: eq(users.slug, ownerSlug),
+        columns: { id: true, publicHomepage: true },
+      });
+      // Unknown slug, or a profile this viewer may not see — nothing to search.
+      if (!owner || (await isProfileHidden(owner.id, owner.publicHomepage))) {
+        return { success: true, posts: [] as PostSearchResult[] };
+      }
+      ownerId = owner.id;
+    }
+
     const results = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
@@ -1115,7 +1135,9 @@ export async function searchPostsAction(keyword: string) {
         // Applied in SQL, not after the fact: filtering the fetched page would
         // silently return fewer than `limit` rows whenever a hidden post
         // occupied one of the slots.
-        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers)
+        ownerId
+          ? eq(posts.userId, ownerId)
+          : isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers)
       ),
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: 8,
