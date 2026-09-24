@@ -9,6 +9,7 @@ import { generateUniquePostId } from "@/app/actions/posts";
 import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
 import { fetchLinkOgMeta } from "@/lib/link-meta";
 import { invalidateFeedCache } from "@/lib/feed-cache";
+import { syncPostTags } from "@/lib/post-tags";
 import type { TelegramMessage, TelegramPhotoSize } from "@/lib/telegram-types";
 import crypto from "crypto";
 
@@ -330,13 +331,17 @@ async function processMediaGroup(botToken: string, groupId: string, authorUser: 
 
   const postId = await generateUniquePostId();
   const imageCount = mediaUrls.filter((m) => m.type === "image").length;
-  await db.insert(posts).values({
-    id: postId,
-    userId: authorUser.id,
-    content: content || "",
-    mediaUrls,
-    embedMeta: imageCount > 0 ? { imageLayout: "carousel" } : null,
-    status: postStatus,
+  const postContent = content || "";
+  await db.transaction(async (tx) => {
+    await tx.insert(posts).values({
+      id: postId,
+      userId: authorUser.id,
+      content: postContent,
+      mediaUrls,
+      embedMeta: imageCount > 0 ? { imageLayout: "carousel" } : null,
+      status: postStatus,
+    });
+    await syncPostTags(tx, postId, postContent);
   });
 
   await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));
@@ -465,16 +470,20 @@ async function processSingleMessage(botToken: string, message: TelegramMessage, 
     const imageCount = mediaUrls.filter((m) => m.type === "image").length;
     const initialEmbedMeta = imageCount > 0 ? { imageLayout: "carousel" } : null;
 
-    await db.insert(posts).values({
-      id: postId,
-      userId: authorUser.id,
-      content: content || "",
-      mediaUrls,
-      ytVideoId: embedType === "youtube" ? embedId : null,
-      embedType,
-      embedId,
-      embedMeta: initialEmbedMeta,
-      status: postStatus,
+    const postContent = content || "";
+    await db.transaction(async (tx) => {
+      await tx.insert(posts).values({
+        id: postId,
+        userId: authorUser.id,
+        content: postContent,
+        mediaUrls,
+        ytVideoId: embedType === "youtube" ? embedId : null,
+        embedType,
+        embedId,
+        embedMeta: initialEmbedMeta,
+        status: postStatus,
+      });
+      await syncPostTags(tx, postId, postContent);
     });
 
     await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, authorUser.id));

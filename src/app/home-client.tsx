@@ -18,11 +18,15 @@ export function HomeClient({
   initialPosts = [],
   initialHasMore = false,
   initialNextCursor = null,
+  initialPinnedPosts = [],
+  initialSettings = {},
 }: {
   initialProfile: HomeHeaderProfile;
   initialPosts?: PostData[];
   initialHasMore?: boolean;
   initialNextCursor?: string | null;
+  initialPinnedPosts?: PostData[];
+  initialSettings?: Record<string, string>;
 }) {
   const router = useRouter();
 
@@ -34,7 +38,9 @@ export function HomeClient({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const cursorRef = useRef<string | null>(initialNextCursor);
 
-  const [pinned, setPinned] = useState<PinnedPreview | null>(null);
+  const [pinned, setPinned] = useState<PinnedPreview | null>(
+    initialPinnedPosts && initialPinnedPosts.length > 0 ? { posts: initialPinnedPosts } : null
+  );
 
   const fetchProfile = useCallback(async () => {
     const res = await getSiteFcProfileAction();
@@ -80,10 +86,8 @@ export function HomeClient({
     }
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch in effect is standard pattern
-    fetchPinned();
-  }, [fetchPinned]);
+  // fetchPinned is now only called on handleRefresh and handlePostCreated
+  // as the initial pinned posts are preloaded via SSR.
 
   const handleLoadMore = useCallback(() => {
     fetchPosts(true);
@@ -118,7 +122,7 @@ export function HomeClient({
       <button
         type="button"
         onClick={() => router.push("/pinned")}
-        className="inline-flex items-center gap-4 rounded-xl border border-primary/30 bg-white dark:bg-primary/5 hover:bg-yellow-50 dark:hover:bg-primary/10 transition-colors p-3 text-left max-w-[420px] w-full"
+        className="inline-flex items-center gap-4 rounded-xl border border-primary/25 bg-card hover:bg-accent/60 transition-all duration-200 p-3 text-left max-w-[420px] w-full shadow-sm hover:shadow hover:border-primary/40 cursor-pointer"
       >
         {/* Images first */}
         {pinnedImages.length > 0 ? (
@@ -126,7 +130,7 @@ export function HomeClient({
             {pinnedImages.slice(0, 3).map((img, idx) => (
               <div
                 key={idx}
-                className="absolute top-0 size-[54px] rounded-lg overflow-hidden border-2 border-background"
+                className="absolute top-0 size-[54px] rounded-lg overflow-hidden border-2 border-background shadow-xs"
                 style={{ left: idx * 30, zIndex: 3 - idx }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -178,6 +182,7 @@ export function HomeClient({
       onAvatarClick={() => router.push("/friends")}
       showPostEditor="always"
       pinnedEntry={pinnedEntry}
+      initialSettings={initialSettings}
     />
   );
 }

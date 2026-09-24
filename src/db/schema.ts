@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const roleEnum = pgEnum("user_role", ["super_admin", "admin", "user", "guest"]);
@@ -121,6 +121,22 @@ export const posts = pgTable("posts", {
   index("posts_pinned_at_idx").on(table.pinnedAt),
   // User home feed: filter by user + status, ordered by created_at.
   index("posts_user_status_created_idx").on(table.userId, table.status, table.createdAt),
+]);
+
+// Derived index of the hashtags a post contains, so tag pages can look posts up
+// by tag instead of scanning posts.content with ILIKE. Rebuilt on every post
+// insert/update; rows disappear with the post via ON DELETE CASCADE.
+export const postTags = pgTable("post_tags", {
+  postId: text("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  // Normalized to lowercase: the previous ILIKE lookup was case-insensitive.
+  tag: text("tag").notNull(),
+}, (table) => [
+  // Cascade deletes and per-post replacement both filter on post_id.
+  primaryKey({ columns: [table.postId, table.tag] }),
+  // Tag -> posts lookup; the PK's leading column is post_id, so it can't serve this.
+  index("post_tags_tag_post_idx").on(table.tag, table.postId),
 ]);
 
 export const comments = pgTable("comments", {

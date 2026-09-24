@@ -4,6 +4,8 @@ import { getSiteFcProfile } from "@/lib/settings";
 import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
 import { HomeClient } from "./home-client";
 import type { PostData } from "@/components/timeline-shell";
+import { getPinnedPreviewAction } from "@/app/actions/posts";
+import { getPublicSettingsAction } from "@/app/actions/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -35,21 +37,32 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const [profile, postsRes] = await Promise.all([
+  const [profile, postsRes, pinnedRes, settingsRes] = await Promise.all([
     resolveHomeProfile(),
     getCachedPublicFeed(),
+    getPinnedPreviewAction(),
+    getPublicSettingsAction(),
   ]);
 
   const initialPosts = (postsRes.posts as PostData[] | undefined) ?? [];
   const initialHasMore = postsRes.hasMore ?? false;
   const initialNextCursor = postsRes.nextCursor ?? null;
+  const initialPinnedPosts = (pinnedRes.posts as PostData[] | undefined) ?? [];
+  const initialSettings = settingsRes.settings ?? {};
+
+  const coverUrl = profile.coverImage || "/default-cover.jpg";
 
   return (
-    <HomeClient
-      initialProfile={profile}
-      initialPosts={initialPosts}
-      initialHasMore={initialHasMore}
-      initialNextCursor={initialNextCursor}
-    />
+    <>
+      <link rel="preload" as="image" href={coverUrl} fetchPriority="high" />
+      <HomeClient
+        initialProfile={profile}
+        initialPosts={initialPosts}
+        initialHasMore={initialHasMore}
+        initialNextCursor={initialNextCursor}
+        initialPinnedPosts={initialPinnedPosts}
+        initialSettings={initialSettings}
+      />
+    </>
   );
 }
