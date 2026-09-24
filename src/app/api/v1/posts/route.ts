@@ -5,6 +5,7 @@ import { posts, users } from "@/db/schema";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { visibleFeedUsers } from "@/db/queries";
+import { syncPostTags } from "@/lib/post-tags";
 import { isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting } from "@/lib/settings";
 import { invalidateFeedCache } from "@/lib/feed-cache";
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "每条动态最多附带 9 个媒体文件" }, { status: 400 });
     }
 
-    const sanitizedMedia = [];
+    const sanitizedMedia: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
     for (const m of mediaUrls) {
       if (typeof m.url !== "string" || !(await isAllowedMediaUrl(m.url))) {
         return NextResponse.json({ error: "包含未授权或不合规的媒体链接" }, { status: 400 });
@@ -99,18 +100,22 @@ export async function POST(req: Request) {
 
     const id = await generateUniquePostId();
 
-    const [post] = await db
-      .insert(posts)
-      .values({
-        id,
-        userId: user.id,
-        content,
-        mediaUrls: sanitizedMedia,
-        embedType,
-        embedId,
-        status,
-      })
-      .returning();
+    const post = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(posts)
+        .values({
+          id,
+          userId: user.id,
+          content,
+          mediaUrls: sanitizedMedia,
+          embedType,
+          embedId,
+          status,
+        })
+        .returning();
+      await syncPostTags(tx, id, content);
+      return created;
+    });
 
     await db
       .update(users)

@@ -9,6 +9,7 @@ import { isValidEmbedId, resolveBilibiliShortLink, parseEmbedUrl, type EmbedType
 import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
+import { syncPostTags } from "@/lib/post-tags";
 
 const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
@@ -108,17 +109,20 @@ export async function createPostAction(data: {
 
     const initialEmbedMeta = data.imageLayout ? { imageLayout: data.imageLayout } : null;
 
-    await db.insert(posts).values({
-      id: postId,
-      userId: user.id,
-      content: data.content,
-      mediaUrls: data.mediaUrls,
-      // Keep ytVideoId populated for backward compat with existing data
-      ytVideoId: embedType === "youtube" ? embedId : null,
-      embedType,
-      embedId,
-      embedMeta: initialEmbedMeta,
-      status: status as "approved" | "pending",
+    await db.transaction(async (tx) => {
+      await tx.insert(posts).values({
+        id: postId,
+        userId: user.id,
+        content: data.content,
+        mediaUrls: data.mediaUrls,
+        // Keep ytVideoId populated for backward compat with existing data
+        ytVideoId: embedType === "youtube" ? embedId : null,
+        embedType,
+        embedId,
+        embedMeta: initialEmbedMeta,
+        status: status as "approved" | "pending",
+      });
+      await syncPostTags(tx, postId, data.content);
     });
 
     await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, user.id));
@@ -404,14 +408,17 @@ export async function updatePostAction(
       delete baseEmbedMeta.imageLayout;
     }
 
-    await db.update(posts).set({
-      content: trimmedContent,
-      mediaUrls: finalMediaUrls,
-      ytVideoId: embedType === "youtube" ? embedId : null,
-      embedType,
-      embedId,
-      embedMeta: Object.keys(baseEmbedMeta).length > 0 ? baseEmbedMeta : null,
-    }).where(eq(posts.id, postId));
+    await db.transaction(async (tx) => {
+      await tx.update(posts).set({
+        content: trimmedContent,
+        mediaUrls: finalMediaUrls,
+        ytVideoId: embedType === "youtube" ? embedId : null,
+        embedType,
+        embedId,
+        embedMeta: Object.keys(baseEmbedMeta).length > 0 ? baseEmbedMeta : null,
+      }).where(eq(posts.id, postId));
+      await syncPostTags(tx, postId, trimmedContent);
+    });
 
     if (embedType && embedId) {
       void (async () => {
