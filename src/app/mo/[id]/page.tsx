@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
 import { getPostByIdAction } from "@/app/actions/posts";
+import { plainExcerpt } from "@/lib/plain-text";
 import { MoClient } from "./mo-client";
 
 export const dynamic = "force-dynamic";
-
-function plainExcerpt(content: string, max = 80): string {
-  const plain = content
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[#*`>_~]/g, "")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-  return plain.length > max ? plain.slice(0, max) + "…" : plain;
-}
 
 export async function generateMetadata({
   params,

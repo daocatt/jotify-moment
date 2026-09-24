@@ -10,6 +10,7 @@ import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
 import { syncPostTags } from "@/lib/post-tags";
+import { plainExcerpt } from "@/lib/plain-text";
 
 const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
@@ -1127,7 +1128,8 @@ export async function searchPostsAction(keyword: string) {
 
     const matches: PostSearchResult[] = results.map((p) => ({
       id: p.id,
-      content: p.content,
+      // The dropdown renders this as text, so strip the markdown syntax.
+      content: plainExcerpt(p.content, 140),
       createdAt: p.createdAt.toISOString(),
       authorName: p.author?.name ?? "",
       authorAvatar: p.author?.avatar ?? null,
