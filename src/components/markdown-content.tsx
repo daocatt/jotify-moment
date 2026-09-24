@@ -17,8 +17,12 @@ const markdownComponents: Components = {
   // `node` is destructured only to keep it out of the spread props.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   a: ({ node, href, children, ...props }) => {
-    const isTag = typeof href === "string" && href.startsWith("/tag/");
-    if (isTag) {
+    // In-page anchors (GFM footnotes use #user-content-fn-1) must stay in the
+    // same tab, or the browser opens a new tab and never scrolls to the target.
+    if (typeof href === "string" && href.startsWith("#")) {
+      return <a {...props} href={href}>{children}</a>;
+    }
+    if (typeof href === "string" && href.startsWith("/tag/")) {
       return (
         <Link
           href={href}
@@ -28,7 +32,11 @@ const markdownComponents: Components = {
         </Link>
       );
     }
-    return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
+    // Same-origin links get client-side navigation instead of a new tab.
+    if (typeof href === "string" && href.startsWith("/")) {
+      return <Link {...props} href={href}>{children}</Link>;
+    }
+    return <a {...props} href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
   },
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   table: ({ node, children, ...props }) => (
