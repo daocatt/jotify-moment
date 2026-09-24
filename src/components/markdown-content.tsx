@@ -2,11 +2,15 @@
 
 import { useEffect, useState, memo } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
-import type { PluggableList } from "unified";
+
+// react-markdown does not re-export PluggableList, and `unified` is only a
+// transitive dependency (not in package.json). Derive the type from the direct
+// dependency instead so type resolution does not depend on hoisting.
+type PluggableList = NonNullable<Options["rehypePlugins"]>;
 
 const markdownComponents = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -58,6 +62,9 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: { cont
 
   return (
     <ReactMarkdown
+      // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw
+      // HTML. `content` is user-generated — enabling raw HTML would allow XSS.
+      // If you need HTML rendering, sanitize with DOMPurify first.
       remarkPlugins={[remarkGfm, remarkBreaks]}
       rehypePlugins={rehypePlugins}
       components={markdownComponents}
