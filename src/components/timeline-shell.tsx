@@ -182,6 +182,9 @@ export function TimelineShell({
   const [searchResults, setSearchResults] = useState<PostSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  // A personal homepage searches only the page owner's posts; the main feed,
+  // tag, pinned and friends pages keep the global search.
+  const searchScope = isUserHomePage ? profileUser.slug ?? undefined : undefined;
 
   // Preload cover/avatar and only swap them in once loaded, so the header never
   // flashes black while the image is still downloading.
@@ -216,7 +219,7 @@ export function TimelineShell({
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
-      const res = await searchPostsAction(keyword);
+      const res = await searchPostsAction(keyword, searchScope);
       // A newer keyword supersedes this request. Its response is stale, so
       // drop it rather than letting it overwrite the newer results.
       if (cancelled) return;
@@ -227,7 +230,7 @@ export function TimelineShell({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [searchKeyword, searchOpen]);
+  }, [searchKeyword, searchOpen, searchScope]);
 
   // Close the search dropdown on outside click or Escape.
   useEffect(() => {
@@ -581,64 +584,70 @@ export function TimelineShell({
             <Users size={16} />
           </Button>
         )}
-        <div className="relative" ref={searchContainerRef}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSearchOpen((v) => !v)}
-            title="搜索"
-            className={iconBtnClass}
-          >
-            {searchOpen ? <X size={16} /> : <Search size={16} />}
-          </Button>
+        {/* A hidden profile exposes no posts, so the search entry is removed
+            rather than left in place to always return an empty result. */}
+        {!hidden && (
+          <div className="relative" ref={searchContainerRef}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen((v) => !v)}
+              title="搜索"
+              className={iconBtnClass}
+            >
+              {searchOpen ? <X size={16} /> : <Search size={16} />}
+            </Button>
 
-          {searchOpen && (
-            <div className={`absolute left-0 top-10 z-40 w-72 sm:w-80 border border-border bg-popover shadow-lg ${coverStyle ? "bg-popover/95 backdrop-blur-md" : ""}`}>
-              <div className="p-2.5 border-b border-border/60">
-                <div className="relative">
-                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    autoFocus
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    placeholder="搜索发布的图文…"
-                    className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
-                  />
-                  {searching && searchKeyword.trim() && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+            {searchOpen && (
+              <div className={`absolute left-0 top-10 z-40 w-72 sm:w-80 border border-border bg-popover shadow-lg ${coverStyle ? "bg-popover/95 backdrop-blur-md" : ""}`}>
+                <div className="p-2.5 border-b border-border/60">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      placeholder="搜索发布的图文…"
+                      className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
+                    />
+                    {searching && searchKeyword.trim() && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+                  </div>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto">
+                  {searchKeyword.trim() && !searching && searchResults.length === 0 && (
+                    <div className="px-3 py-6 text-center text-xs text-muted-foreground">未找到相关内容</div>
+                  )}
+                  {!searchKeyword.trim() && (
+                    <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      {isUserHomePage ? `输入关键词，搜索 ${profileUser.name} 的图文动态` : "输入关键词，搜索全部已发布的图文动态"}
+                    </div>
+                  )}
+                  {searchKeyword.trim() && searchResults.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSearchOpen(false);
+                        setSearchKeyword("");
+                        router.push(`/mo/${item.id}`);
+                      }}
+                      className="w-full text-left px-3 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                        <span className="font-medium text-foreground">{item.authorName}</span>
+                        <span>·</span>
+                        <span>{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: zhCN })}</span>
+                      </div>
+                      <p className="text-xs text-foreground/90 line-clamp-2 leading-relaxed">{item.content}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <div className="max-h-80 overflow-y-auto">
-                {searchKeyword.trim() && !searching && searchResults.length === 0 && (
-                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">未找到相关内容</div>
-                )}
-                {!searchKeyword.trim() && (
-                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">输入关键词，搜索全部已发布的图文动态</div>
-                )}
-                {searchKeyword.trim() && searchResults.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setSearchKeyword("");
-                      router.push(`/mo/${item.id}`);
-                    }}
-                    className="w-full text-left px-3 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/60 transition-colors"
-                  >
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
-                      <span className="font-medium text-foreground">{item.authorName}</span>
-                      <span>·</span>
-                      <span>{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: zhCN })}</span>
-                    </div>
-                    <p className="text-xs text-foreground/90 line-clamp-2 leading-relaxed">{item.content}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         {isCustomDomain && (
           <a
             href="https://jotify.me"
