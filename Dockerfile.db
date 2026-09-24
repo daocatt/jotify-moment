@@ -2,8 +2,8 @@
 #
 # The official postgres:17-alpine image compiles PostgreSQL from source into
 # /usr/local and runs `make install-world-bin`, so PGXS and the server headers
-# are already present. That means pg_bigm can be built in-image with no extra
-# -dev package.
+# are already present. Only the ICU headers have to be added, because
+# PostgreSQL is built --with-icu (see the icu-dev note below).
 #
 # pg_bigm provides the 2-gram GIN index behind the keyword search in
 # src/app/actions/posts.ts (searchPostsAction). Without it that query falls
@@ -13,10 +13,19 @@ FROM postgres:17-alpine
 ARG PG_BIGM_VERSION=v1.2-20250903
 ARG PG_BIGM_SHA256=4d4fb48161e3f9e99207851299379c83b3e5d1d3c1a07c35f6a3153d577b3142
 
+# icu-dev is required because PostgreSQL is built --with-icu, so the server
+# header utils/pg_locale.h does #include <unicode/ucol.h>. The image ships the
+# ICU runtime libraries and data (needed to run), but not the headers (needed
+# to compile). Omitting it fails the build with
+#   fatal error: unicode/ucol.h: No such file or directory
+# No other -dev package is needed: the only other external headers the
+# extension reaches are libc's. gettext is not required because the image
+# builds PostgreSQL without --enable-nls.
 RUN set -eux; \
 	apk add --no-cache --virtual .build-deps \
 		build-base \
 		curl \
+		icu-dev \
 	; \
 	curl -fsSL "https://github.com/pgbigm/pg_bigm/archive/refs/tags/${PG_BIGM_VERSION}.tar.gz" -o /tmp/pg_bigm.tar.gz; \
 	echo "${PG_BIGM_SHA256}  /tmp/pg_bigm.tar.gz" | sha256sum -c -; \
