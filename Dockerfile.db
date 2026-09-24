@@ -21,6 +21,17 @@ ARG PG_BIGM_SHA256=4d4fb48161e3f9e99207851299379c83b3e5d1d3c1a07c35f6a3153d577b3
 # No other -dev package is needed: the only other external headers the
 # extension reaches are libc's. gettext is not required because the image
 # builds PostgreSQL without --enable-nls.
+#
+# with_llvm=no is passed to make because PostgreSQL is built --with-llvm, which
+# makes PGXS also emit LLVM bitcode (.bc) alongside the object files, for JIT
+# inlining. That step invokes clang, which the base image installs only to
+# build PostgreSQL itself and then removes, so the default build fails with
+#   make: clang-21: No such file or directory
+# The bitcode is optional. Skipping it only means PostgreSQL's JIT cannot
+# inline this extension's functions, which does not matter for a GIN operator
+# class. with_llvm is a plain variable in PGXS's Makefile.global, so the
+# command-line assignment overrides it and drops .bc from the all and install
+# targets.
 RUN set -eux; \
 	apk add --no-cache --virtual .build-deps \
 		build-base \
@@ -31,8 +42,8 @@ RUN set -eux; \
 	echo "${PG_BIGM_SHA256}  /tmp/pg_bigm.tar.gz" | sha256sum -c -; \
 	tar xzf /tmp/pg_bigm.tar.gz -C /tmp; \
 	cd /tmp/pg_bigm-*; \
-	make USE_PGXS=1 PG_CONFIG=/usr/local/bin/pg_config; \
-	make USE_PGXS=1 PG_CONFIG=/usr/local/bin/pg_config install; \
+	make USE_PGXS=1 PG_CONFIG=/usr/local/bin/pg_config with_llvm=no; \
+	make USE_PGXS=1 PG_CONFIG=/usr/local/bin/pg_config with_llvm=no install; \
 	cd /; \
 	rm -rf /tmp/pg_bigm*; \
 	apk del --no-network .build-deps
