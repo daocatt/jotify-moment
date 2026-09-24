@@ -167,6 +167,9 @@ export function TimelineShell({
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const [friendProfileOpen, setFriendProfileOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  // Set when the editor is opened from the empty-state CTA, so we scroll to it
+  // only after it has mounted (the editor node is conditionally rendered).
+  const scrollToEditorRef = useRef(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
@@ -427,6 +430,12 @@ export function TimelineShell({
       fetchSettings();
     }
   }, [fetchSession, fetchSettings, initialSettings]);
+
+  useEffect(() => {
+    if (!editorOpen || !scrollToEditorRef.current) return;
+    scrollToEditorRef.current = false;
+    document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth" });
+  }, [editorOpen]);
 
   useEffect(() => {
     const el = coverRef.current;
@@ -989,11 +998,12 @@ export function TimelineShell({
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setEditorOpen(true);
-                  setTimeout(() => {
-                    const el = document.getElementById("post-editor");
-                    el?.scrollIntoView({ behavior: "smooth" });
-                  }, 50);
+                  if (editorOpen) {
+                    document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth" });
+                  } else {
+                    scrollToEditorRef.current = true;
+                    setEditorOpen(true);
+                  }
                 }}
                 className="mt-4 h-8 text-xs rounded-lg gap-1.5"
               >
