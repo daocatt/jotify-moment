@@ -11,7 +11,7 @@ import { remarkHashtags } from "@/lib/tag-parser";
 // transitive dependency (not in package.json). Derive the types from the direct
 // dependency instead so type resolution does not depend on hoisting.
 type PluggableList = NonNullable<Options["rehypePlugins"]>;
-type Pluggable = PluggableList[number];
+type PluginTuple = Extract<PluggableList[number], readonly unknown[]>;
 
 const markdownComponents: Components = {
   // `node` is destructured only to keep it out of the spread props.
@@ -50,16 +50,23 @@ const markdownComponents: Components = {
   ),
 };
 
+// A fenced block (``` or ~~~, up to 3 leading spaces) or an indented code block
+// (4 spaces / tab at the start of a line, which markdown only treats as code
+// when preceded by a blank line or the document start).
+const HAS_CODE_BLOCK_RE = /```|~~~|(?:^|\n\n)(?: {4}|\t)/;
+
 export const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
-  const hasCodeBlock = content.includes("```");
-  const [highlightPlugin, setHighlightPlugin] = useState<Pluggable | null>(null);
+  const hasCodeBlock = HAS_CODE_BLOCK_RE.test(content);
+  const [highlight, setHighlight] = useState<PluginTuple | null>(null);
 
   useEffect(() => {
     if (!hasCodeBlock) return;
     let active = true;
     import("rehype-highlight").then((mod) => {
       if (active) {
-        setHighlightPlugin(() => mod.default);
+        // detect: highlight code blocks that carry no language class instead of
+        // leaving them unstyled.
+        setHighlight(() => [mod.default, { detect: true }]);
       }
     });
     return () => {
@@ -67,7 +74,7 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: { cont
     };
   }, [hasCodeBlock]);
 
-  const rehypePlugins: PluggableList = highlightPlugin ? [highlightPlugin] : [];
+  const rehypePlugins: PluggableList = highlight ? [highlight] : [];
 
   return (
     <ReactMarkdown
