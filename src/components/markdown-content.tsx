@@ -5,7 +5,7 @@ import Link from "next/link";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
+import { remarkHashtags } from "@/lib/tag-parser";
 
 // react-markdown does not re-export PluggableList, and `unified` is only a
 // transitive dependency (not in package.json). Derive the types from the direct
@@ -66,11 +66,11 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: { cont
       // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw
       // HTML. `content` is user-generated — enabling raw HTML would allow XSS.
       // If you need HTML rendering, sanitize with DOMPurify first.
-      remarkPlugins={[remarkGfm, remarkBreaks]}
+      remarkPlugins={[remarkGfm, remarkBreaks, remarkHashtags]}
       rehypePlugins={rehypePlugins}
       components={markdownComponents}
     >
-      {transformHashtagsToMarkdownLinks(content)}
+      {content}
     </ReactMarkdown>
   );
 });
