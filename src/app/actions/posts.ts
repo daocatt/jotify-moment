@@ -1110,23 +1110,22 @@ export async function searchPostsAction(keyword: string) {
     const results = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
-        sql`lower(${posts.content}) LIKE lower(${pattern})`
+        sql`lower(${posts.content}) LIKE lower(${pattern})`,
+        // Applied in SQL, not after the fact: filtering the fetched page would
+        // silently return fewer than `limit` rows whenever a hidden post
+        // occupied one of the slots.
+        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers)
       ),
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: 8,
       with: {
         author: {
-          columns: { id: true, name: true, avatar: true, slug: true, status: true, displayPermission: true },
+          columns: { name: true, avatar: true },
         },
       },
     });
 
-    // Filter out inactive/suspended user posts if not admin
-    const filtered = results.filter(
-      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
-    );
-
-    const matches: PostSearchResult[] = filtered.map((p) => ({
+    const matches: PostSearchResult[] = results.map((p) => ({
       id: p.id,
       content: p.content,
       createdAt: p.createdAt.toISOString(),
