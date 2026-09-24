@@ -1100,12 +1100,17 @@ export async function searchPostsAction(keyword: string) {
   }
 
   try {
-    const pattern = `%${cleanKeyword}%`;
+    // posts_content_lower_bigm_idx indexes lower(content) and pg_bigm exposes
+    // LIKE but not ILIKE, so the pattern is compared against the same lowercased
+    // expression. Escaping the LIKE metacharacters keeps a keyword containing
+    // % or _ from being treated as a wildcard.
+    const escaped = cleanKeyword.replace(/[\\%_]/g, "\\$&");
+    const pattern = `%${escaped}%`;
 
     const results = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
-        sql`${posts.content} ILIKE ${pattern}`
+        sql`lower(${posts.content}) LIKE lower(${pattern})`
       ),
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: 8,
