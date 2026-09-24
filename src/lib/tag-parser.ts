@@ -1,25 +1,4 @@
 /**
- * Extract hashtags from plain content.
- * Matches #Tag and #标签 (supports Chinese, letters, numbers, underscores).
- * Ignores empty '#' or '#' followed by whitespace/punctuation.
- */
-export function extractTags(content: string): string[] {
-  if (!content) return [];
-  // Match # followed by word characters or CJK characters, until whitespace or punctuation
-  const regex = /#([\p{L}\p{N}_]+)/gu;
-  const tags = new Set<string>();
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    if (match[1]) {
-      tags.add(match[1].trim());
-    }
-  }
-
-  return Array.from(tags);
-}
-
-/**
  * Minimal mdast shapes. Declared locally so this module does not depend on
  * @types/mdast / unist-util-visit, which are only transitive dependencies.
  */
@@ -31,8 +10,8 @@ interface MdNode {
   title?: string | null;
 }
 
-// Inline hashtag, with a lookbehind so URL anchors (https://x/#y) are not
-// matched. Mirrors the pattern used by extractTags.
+// Inline hashtag: `#` followed by letters/numbers/underscore/CJK, with a
+// lookbehind so URL anchors (https://x/#y) are not matched.
 const INLINE_HASHTAG_RE = /(?<![a-zA-Z0-9_&/])#([\p{L}\p{N}_]+)/gu;
 
 // Nodes whose descendants must not be rewritten. `link`/`linkReference` matter
