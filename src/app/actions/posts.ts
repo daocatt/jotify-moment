@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { posts, comments, reactions, users, userPinned } from "@/db/schema";
+import { posts, comments, reactions, users, userPinned, postTags } from "@/db/schema";
 import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray, ne, sql } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -1005,7 +1005,7 @@ export async function getFriendsCircleAction() {
 export async function getPostsByTagAction(tag: string, cursor?: string) {
   const currentUser = await getSessionUser();
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
-  const cleanTag = tag.trim().replace(/^#/, "");
+  const cleanTag = tag.trim().replace(/^#/, "").toLowerCase();
 
   if (!cleanTag) {
     return { success: true, posts: [], nextCursor: null, hasMore: false };
@@ -1014,13 +1014,21 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
   try {
     const cursorCond = parseCursor(cursor);
 
-    // Search posts with matching tag (e.g. #摄影)
-    const tagPattern = `%#${cleanTag}%`;
+    // Resolve the tag through the post_tags index instead of scanning
+    // posts.content with ILIKE.
+    const taggedPostIds = db
+      .select({ id: postTags.postId })
+      .from(postTags)
+      .where(eq(postTags.tag, cleanTag));
 
     const tagPosts = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
-        sql`${posts.content} ILIKE ${tagPattern}`,
+        inArray(posts.id, taggedPostIds),
+        // Same visibility rules as the public feed. Applied in SQL so the page
+        // size and cursor stay correct (a post-fetch JS filter could under-fill
+        // a page and miscompute hasMore).
+        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers),
         cursorCond
           ? or(
               lt(posts.createdAt, cursorCond.createdAt),
@@ -1041,13 +1049,8 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
       },
     });
 
-    // Filter out inactive/suspended user posts if not admin
-    const filtered = tagPosts.filter(
-      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
-    );
-
-    const hasMore = filtered.length > PAGE_SIZE;
-    const items = hasMore ? filtered.slice(0, PAGE_SIZE) : filtered;
+    const hasMore = tagPosts.length > PAGE_SIZE;
+    const items = hasMore ? tagPosts.slice(0, PAGE_SIZE) : tagPosts;
     const nextCursor = hasMore && items.length > 0 ? makeCursor(items[items.length - 1]) : null;
 
     const reactionsMap = await loadReactions(items.map((p) => p.id));

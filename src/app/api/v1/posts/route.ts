@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { db } from "@/db";
-import { posts, users } from "@/db/schema";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { posts, users, postTags } from "@/db/schema";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
 import { visibleFeedUsers } from "@/db/queries";
 import { syncPostTags } from "@/lib/post-tags";
@@ -160,17 +160,21 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 50);
-    const tag = searchParams.get("tag")?.trim().replace(/^#/, "");
+    const tag = searchParams.get("tag")?.trim().replace(/^#/, "").toLowerCase();
 
     // Respect privacy and visibility controls: only return posts whose author is
     // in the public feed allow-list (publishToFeed + displayPermission + active).
     // visibleFeedUsers is a subquery, so this stays a single SQL statement and
     // shares the exact same visibility rules as the web feed.
-    const whereClause = tag
+    const taggedPostIds = tag
+      ? db.select({ id: postTags.postId }).from(postTags).where(eq(postTags.tag, tag))
+      : null;
+
+    const whereClause = taggedPostIds
       ? and(
           eq(posts.status, "approved"),
           inArray(posts.userId, visibleFeedUsers),
-          sql`${posts.content} ILIKE ${`%#${tag}%`}`
+          inArray(posts.id, taggedPostIds)
         )
       : and(
           eq(posts.status, "approved"),
