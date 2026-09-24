@@ -213,13 +213,20 @@ export function TimelineShell({
     if (!searchOpen) return;
     const keyword = searchKeyword.trim();
     if (!keyword) return;
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
       const res = await searchPostsAction(keyword);
+      // A newer keyword supersedes this request. Its response is stale, so
+      // drop it rather than letting it overwrite the newer results.
+      if (cancelled) return;
       setSearchResults(res.success && res.posts ? res.posts : []);
       setSearching(false);
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchKeyword, searchOpen]);
 
   // Close the search dropdown on outside click or Escape.
@@ -598,7 +605,7 @@ export function TimelineShell({
                     placeholder="搜索发布的图文…"
                     className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
                   />
-                  {searching && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+                  {searching && searchKeyword.trim() && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
                 </div>
               </div>
 
