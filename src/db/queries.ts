@@ -7,12 +7,20 @@ const PAGE_SIZE = 15;
 /**
  * Users whose posts may appear in the public home feed.
  * Both the user's own "publish to feed" preference AND the platform's
- * "display permission" (admin control) must be enabled.
+ * "display permission" (admin control) must be enabled, and the account
+ * must not be suspended. Kept as a subquery so consumers filter in a single
+ * SQL statement instead of materializing the full id list in memory.
  */
 export const visibleFeedUsers = db
   .select({ id: users.id })
   .from(users)
-  .where(and(eq(users.publishToFeed, true), eq(users.displayPermission, true)));
+  .where(
+    and(
+      eq(users.publishToFeed, true),
+      eq(users.displayPermission, true),
+      eq(users.status, "active")
+    )
+  );
 
 export interface ReactionSummary {
   total: number;
