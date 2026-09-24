@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.db
     container_name: jotify-moment-db
     restart: always
     env_file:

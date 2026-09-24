@@ -133,6 +133,8 @@ interface TimelineShellProps {
   isUserHomePage?: boolean;
   /** Owner disabled public homepage: show only basic info + a stealth notice. */
   hidden?: boolean;
+  /** Server-side preloaded public settings to eliminate client waterfall */
+  initialSettings?: Record<string, string>;
 }
 
 export function TimelineShell({
@@ -155,6 +157,7 @@ export function TimelineShell({
   mainHost,
   isUserHomePage = false,
   hidden = false,
+  initialSettings,
 }: TimelineShellProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -164,11 +167,14 @@ export function TimelineShell({
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const [friendProfileOpen, setFriendProfileOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  // Set when the editor is opened from the empty-state CTA, so we scroll to it
+  // only after it has mounted (the editor node is conditionally rendered).
+  const scrollToEditorRef = useRef(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [bannerHovered, setBannerHovered] = useState(false);
   const [coverExpanded, setCoverExpanded] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(null);
+  const [sysSettings, setSysSettings] = useState<Record<string, string> | null>(initialSettings || null);
 
   // Header post search dropdown
   const [searchOpen, setSearchOpen] = useState(false);
@@ -207,13 +213,20 @@ export function TimelineShell({
     if (!searchOpen) return;
     const keyword = searchKeyword.trim();
     if (!keyword) return;
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
       const res = await searchPostsAction(keyword);
+      // A newer keyword supersedes this request. Its response is stale, so
+      // drop it rather than letting it overwrite the newer results.
+      if (cancelled) return;
       setSearchResults(res.success && res.posts ? res.posts : []);
       setSearching(false);
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchKeyword, searchOpen]);
 
   // Close the search dropdown on outside click or Escape.
@@ -420,8 +433,16 @@ export function TimelineShell({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSession();
-    fetchSettings();
-  }, [fetchSession, fetchSettings]);
+    if (!initialSettings || Object.keys(initialSettings).length === 0) {
+      fetchSettings();
+    }
+  }, [fetchSession, fetchSettings, initialSettings]);
+
+  useEffect(() => {
+    if (!editorOpen || !scrollToEditorRef.current) return;
+    scrollToEditorRef.current = false;
+    document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth" });
+  }, [editorOpen]);
 
   useEffect(() => {
     const el = coverRef.current;
@@ -584,7 +605,7 @@ export function TimelineShell({
                     placeholder="搜索发布的图文…"
                     className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
                   />
-                  {searching && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
+                  {searching && searchKeyword.trim() && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
                 </div>
               </div>
 
@@ -768,6 +789,9 @@ export function TimelineShell({
             ref={coverImgRef}
             src={coverSrc}
             alt="Timeline Cover"
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
             onLoad={() => setCoverLoaded(true)}
             className={`w-full h-full object-cover transition-all duration-500 ${coverLoaded ? (coverExpanded ? "opacity-30 blur-sm scale-105" : "opacity-85") : "opacity-0"}`}
           />
@@ -968,20 +992,32 @@ export function TimelineShell({
             ))}
           </>
         ) : posts.length === 0 ? (
-          <div>
-            <div className="divide-y divide-border/60 opacity-30 pointer-events-none">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex gap-4 p-4">
-                  <div className="size-10 rounded bg-border/50 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 bg-border/50 rounded w-20" />
-                    <div className="h-3 bg-border/50 rounded w-full" />
-                    <div className="h-3 bg-border/50 rounded w-2/3" />
-                  </div>
-                </div>
-              ))}
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="size-14 rounded-2xl bg-muted/60 border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5 shadow-xs">
+              <Pen className="size-6 text-muted-foreground/70" strokeWidth={1.75} />
             </div>
-            <p className="text-center text-xs text-muted-foreground py-3">时间线上空空如也，发布第一条日志吧。</p>
+            <h3 className="text-sm font-medium text-foreground">时间线上空空如也</h3>
+            <p className="text-xs text-muted-foreground max-w-xs mt-1 leading-relaxed">
+              记录生活，珍藏瞬间。快来记录此刻的灵感或随笔吧。
+            </p>
+            {renderEditor && currentUser && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (editorOpen) {
+                    document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth" });
+                  } else {
+                    scrollToEditorRef.current = true;
+                    setEditorOpen(true);
+                  }
+                }}
+                className="mt-4 h-8 text-xs rounded-lg gap-1.5"
+              >
+                <Pen size={13} />
+                发布第一条动态
+              </Button>
+            )}
           </div>
         ) : (
           <div className={`t-skel ${revealed ? "is-revealed" : ""}`}>

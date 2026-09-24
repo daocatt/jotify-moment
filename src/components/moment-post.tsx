@@ -3,10 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
-import rehypeHighlight from "rehype-highlight";
+import { MarkdownContent } from "@/components/markdown-content";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,7 +16,6 @@ import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { ImageCarousel } from "@/components/image-carousel";
 import { parseEmbedUrl } from "@/lib/embed-parser";
-import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 import { toast } from "sonner";
 
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
@@ -552,7 +548,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
 
 
   return (
-    <div className="flex gap-4 p-4 border-b border-border bg-card">
+    <div className="flex gap-4 p-4 border-b border-border/80 bg-card hover:bg-muted/15 transition-colors duration-200">
       <button
         type="button"
         onClick={goToUserHome}
@@ -604,7 +600,17 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               </div>
             )}
           </div>
-          <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
+          {isDetailsView ? (
+            <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
+          ) : (
+            <Link
+              href={`/mo/${post.id}`}
+              className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+              title="查看此动态详情"
+            >
+              {relativeTime}
+            </Link>
+          )}
         </div>
 
         {/* Content Body (Markdown) */}
@@ -837,42 +843,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           </div>
         ) : post.content ? (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
-            <ReactMarkdown
-              // SECURITY CRITICAL: Never add rehype-raw or any plugin that renders raw HTML.
-              // post.content is user-generated — enabling raw HTML would allow XSS attacks.
-              // If you need HTML rendering, sanitize with DOMPurify first.
-              remarkPlugins={[remarkGfm, remarkBreaks]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                a: ({ node, href, children, ...props }) => {
-                  const isTag = typeof href === "string" && href.startsWith("/tag/");
-                  if (isTag) {
-                    return (
-                      <Link
-                        href={href}
-                        className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded text-xs font-medium text-primary hover:bg-primary/10 transition-colors no-underline"
-                      >
-                        {children}
-                      </Link>
-                    );
-                  }
-                  return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
-                },
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                table: ({ node, children, ...props }) => (
-                  <div className="overflow-x-auto my-2">
-                    <table {...props} className="w-full">{children}</table>
-                  </div>
-                ),
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                pre: ({ node, children, ...props }) => (
-                  <pre {...props} className="overflow-x-auto">{children}</pre>
-                ),
-              }}
-            >
-              {transformHashtagsToMarkdownLinks(post.content)}
-            </ReactMarkdown>
+            <MarkdownContent content={post.content} />
           </div>
         ) : null}
 
@@ -935,14 +906,16 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
               {images.map((img, idx) => (
                 <div
                   key={idx}
-                  className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border cursor-zoom-in"
+                  className="relative aspect-square bg-muted overflow-hidden rounded-md border border-border/80 cursor-zoom-in group/img"
                   onClick={() => onOpenLightbox(imageUrls, idx)}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <LazyImage
-                    src={img.thumbnailUrl || img.url}
-                    alt={`Log file ${idx}`}
-                  />
+                  <div className="w-full h-full transition-transform duration-300 ease-out group-hover/img:scale-105">
+                    <LazyImage
+                      src={img.thumbnailUrl || img.url}
+                      alt={`Log file ${idx}`}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -954,7 +927,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           {/* Reaction Button */}
           <div className="relative">
             <button
-              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+              className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
               onClick={() => {
                 if (!currentUser) {
                   toast.error("请先登录账户");
@@ -996,7 +969,7 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           </div>
 
           <button
-            className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+            className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
             onClick={() => {
               if (!currentUser) {
                 toast.error("请先登录账户");

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { posts, comments, reactions, users, userPinned } from "@/db/schema";
+import { posts, comments, reactions, users, userPinned, postTags } from "@/db/schema";
 import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray, ne, sql } from "drizzle-orm";
 import { getSessionUser, ensureUserSlug } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -9,6 +9,8 @@ import { isValidEmbedId, resolveBilibiliShortLink, parseEmbedUrl, type EmbedType
 import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";
 import { RateLimiter } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
+import { syncPostTags } from "@/lib/post-tags";
+import { plainExcerpt } from "@/lib/plain-text";
 
 const PAGE_SIZE = 15;
 const MAX_POST_LENGTH = 1000;
@@ -108,17 +110,20 @@ export async function createPostAction(data: {
 
     const initialEmbedMeta = data.imageLayout ? { imageLayout: data.imageLayout } : null;
 
-    await db.insert(posts).values({
-      id: postId,
-      userId: user.id,
-      content: data.content,
-      mediaUrls: data.mediaUrls,
-      // Keep ytVideoId populated for backward compat with existing data
-      ytVideoId: embedType === "youtube" ? embedId : null,
-      embedType,
-      embedId,
-      embedMeta: initialEmbedMeta,
-      status: status as "approved" | "pending",
+    await db.transaction(async (tx) => {
+      await tx.insert(posts).values({
+        id: postId,
+        userId: user.id,
+        content: data.content,
+        mediaUrls: data.mediaUrls,
+        // Keep ytVideoId populated for backward compat with existing data
+        ytVideoId: embedType === "youtube" ? embedId : null,
+        embedType,
+        embedId,
+        embedMeta: initialEmbedMeta,
+        status: status as "approved" | "pending",
+      });
+      await syncPostTags(tx, postId, data.content);
     });
 
     await db.update(users).set({ lastPostAt: new Date() }).where(eq(users.id, user.id));
@@ -404,14 +409,17 @@ export async function updatePostAction(
       delete baseEmbedMeta.imageLayout;
     }
 
-    await db.update(posts).set({
-      content: trimmedContent,
-      mediaUrls: finalMediaUrls,
-      ytVideoId: embedType === "youtube" ? embedId : null,
-      embedType,
-      embedId,
-      embedMeta: Object.keys(baseEmbedMeta).length > 0 ? baseEmbedMeta : null,
-    }).where(eq(posts.id, postId));
+    await db.transaction(async (tx) => {
+      await tx.update(posts).set({
+        content: trimmedContent,
+        mediaUrls: finalMediaUrls,
+        ytVideoId: embedType === "youtube" ? embedId : null,
+        embedType,
+        embedId,
+        embedMeta: Object.keys(baseEmbedMeta).length > 0 ? baseEmbedMeta : null,
+      }).where(eq(posts.id, postId));
+      await syncPostTags(tx, postId, trimmedContent);
+    });
 
     if (embedType && embedId) {
       void (async () => {
@@ -998,7 +1006,7 @@ export async function getFriendsCircleAction() {
 export async function getPostsByTagAction(tag: string, cursor?: string) {
   const currentUser = await getSessionUser();
   const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
-  const cleanTag = tag.trim().replace(/^#/, "");
+  const cleanTag = tag.trim().replace(/^#/, "").toLowerCase();
 
   if (!cleanTag) {
     return { success: true, posts: [], nextCursor: null, hasMore: false };
@@ -1007,13 +1015,21 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
   try {
     const cursorCond = parseCursor(cursor);
 
-    // Search posts with matching tag (e.g. #摄影)
-    const tagPattern = `%#${cleanTag}%`;
+    // Resolve the tag through the post_tags index instead of scanning
+    // posts.content with ILIKE.
+    const taggedPostIds = db
+      .select({ id: postTags.postId })
+      .from(postTags)
+      .where(eq(postTags.tag, cleanTag));
 
     const tagPosts = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
-        sql`${posts.content} ILIKE ${tagPattern}`,
+        inArray(posts.id, taggedPostIds),
+        // Same visibility rules as the public feed. Applied in SQL so the page
+        // size and cursor stay correct (a post-fetch JS filter could under-fill
+        // a page and miscompute hasMore).
+        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers),
         cursorCond
           ? or(
               lt(posts.createdAt, cursorCond.createdAt),
@@ -1034,13 +1050,8 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
       },
     });
 
-    // Filter out inactive/suspended user posts if not admin
-    const filtered = tagPosts.filter(
-      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
-    );
-
-    const hasMore = filtered.length > PAGE_SIZE;
-    const items = hasMore ? filtered.slice(0, PAGE_SIZE) : filtered;
+    const hasMore = tagPosts.length > PAGE_SIZE;
+    const items = hasMore ? tagPosts.slice(0, PAGE_SIZE) : tagPosts;
     const nextCursor = hasMore && items.length > 0 ? makeCursor(items[items.length - 1]) : null;
 
     const reactionsMap = await loadReactions(items.map((p) => p.id));
@@ -1090,30 +1101,35 @@ export async function searchPostsAction(keyword: string) {
   }
 
   try {
-    const pattern = `%${cleanKeyword}%`;
+    // posts_content_lower_bigm_idx indexes lower(content) and pg_bigm exposes
+    // LIKE but not ILIKE, so the pattern is compared against the same lowercased
+    // expression. Escaping the LIKE metacharacters keeps a keyword containing
+    // % or _ from being treated as a wildcard.
+    const escaped = cleanKeyword.replace(/[\\%_]/g, "\\$&");
+    const pattern = `%${escaped}%`;
 
     const results = await db.query.posts.findMany({
       where: and(
         eq(posts.status, "approved"),
-        sql`${posts.content} ILIKE ${pattern}`
+        sql`lower(${posts.content}) LIKE lower(${pattern})`,
+        // Applied in SQL, not after the fact: filtering the fetched page would
+        // silently return fewer than `limit` rows whenever a hidden post
+        // occupied one of the slots.
+        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers)
       ),
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: 8,
       with: {
         author: {
-          columns: { id: true, name: true, avatar: true, slug: true, status: true, displayPermission: true },
+          columns: { name: true, avatar: true },
         },
       },
     });
 
-    // Filter out inactive/suspended user posts if not admin
-    const filtered = results.filter(
-      (p) => isAdmin || (p.author?.status === "active" && p.author?.displayPermission)
-    );
-
-    const matches: PostSearchResult[] = filtered.map((p) => ({
+    const matches: PostSearchResult[] = results.map((p) => ({
       id: p.id,
-      content: p.content,
+      // The dropdown renders this as text, so strip the markdown syntax.
+      content: plainExcerpt(p.content, 140),
       createdAt: p.createdAt.toISOString(),
       authorName: p.author?.name ?? "",
       authorAvatar: p.author?.avatar ?? null,

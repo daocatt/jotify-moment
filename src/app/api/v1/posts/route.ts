@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { db } from "@/db";
-import { posts, users } from "@/db/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { posts, users, postTags } from "@/db/schema";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
+import { visibleFeedUsers } from "@/db/queries";
+import { syncPostTags } from "@/lib/post-tags";
 import { isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting } from "@/lib/settings";
 import { invalidateFeedCache } from "@/lib/feed-cache";
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "每条动态最多附带 9 个媒体文件" }, { status: 400 });
     }
 
-    const sanitizedMedia = [];
+    const sanitizedMedia: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }> = [];
     for (const m of mediaUrls) {
       if (typeof m.url !== "string" || !(await isAllowedMediaUrl(m.url))) {
         return NextResponse.json({ error: "包含未授权或不合规的媒体链接" }, { status: 400 });
@@ -98,18 +100,22 @@ export async function POST(req: Request) {
 
     const id = await generateUniquePostId();
 
-    const [post] = await db
-      .insert(posts)
-      .values({
-        id,
-        userId: user.id,
-        content,
-        mediaUrls: sanitizedMedia,
-        embedType,
-        embedId,
-        status,
-      })
-      .returning();
+    const post = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(posts)
+        .values({
+          id,
+          userId: user.id,
+          content,
+          mediaUrls: sanitizedMedia,
+          embedType,
+          embedId,
+          status,
+        })
+        .returning();
+      await syncPostTags(tx, id, content);
+      return created;
+    });
 
     await db
       .update(users)
@@ -154,11 +160,26 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "15", 10), 1), 50);
-    const tag = searchParams.get("tag")?.trim().replace(/^#/, "");
+    const tag = searchParams.get("tag")?.trim().replace(/^#/, "").toLowerCase();
 
-    const whereClause = tag
-      ? and(eq(posts.status, "approved"), sql`${posts.content} ILIKE ${`%#${tag}%`}`)
-      : eq(posts.status, "approved");
+    // Respect privacy and visibility controls: only return posts whose author is
+    // in the public feed allow-list (publishToFeed + displayPermission + active).
+    // visibleFeedUsers is a subquery, so this stays a single SQL statement and
+    // shares the exact same visibility rules as the web feed.
+    const taggedPostIds = tag
+      ? db.select({ id: postTags.postId }).from(postTags).where(eq(postTags.tag, tag))
+      : null;
+
+    const whereClause = taggedPostIds
+      ? and(
+          eq(posts.status, "approved"),
+          inArray(posts.userId, visibleFeedUsers),
+          inArray(posts.id, taggedPostIds)
+        )
+      : and(
+          eq(posts.status, "approved"),
+          inArray(posts.userId, visibleFeedUsers)
+        );
 
     const publicPosts = await db.query.posts.findMany({
       where: whereClause,
