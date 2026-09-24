@@ -2,19 +2,21 @@
 
 import { useEffect, useState, memo } from "react";
 import Link from "next/link";
-import ReactMarkdown, { type Options } from "react-markdown";
+import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { transformHashtagsToMarkdownLinks } from "@/lib/tag-parser";
 
 // react-markdown does not re-export PluggableList, and `unified` is only a
-// transitive dependency (not in package.json). Derive the type from the direct
+// transitive dependency (not in package.json). Derive the types from the direct
 // dependency instead so type resolution does not depend on hoisting.
 type PluggableList = NonNullable<Options["rehypePlugins"]>;
+type Pluggable = PluggableList[number];
 
-const markdownComponents = {
+const markdownComponents: Components = {
+  // `node` is destructured only to keep it out of the spread props.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  a: ({ node, href, children, ...props }: any) => {
+  a: ({ node, href, children, ...props }) => {
     const isTag = typeof href === "string" && href.startsWith("/tag/");
     if (isTag) {
       return (
@@ -29,21 +31,20 @@ const markdownComponents = {
     return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
   },
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  table: ({ node, children, ...props }: any) => (
+  table: ({ node, children, ...props }) => (
     <div className="overflow-x-auto my-2">
       <table {...props} className="w-full">{children}</table>
     </div>
   ),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  pre: ({ node, children, ...props }: any) => (
+  pre: ({ node, children, ...props }) => (
     <pre {...props} className="overflow-x-auto">{children}</pre>
   ),
 };
 
 export const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
   const hasCodeBlock = content.includes("```");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [highlightPlugin, setHighlightPlugin] = useState<any>(null);
+  const [highlightPlugin, setHighlightPlugin] = useState<Pluggable | null>(null);
 
   useEffect(() => {
     if (!hasCodeBlock) return;
