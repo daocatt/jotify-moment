@@ -15,6 +15,7 @@ import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { ImageCarousel } from "@/components/image-carousel";
+import { ProductCard, type ProductShowcaseMeta } from "@/components/product-card";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 import { toast } from "sonner";
 
@@ -34,7 +35,7 @@ export interface MomentPostProps {
     ytVideoId: string | null;
     embedType?: string | null;
     embedId?: string | null;
-    embedMeta?: { thumbnailUrl?: string; title?: string; description?: string; imageLayout?: "grid" | "carousel" } | null;
+    embedMeta?: ({ thumbnailUrl?: string; title?: string; description?: string; imageLayout?: "grid" | "carousel" } & Record<string, unknown>) | null;
     status: "approved" | "pending";
     pinnedAt: Date | null;
     profilePinned?: boolean;
@@ -878,11 +879,31 @@ export const MomentPost = memo(function MomentPost({
           </div>
         )}
 
+        {/* Product Showcase Card */}
+        {post.embedType === "product_showcase" && post.embedMeta && (
+          <div className="max-w-md w-full">
+            <ProductCard
+              meta={post.embedMeta as unknown as ProductShowcaseMeta}
+              onClick={
+                !isDetailsView
+                  ? () => {
+                      if (onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                        onOpenDetail(post.id, post);
+                      } else {
+                        router.push(`/mo/${post.id}`);
+                      }
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        )}
+
         {/* Media Embed — unified component for all platforms.
             Handles: YouTube, Bilibili, TikTok (video facade) and
             Spotify, Netease, Apple Music/Podcast (inline audio bars).
             Falls back to ytVideoId for backward compat with old posts. */}
-        {(post.embedType && post.embedId) ? (
+        {(post.embedType && post.embedId && post.embedType !== "product_showcase") ? (
           <div className="max-w-md w-full">
             <MediaEmbed
               embedType={post.embedType}
