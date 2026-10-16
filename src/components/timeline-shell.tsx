@@ -10,6 +10,7 @@ const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => 
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
 const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
+import { MomentDetailDrawer } from "@/components/moment-detail-drawer";
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { searchPostsAction, type PostSearchResult } from "@/app/actions/posts";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
@@ -182,6 +183,61 @@ export function TimelineShell({
   const [searchResults, setSearchResults] = useState<PostSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // PC Detail Drawer state
+  const [drawerPostId, setDrawerPostId] = useState<string | null>(null);
+  const [drawerPost, setDrawerPost] = useState<PostData | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const handleOpenDetail = useCallback((postId: string, postData?: PostData | null) => {
+    const target = postData || posts.find((p) => p.id === postId) || null;
+    setDrawerPostId(postId);
+    setDrawerPost(target);
+    setIsDrawerOpen(true);
+
+    if (typeof window !== "undefined") {
+      const currentUrl = window.location.pathname + window.location.search;
+      window.history.pushState({ drawer: postId, returnUrl: currentUrl }, "", `/mo/${postId}`);
+    }
+  }, [posts]);
+
+  const userSlug = profileUser.slug;
+  const handleCloseDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setDrawerPostId(null);
+
+    if (typeof window !== "undefined") {
+      if (window.history.state && window.history.state.drawer) {
+        window.history.back();
+      } else {
+        const returnUrl = window.history.state?.returnUrl;
+        if (returnUrl) {
+          window.history.replaceState(null, "", returnUrl);
+        } else {
+          const fallback = isUserHomePage && userSlug ? `/u/${userSlug}` : "/";
+          window.history.replaceState(null, "", fallback);
+        }
+      }
+    }
+  }, [isUserHomePage, userSlug]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setIsDrawerOpen(false);
+      setDrawerPostId(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isDrawerOpen) {
+        handleCloseDrawer();
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isDrawerOpen, handleCloseDrawer]);
   // A personal homepage searches only the page owner's posts; the main feed,
   // tag, pinned and friends pages keep the global search.
   const searchScope = isUserHomePage ? profileUser.slug ?? undefined : undefined;
@@ -559,7 +615,17 @@ export function TimelineShell({
   }`;
 
   return (
-    <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible">
+    <div className="w-full min-h-screen flex justify-center items-start overflow-x-clip relative">
+      <div
+        className={`w-full flex justify-center items-start transition-all duration-300 ease-out px-0 sm:px-4 ${
+          isDrawerOpen ? "lg:gap-5 xl:gap-6" : ""
+        }`}
+      >
+        <main
+          className={`w-full max-w-xl bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible transition-all duration-300 ease-out shrink-0 ${
+            isDrawerOpen ? "" : "mx-auto"
+          }`}
+        >
 
       {/* Top-left: additional links area (back / friends-circle / brand) */}
       <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 ${themeReady && !resolvedTheme.features.showCoverImage ? "top-2" : ""}`}>
@@ -631,7 +697,11 @@ export function TimelineShell({
                       onClick={() => {
                         setSearchOpen(false);
                         setSearchKeyword("");
-                        router.push(`/mo/${item.id}`);
+                        if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+                          handleOpenDetail(item.id);
+                        } else {
+                          router.push(`/mo/${item.id}`);
+                        }
                       }}
                       className="w-full text-left px-3 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/60 transition-colors"
                     >
@@ -1053,6 +1123,7 @@ export function TimelineShell({
                   onOpenLightbox={openLightbox}
                   onRefresh={onRefresh}
                   onRequireLogin={handleLoginClick}
+                  onOpenDetail={handleOpenDetail}
                 />
               ))}
               {hasMore ? (
@@ -1082,6 +1153,21 @@ export function TimelineShell({
       )}
       </div>
       )}
+        </main>
+
+        <MomentDetailDrawer
+          isOpen={isDrawerOpen}
+          postId={drawerPostId}
+          initialPost={drawerPost}
+          currentUser={currentUser}
+          isCustomDomain={isCustomDomain}
+          mainHost={mainHost}
+          onClose={handleCloseDrawer}
+          onRefreshParent={onRefresh}
+          onOpenLightbox={openLightbox}
+          onRequireLogin={handleLoginClick}
+        />
+      </div>
 
       {authModalOpen && (
         <AuthModals
@@ -1147,6 +1233,6 @@ export function TimelineShell({
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

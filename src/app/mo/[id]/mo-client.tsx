@@ -49,6 +49,20 @@ export function MoClient({ id, isCustomDomain = false, mainHost, initialPost, in
     }
   }, [isCustomDomain, mainHost]);
 
+  const handleBack = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const isInternalReferrer =
+        Boolean(document.referrer && document.referrer.startsWith(window.location.origin));
+      const hasHistoryState = (window.history.state?.idx ?? 0) > 0;
+
+      if (isInternalReferrer || hasHistoryState) {
+        router.back();
+        return;
+      }
+    }
+    router.push("/");
+  }, [router]);
+
   useOAuthCallback(isCustomDomain);
 
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -138,16 +152,16 @@ export function MoClient({ id, isCustomDomain = false, mainHost, initialPost, in
     <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm sm:mt-6 sm:rounded-t-xl flex flex-col">
       {/* Header Bar */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border/60 sticky top-0 bg-background/80 backdrop-blur-md z-20">
-        {!isCustomDomain && (
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-          >
-            <ArrowLeft size={18} />
-          </button>
-        )}
-        <span className={`font-semibold text-sm sm:text-base text-foreground ${isCustomDomain ? "pl-2" : ""}`}>日志详情</span>
+        <button
+          type="button"
+          onClick={handleBack}
+          aria-label="返回"
+          title="返回"
+          className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <span className="font-semibold text-sm sm:text-base text-foreground">日志详情</span>
       </div>
 
       {/* Moment Content */}

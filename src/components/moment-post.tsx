@@ -76,11 +76,20 @@ export interface MomentPostProps {
   onRefresh: () => void;
   onRequireLogin?: () => void;
   isDetailsView?: boolean;
+  onOpenDetail?: (postId: string, post?: MomentPostProps["post"]) => void;
 }
 
 const REACTIONS_LIST = ["❤️", "👍", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
 
-export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLightbox, onRefresh, onRequireLogin, isDetailsView = false }: MomentPostProps) {
+export const MomentPost = memo(function MomentPost({
+  post,
+  currentUser,
+  onOpenLightbox,
+  onRefresh,
+  onRequireLogin,
+  isDetailsView = false,
+  onOpenDetail,
+}: MomentPostProps) {
   const router = useRouter();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiClosing, setEmojiClosing] = useState(false);
@@ -605,6 +614,12 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           ) : (
             <Link
               href={`/mo/${post.id}`}
+              onClick={(e) => {
+                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                  e.preventDefault();
+                  onOpenDetail(post.id, post);
+                }
+              }}
               className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
               title="查看此动态详情"
             >
@@ -1091,6 +1106,12 @@ export const MomentPost = memo(function MomentPost({ post, currentUser, onOpenLi
           {!isDetailsView && (
             <Link
               href={`/mo/${post.id}`}
+              onClick={(e) => {
+                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                  e.preventDefault();
+                  onOpenDetail(post.id, post);
+                }
+              }}
               aria-label="查看更多"
               title="查看更多"
               className="ml-auto group size-7 flex items-center justify-center bg-transparent p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
