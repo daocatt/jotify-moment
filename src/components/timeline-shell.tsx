@@ -756,24 +756,22 @@ export function TimelineShell({
         )}
       </div>
 
-      {/* Sticky Top Bar */}
+      {/* Sticky Top Bar (contained within the main timeline column) */}
       <div
-        className={`fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-xl z-30 transition-[opacity,transform] duration-300 ease-in-out ${
+        className={`sticky top-0 z-30 w-full -mb-9 h-9 transition-[opacity,transform] duration-200 ease-out ${
           showStickyBar
             ? "opacity-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 -translate-y-2 pointer-events-none"
+            : "opacity-0 -translate-y-1.5 pointer-events-none"
         }`}
       >
-        {/* The blur layer only exists while the bar is shown — an always-on
-            backdrop-filter would force recompositing behind an invisible bar. */}
-        <div className={`flex items-center justify-between px-4 h-12 bg-background/90 border-b border-border/60 shadow-sm ${showStickyBar ? "backdrop-blur-md" : ""}`}>
-          <span className="font-semibold text-sm text-foreground truncate">
+        <div className={`flex items-center justify-between px-3.5 h-9 bg-background/85 border-b border-border/50 shadow-xs ${showStickyBar ? "backdrop-blur-md" : ""}`}>
+          <span className="font-medium text-xs sm:text-[13px] text-foreground truncate">
             {profileUser.name}
           </span>
           <div
             onMouseEnter={() => setAvatarHovered(true)}
             onMouseLeave={() => setAvatarHovered(false)}
-            className="group relative size-7 rounded-full overflow-hidden bg-muted shrink-0"
+            className="group relative size-6 rounded-full overflow-hidden bg-muted shrink-0 ring-1 ring-border/50"
           >
             <button
               type="button"
@@ -785,13 +783,13 @@ export function TimelineShell({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-[10px] font-semibold">
                   {currentUser ? currentUser.name.charAt(0) : "G"}
                 </div>
               )}
               {currentUser && isOwnPage && (
                 <div className={`absolute inset-0 flex items-center justify-center bg-black/45 text-white transition-opacity ${avatarHovered ? "opacity-100" : "opacity-100 sm:opacity-0"}`}>
-                  <Pen size={12} />
+                  <Pen size={10} />
                 </div>
               )}
             </button>
