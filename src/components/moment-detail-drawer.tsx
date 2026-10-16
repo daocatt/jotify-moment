@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PanelRightClose, X, ExternalLink, Link2, Check, Loader2 } from "lucide-react";
-import { MomentPost } from "@/components/moment-post";
+import { MomentPost, type MomentPostProps } from "@/components/moment-post";
 import { getPostByIdAction } from "@/app/actions/posts";
 import { toast } from "sonner";
-import type { PostData } from "@/components/timeline-shell";
 
 export interface MomentDetailDrawerProps {
   isOpen: boolean;
   postId: string | null;
-  initialPost?: PostData | null;
+  initialPost?: MomentPostProps["post"] | null;
   currentUser: { id: string; name: string; role: string; avatar?: string | null } | null;
   isCustomDomain?: boolean;
   mainHost?: string;

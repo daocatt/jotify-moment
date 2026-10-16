@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { MomentPost } from "@/components/moment-post";
+import { MomentPost, type MomentPostProps } from "@/components/moment-post";
 
 const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => m.AuthModals), { ssr: false });
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
@@ -186,10 +186,10 @@ export function TimelineShell({
 
   // PC Detail Drawer state
   const [drawerPostId, setDrawerPostId] = useState<string | null>(null);
-  const [drawerPost, setDrawerPost] = useState<PostData | null>(null);
+  const [drawerPost, setDrawerPost] = useState<MomentPostProps["post"] | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const handleOpenDetail = useCallback((postId: string, postData?: PostData | null) => {
+  const handleOpenDetail = useCallback((postId: string, postData?: MomentPostProps["post"] | null) => {
     const target = postData || posts.find((p) => p.id === postId) || null;
     setDrawerPostId(postId);
     setDrawerPost(target);
