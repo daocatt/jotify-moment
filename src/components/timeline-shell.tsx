@@ -10,6 +10,7 @@ const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => 
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
 const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lightbox), { ssr: false });
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
+const ProductPublishModal = dynamic(() => import("@/components/product-publish-modal").then((m) => m.ProductPublishModal), { ssr: false });
 import { MomentDetailDrawer } from "@/components/moment-detail-drawer";
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { searchPostsAction, type PostSearchResult } from "@/app/actions/posts";
@@ -18,7 +19,7 @@ import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users, Search, X, Loader2 } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users, Search, X, Loader2, Rocket, Plus, Pin } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -66,6 +67,7 @@ export interface PostData {
   embedMeta: { thumbnailUrl?: string; title?: string; description?: string } | null;
   status: "approved" | "pending";
   pinnedAt: Date | null;
+  profilePinned?: boolean;
   createdAt: Date;
   user: {
     id: string;
@@ -188,6 +190,8 @@ export function TimelineShell({
   const [drawerPostId, setDrawerPostId] = useState<string | null>(null);
   const [drawerPost, setDrawerPost] = useState<MomentPostProps["post"] | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState<"all" | "products" | "pinned">("all");
 
   const handleOpenDetail = useCallback((postId: string, postData?: MomentPostProps["post"] | null) => {
     const target = postData || posts.find((p) => p.id === postId) || null;
@@ -238,6 +242,22 @@ export function TimelineShell({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isDrawerOpen, handleCloseDrawer]);
+
+  // Personal profile tabs filtering
+  const userProducts = useMemo(
+    () => posts.filter((p) => p.embedType === "product_showcase"),
+    [posts]
+  );
+  const userPinned = useMemo(
+    () => posts.filter((p) => p.profilePinned || p.pinnedAt),
+    [posts]
+  );
+  const displayPosts = useMemo(() => {
+    if (!isUserHomePage) return posts;
+    if (profileTab === "products") return userProducts;
+    if (profileTab === "pinned") return userPinned;
+    return posts;
+  }, [isUserHomePage, profileTab, posts, userProducts, userPinned]);
   // A personal homepage searches only the page owner's posts; the main feed,
   // tag, pinned and friends pages keep the global search.
   const searchScope = isUserHomePage ? profileUser.slug ?? undefined : undefined;
@@ -597,7 +617,7 @@ export function TimelineShell({
 
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
   const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
-  const menuBtnBase = "inline-flex items-center justify-center h-8 rounded-full px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring";
+  const menuBtnBase = "inline-flex items-center justify-center h-8 rounded-lg px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring";
   const menuBtnClass = `${menuBtnBase} ${
     coverStyle
       ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
@@ -606,9 +626,8 @@ export function TimelineShell({
   const menuBtnActiveClass = `${menuBtnBase} text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 ${
     coverStyle ? "backdrop-blur-sm" : ""
   }`;
-  // Shared circular icon-button style for all icon-only header controls
-  // (back / friends-circle / search / theme / about) — 32px round, 16px icon.
-  const iconBtnClass = `size-8 min-h-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+  // Shared icon-button style for icon-only header controls — 32px rounded-lg square, 16px icon.
+  const iconBtnClass = `size-8 min-h-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring ${
     coverStyle
       ? "text-white hover:bg-white/20 hover:text-white bg-black/25 backdrop-blur-sm border border-white/10"
       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -807,13 +826,52 @@ export function TimelineShell({
         {currentUser && (
           <>
             {renderEditor && (
-              <button
-                type="button"
-                onClick={toggleEditor}
-                className={editorOpen ? menuBtnActiveClass : menuBtnClass}
-              >
-                <Pen size={13} /> 发布
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      className={`${editorOpen ? menuBtnActiveClass : menuBtnClass} font-medium`}
+                      aria-label="发布动态或作品"
+                    >
+                      <Pen size={13} /> 发布 <ChevronDown size={11} className="opacity-70" />
+                    </button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="min-w-44 p-1.5 shadow-lg">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!editorOpen) toggleEditor();
+                      else {
+                        setTimeout(() => {
+                          document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 50);
+                      }
+                    }}
+                    className="flex items-center gap-2.5 py-2 px-2.5 text-xs cursor-pointer rounded-md"
+                  >
+                    <div className="size-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Pen size={12} />
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground">发布日常动态</div>
+                      <div className="text-[10px] text-muted-foreground">记录想法、图文与生活</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setProductModalOpen(true)}
+                    className="flex items-center gap-2.5 py-2 px-2.5 text-xs cursor-pointer rounded-md"
+                  >
+                    <div className="size-6 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                      <Rocket size={12} />
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground">发布作品 / AI 助理</div>
+                      <div className="text-[10px] text-muted-foreground">分享 Vibe Coding 或已上架产品</div>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -1046,7 +1104,50 @@ export function TimelineShell({
         </div>
       )}
 
-      {!hidden && pinnedEntry}
+      {!hidden && isUserHomePage ? (
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/60 bg-muted/20 select-none">
+          <button
+            type="button"
+            onClick={() => setProfileTab("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              profileTab === "all"
+                ? "bg-background text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+          >
+            全部动态 ({posts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setProfileTab("products")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+              profileTab === "products"
+                ? "bg-background text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+          >
+            <Rocket size={13} className={profileTab === "products" ? "text-orange-500" : ""} />
+            作品与助理 ({userProducts.length})
+          </button>
+          {pinnedEntry && (
+            <button
+              type="button"
+              onClick={() => setProfileTab("pinned")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                profileTab === "pinned"
+                  ? "bg-background text-foreground shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <Pin size={13} className={profileTab === "pinned" ? "text-primary" : ""} />
+              置顶精选 ({userPinned.length})
+            </button>
+          )}
+        </div>
+      ) : null}
+
+      {!hidden && !isUserHomePage && pinnedEntry}
+      {!hidden && isUserHomePage && profileTab === "all" && pinnedEntry}
 
       {children ? (
         <div className="flex-1 pb-56">{children}</div>
@@ -1056,7 +1157,27 @@ export function TimelineShell({
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
             <span className="text-sm">本帐号已悄悄隐身</span>
           </div>
-        ) : posts.length === 0 && loadingPosts ? (
+        ) : isUserHomePage && profileTab === "products" && userProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="size-14 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3 shadow-xs">
+              <Rocket size={24} />
+            </div>
+            <h3 className="text-sm font-medium text-foreground">暂无发布的作品或 AI 助理</h3>
+            <p className="text-xs text-muted-foreground max-w-xs mt-1 leading-relaxed">
+              这里将展示作者敏捷孵化的 Vibe Coding 项目、独立产品或 AI Agent。
+            </p>
+            {isOwnPage && (
+              <Button
+                size="sm"
+                onClick={() => setProductModalOpen(true)}
+                className="mt-4 h-8 text-xs rounded-lg gap-1.5"
+              >
+                <Plus size={13} />
+                发布第一个作品 / AI 助理
+              </Button>
+            )}
+          </div>
+        ) : displayPosts.length === 0 && loadingPosts ? (
           <>
             {[...Array(4)].map((_, i) => (
               <div key={i} className="animate-pulse flex gap-4 p-4">
@@ -1070,7 +1191,7 @@ export function TimelineShell({
               </div>
             ))}
           </>
-        ) : posts.length === 0 ? (
+        ) : displayPosts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <div className="size-14 rounded-2xl bg-muted/60 border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5 shadow-xs">
               <Pen className="size-6 text-muted-foreground/70" strokeWidth={1.75} />
@@ -1115,7 +1236,7 @@ export function TimelineShell({
               </div>
             )}
             <div className="t-skel-content divide-y divide-border/60">
-              {posts.map((post) => (
+              {displayPosts.map((post) => (
                 <MomentPost
                   key={post.id}
                   post={post}
@@ -1188,6 +1309,20 @@ export function TimelineShell({
         />
       )}
 
+
+      {productModalOpen && (
+        <ProductPublishModal
+          isOpen={productModalOpen}
+          onClose={() => setProductModalOpen(false)}
+          onSuccess={(post) => {
+            if (onPostCreated) {
+              onPostCreated(post);
+            } else {
+              onRefresh();
+            }
+          }}
+        />
+      )}
 
       {friendProfileOpen && (
         <FriendCircleProfileModal
