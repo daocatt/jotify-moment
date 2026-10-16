@@ -37,6 +37,7 @@ export async function createPostAction(data: {
   ytVideoId?: string | null;
   embedType?: string | null;
   embedId?: string | null;
+  embedMeta?: Record<string, unknown> | null;
   imageLayout?: "grid" | "carousel" | null;
 }) {
   const user = await getSessionUser();
@@ -84,11 +85,11 @@ export async function createPostAction(data: {
     embedId = data.ytVideoId;
   }
 
-  // Validate embed ID format
-  if (embedType && !embedId) {
+  // Validate embed ID format (product_showcase uses embedMeta directly)
+  if (embedType && !embedId && embedType !== "product_showcase") {
     return { error: "嵌入内容 ID 不能为空" };
   }
-  if (embedType && embedId && !isValidEmbedId(embedType as EmbedType, embedId)) {
+  if (embedType && embedId && embedType !== "product_showcase" && !isValidEmbedId(embedType as EmbedType, embedId)) {
     return { error: "嵌入内容 ID 格式无效" };
   }
 
@@ -108,7 +109,9 @@ export async function createPostAction(data: {
 
     const postId = await generateUniquePostId();
 
-    const initialEmbedMeta = data.imageLayout ? { imageLayout: data.imageLayout } : null;
+    const initialEmbedMeta = data.embedMeta
+      ? { ...data.embedMeta, ...(data.imageLayout ? { imageLayout: data.imageLayout } : {}) }
+      : (data.imageLayout ? { imageLayout: data.imageLayout } : null);
 
     await db.transaction(async (tx) => {
       await tx.insert(posts).values({
@@ -131,7 +134,7 @@ export async function createPostAction(data: {
     // Fetch embed meta (thumbnail + title) in the background so publishing
     // never blocks on external oEmbed APIs. Pages are force-dynamic, so the
     // enrichment is picked up on the next visit.
-    if (embedType && embedId) {
+    if (embedType && embedId && embedType !== "product_showcase") {
       void (async () => {
         try {
           const meta = await fetchEmbedMeta(embedType as EmbedType, embedId);
