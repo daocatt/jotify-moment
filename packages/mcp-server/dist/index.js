@@ -86,6 +86,10 @@ async function resolveMediaInput(input) {
     }
     throw new Error("One of filePath, url, or base64Data must be provided");
 }
+/** 从工具参数里读 biz（外部输入，只接受非空字符串） */
+function readBiz(args) {
+    return typeof args.biz === "string" && args.biz ? args.biz : "moment";
+}
 async function uploadSingleMedia(input, biz = "moment") {
     const { buffer, mimeType, fileName } = await resolveMediaInput(input);
     const rawBytes = new Uint8Array(buffer);
@@ -239,7 +243,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 // Tool Execution Handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+    // arguments 在协议里是可选的（无参工具直接不传），归一成空对象，
+    // 避免下面每个分支都要单独判 undefined。
+    const { name } = request.params;
+    const args = request.params.arguments ?? {};
     try {
         if (name === "jotify_get_profile") {
             const res = await fetchWithRetry(`${BASE_URL}/api/v1/me`, {
@@ -264,7 +271,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
         if (name === "jotify_upload_media") {
-            const media = await uploadSingleMedia(args, args?.biz || "moment");
+            const media = await uploadSingleMedia(args, readBiz(args));
             return {
                 content: [
                     {
@@ -279,7 +286,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
         if (name === "jotify_upload_batch") {
-            const { items, filePaths, biz } = args;
+            const { filePaths } = args;
+            const biz = readBiz(args);
+            const items = Array.isArray(args.items) ? args.items : [];
             const targetItems = [];
             if (Array.isArray(filePaths)) {
                 for (const fp of filePaths)
@@ -297,6 +306,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
             const results = [];
             for (const item of targetItems) {
+                // targetItems 的元素来自参数数组，形状在 uploadSingleMedia 内部已按字段逐个校验
                 const media = await uploadSingleMedia(item, biz || "moment");
                 results.push(media);
             }
@@ -339,8 +349,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
         if (name === "jotify_list_recent_posts") {
-            const limit = args?.limit || 10;
-            const tag = args?.tag ? encodeURIComponent(String(args.tag).replace(/^#/, "")) : "";
+            const limit = typeof args.limit === "number" ? args.limit : 10;
+            const tag = args.tag ? encodeURIComponent(String(args.tag).replace(/^#/, "")) : "";
             const url = `${BASE_URL}/api/v1/posts?limit=${limit}${tag ? `&tag=${tag}` : ""}`;
             const res = await fetchWithRetry(url, {
                 headers: {
@@ -369,9 +379,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
     }
     catch (error) {
+        // 外部异常不保证是 Error 实例（fetch 抛的可能是 DOMException、字符串等），
+        // 因此先收窄再取 message，而不是直接当 any 读属性。
+        const message = error instanceof Error ? error.message : String(error);
         return {
             isError: true,
-            content: [{ type: "text", text: `执行异常: ${error.message || String(error)}` }],
+            content: [{ type: "text", text: `执行异常: ${message}` }],
         };
     }
 });

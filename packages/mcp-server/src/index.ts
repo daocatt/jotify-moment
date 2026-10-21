@@ -25,7 +25,7 @@ async function fetchWithRetry(
   maxRetries = 3,
   timeoutMs = 15000
 ): Promise<Response> {
-  let lastError: any;
+  let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -37,7 +37,7 @@ async function fetchWithRetry(
       });
       clearTimeout(timer);
       return res;
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearTimeout(timer);
       lastError = err;
       if (attempt < maxRetries) {
@@ -110,6 +110,20 @@ async function resolveMediaInput(input: {
   throw new Error("One of filePath, url, or base64Data must be provided");
 }
 
+/**
+ * upload 工具的参数形状。
+ *
+ * MCP SDK 把 arguments 交给我们时类型是 Record<string, unknown>（外部输入，
+ * 结构不受编译期约束），所以在边界处一次断言成本项目已知的两个字段，
+ * 之后函数内部就是强类型，不用在每个函数体里再写 as any。
+ */
+type MediaInputArgs = Parameters<typeof uploadSingleMedia>[0];
+
+/** 从工具参数里读 biz（外部输入，只接受非空字符串） */
+function readBiz(args: Record<string, unknown>): string {
+  return typeof args.biz === "string" && args.biz ? args.biz : "moment";
+}
+
 async function uploadSingleMedia(
   input: {
     filePath?: string;
@@ -135,7 +149,7 @@ async function uploadSingleMedia(
     body: formData,
   });
 
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { success?: boolean; [key: string]: unknown };
   if (!res.ok || !data.success) {
     throw new Error(`Upload failed: ${JSON.stringify(data)}`);
   }
@@ -282,7 +296,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Tool Execution Handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+  // arguments 在协议里是可选的（无参工具直接不传），归一成空对象，
+  // 避免下面每个分支都要单独判 undefined。
+  const { name } = request.params;
+  const args: Record<string, unknown> = request.params.arguments ?? {};
 
   try {
     if (name === "jotify_get_profile") {
@@ -311,7 +328,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "jotify_upload_media") {
-      const media = await uploadSingleMedia(args as any, (args as any)?.biz || "moment");
+      const media = await uploadSingleMedia(args as MediaInputArgs, readBiz(args));
       return {
         content: [
           {
@@ -331,8 +348,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "jotify_upload_batch") {
-      const { items, filePaths, biz } = args as any;
-      const targetItems: any[] = [];
+      const { filePaths } = args;
+      const biz = readBiz(args);
+      const items = Array.isArray(args.items) ? args.items : [];
+      const targetItems: unknown[] = [];
 
       if (Array.isArray(filePaths)) {
         for (const fp of filePaths) targetItems.push({ filePath: fp });
@@ -350,7 +369,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const results = [];
       for (const item of targetItems) {
-        const media = await uploadSingleMedia(item, biz || "moment");
+        // targetItems 的元素来自参数数组，形状在 uploadSingleMedia 内部已按字段逐个校验
+        const media = await uploadSingleMedia(item as MediaInputArgs, biz || "moment");
         results.push(media);
       }
 
@@ -401,8 +421,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "jotify_list_recent_posts") {
-      const limit = (args as any)?.limit || 10;
-      const tag = (args as any)?.tag ? encodeURIComponent(String((args as any).tag).replace(/^#/, "")) : "";
+      const limit = typeof args.limit === "number" ? args.limit : 10;
+      const tag = args.tag ? encodeURIComponent(String(args.tag).replace(/^#/, "")) : "";
       const url = `${BASE_URL}/api/v1/posts?limit=${limit}${tag ? `&tag=${tag}` : ""}`;
 
       const res = await fetchWithRetry(url, {
@@ -433,10 +453,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       isError: true,
       content: [{ type: "text", text: `未知工具: ${name}` }],
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // 外部异常不保证是 Error 实例（fetch 抛的可能是 DOMException、字符串等），
+    // 因此先收窄再取 message，而不是直接当 any 读属性。
+    const message = error instanceof Error ? error.message : String(error);
     return {
       isError: true,
-      content: [{ type: "text", text: `执行异常: ${error.message || String(error)}` }],
+      content: [{ type: "text", text: `执行异常: ${message}` }],
     };
   }
 });
