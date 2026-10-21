@@ -4,9 +4,8 @@ import { users, verificationCodes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
 import { getSessionUser } from "@/lib/auth";
+import { OAUTH_CODE_EXPIRY_MS, OAUTH_CODE_LENGTH } from "@/lib/constants";
 
-const CODE_EXPIRY_MS = 60_000;
-const CODE_LENGTH = 32;
 
 async function validateClient(clientId: string): Promise<boolean> {
   const mainHostEnv = process.env.MAIN_HOST || "";
@@ -64,9 +63,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const code = crypto.randomBytes(CODE_LENGTH).toString("hex");
+  const code = crypto.randomBytes(OAUTH_CODE_LENGTH).toString("hex");
   const codeHash = crypto.createHash("sha256").update(code).digest("hex");
-  const expiresAt = new Date(Date.now() + CODE_EXPIRY_MS);
+  const expiresAt = new Date(Date.now() + OAUTH_CODE_EXPIRY_MS);
 
   await db.insert(verificationCodes).values({
     email: user.email || "",
