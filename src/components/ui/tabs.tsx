@@ -57,8 +57,6 @@ const TabsList = React.forwardRef<
 
     if (!activeTab) return
 
-    const listRect = list.getBoundingClientRect()
-
     if (!animate) {
       const prev = pill.style.transition
       pill.style.transition = "none"

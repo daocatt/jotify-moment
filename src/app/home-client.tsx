@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
 import { getPostsAction, getPinnedPreviewAction } from "@/app/actions/posts";

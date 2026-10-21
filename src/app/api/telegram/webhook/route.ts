@@ -6,7 +6,7 @@ import { getSetting } from "@/lib/settings";
 import { toBuffer } from "@/lib/to-buffer";
 import { eq } from "drizzle-orm";
 import { generateUniquePostId } from "@/app/actions/posts";
-import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink, type EmbedType } from "@/lib/embed-parser";
+import { parseEmbedUrl, isValidEmbedId, resolveBilibiliShortLink } from "@/lib/embed-parser";
 import { fetchLinkOgMeta } from "@/lib/link-meta";
 import { invalidateFeedCache } from "@/lib/feed-cache";
 import { syncPostTags } from "@/lib/post-tags";
