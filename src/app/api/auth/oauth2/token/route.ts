@@ -4,8 +4,6 @@ import { users, verificationCodes, sessions } from "@/db/schema";
 import { and, eq, gt } from "drizzle-orm";
 import crypto from "crypto";
 
-const CODE_EXPIRY_MS = 60_000;
-
 function timingSafeEqual(a: string, b: string): boolean {
   const hashA = crypto.createHash("sha256").update(a).digest();
   const hashB = crypto.createHash("sha256").update(b).digest();
