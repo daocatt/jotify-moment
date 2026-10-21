@@ -6,7 +6,6 @@ import Link from "next/link";
 import { MarkdownContent } from "@/components/markdown-content";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Heart, MessageSquare, Trash2, Smile, Volume2, CheckCircle, AlertCircle, Pin, PinOff, Loader2, Edit2, Eye, EyeOff, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal, Image as ImageIcon, Video, Mic, Square, ChevronRight } from "lucide-react";
@@ -1387,7 +1386,6 @@ function LazyImage({ src, alt }: { src: string; alt: string }) {
   useEffect(() => {
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync with image load state
       setLoaded(true);
     }
   }, []);

@@ -11,7 +11,6 @@ import { getPostByIdAction } from "@/app/actions/posts";
 import { useTheme } from "@/components/theme-provider";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
 import { useOAuthCallback } from "@/lib/use-oauth-callback";
-import { toast } from "sonner";
 
 interface MoClientProps {
   id: string;
