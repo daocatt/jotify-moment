@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { apiTokens, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { apiTokens } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { getSessionUser, type SessionUser } from "@/lib/auth";
 

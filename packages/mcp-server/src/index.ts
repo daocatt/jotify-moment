@@ -6,7 +6,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 
