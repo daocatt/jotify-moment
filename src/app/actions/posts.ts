@@ -403,9 +403,14 @@ export async function updatePostAction(
       }
     }
 
-    const existingMeta = (post.embedMeta && typeof post.embedMeta === "object" ? post.embedMeta : {}) as Record<string, any>;
+    // embedMeta 的契约是 Record<string, unknown>（见文件顶部 ActionData 与 schema 注释），
+    // 这里只做「读 imageLayout、其余原样透传」，不需要也不该给每个键都松成 any。
+    const existingMeta =
+      post.embedMeta && typeof post.embedMeta === "object"
+        ? (post.embedMeta as Record<string, unknown>)
+        : {};
     const targetLayout = imageLayout !== undefined ? imageLayout : existingMeta.imageLayout;
-    const baseEmbedMeta: Record<string, any> = { ...existingMeta };
+    const baseEmbedMeta: Record<string, unknown> = { ...existingMeta };
     if (targetLayout) {
       baseEmbedMeta.imageLayout = targetLayout;
     } else {
@@ -984,6 +989,9 @@ export async function getFriendsCircleAction() {
         sql`${users.lastPostAt} desc nulls last`,
         sql`${users.createdAt} desc nulls last`,
       ],
+      // lastPostAt 只用于上面的 orderBy 排序，不需要回传：
+      // 客户端（FriendUser.lastPostAt）从来没读过它，而它是 Date 对象，
+      // 经 server component → client component 边界后类型与声明不符。
       columns: {
         id: true,
         name: true,
@@ -991,7 +999,6 @@ export async function getFriendsCircleAction() {
         avatar: true,
         bio: true,
         publicHomepage: true,
-        lastPostAt: true,
       },
       limit: 500,
     });

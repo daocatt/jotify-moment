@@ -16,7 +16,7 @@ export default async function PinnedPage() {
     getPinnedPostsAction(),
   ]);
 
-  const initialSuperAdmin = "user" in adminRes && adminRes.user ? (adminRes.user as any) : null;
+  const initialSuperAdmin = "user" in adminRes && adminRes.user ? adminRes.user : null;
   const initialPinnedPosts = "posts" in pinnedRes && pinnedRes.posts ? (pinnedRes.posts as PostData[]) : [];
 
   return (
