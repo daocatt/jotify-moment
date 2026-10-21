@@ -58,6 +58,7 @@ import {
   MessageSquare,
   UserPlus,
   MoreHorizontal,
+  Globe,
 } from "lucide-react";
 import {
   Dialog,
@@ -1366,6 +1367,26 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                     }`}
                                   >
                                     {user.displayPermission ? "已开启" : "已关闭"}
+                                  </span>
+                                </DropdownMenuItem>
+                                {/* 自定义域名与展示权限同为「按用户放行」的开关，
+                                    后端 action 与 handler 早已就位，之前只是没接入 UI，
+                                    只能在「编辑账号」弹窗里逐项勾选才能改。 */}
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleUserCustomDomainPermission(user.id, user.allowCustomDomain)}
+                                  className="flex items-center justify-between gap-2 whitespace-nowrap text-xs"
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    <Globe size={13} /> 自定义域名
+                                  </span>
+                                  <span
+                                    className={`shrink-0 text-[9px] font-medium rounded px-1 py-px leading-none ${
+                                      user.allowCustomDomain
+                                        ? "bg-green-500/10 text-green-600"
+                                        : "bg-zinc-500/10 text-zinc-500"
+                                    }`}
+                                  >
+                                    {user.allowCustomDomain ? "已开启" : "已关闭"}
                                   </span>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
