@@ -1,6 +1,9 @@
 {
   "name": "jotify-moment",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=24.22.1"
+  },
   "private": true,
   "scripts": {
     "predev": "node scripts/scan-themes.js",
@@ -50,7 +53,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
