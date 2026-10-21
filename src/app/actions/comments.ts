@@ -8,8 +8,6 @@ import { revalidatePath } from "next/cache";
 import { RateLimiter } from "@/lib/rate-limit";
 import { invalidateFeedCache } from "@/lib/feed-cache";
 
-const VALID_COMMENT_STATUSES = ["active", "hidden"] as const;
-
 const COMMENT_WRITE_LIMITER = new RateLimiter(30, 60_000);
 
 /**
@@ -69,8 +67,10 @@ export async function toggleCommentVisibilityAction(commentId: string, hide: boo
       return { error: "操作过于频繁，请稍后再试" };
     }
 
+    // hide 是布尔值，两个分支都是字面量，TS 已能推断出 "hidden" | "active"，
+    // 不需要 as 断言；也没有外部字符串能传进来，故无需值域校验。
     const status = hide ? "hidden" : "active";
-    await db.update(comments).set({ status: status as "active" | "hidden" }).where(eq(comments.id, commentId));
+    await db.update(comments).set({ status }).where(eq(comments.id, commentId));
 
     revalidatePath("/");
     invalidateFeedCache();
