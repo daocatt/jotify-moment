@@ -32,7 +32,7 @@ export default async function UserPinnedPage({ params }: { params: Promise<{ slu
   const isCustomDomain = headersList.get("x-custom-domain") === "true";
   const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
-  const initialUser = "user" in userRes && userRes.user ? (userRes.user as any) : null;
+  const initialUser = "user" in userRes && userRes.user ? userRes.user : null;
   const initialPinnedPosts =
     "posts" in pinnedRes && pinnedRes.posts
       ? (pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[])

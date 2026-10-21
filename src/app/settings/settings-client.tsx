@@ -81,9 +81,28 @@ function TokensSettingsPanel() {
     }
   }, []);
 
+  /*
+    首屏那一次不要走 fetchTokens：它同步调 setLoading(true)，
+    而 loading 的初始值本来就是 true —— 这次 setState 不产生任何状态变化，
+    却会让 React 记一次级联渲染（react-hooks/set-state-in-effect）。
+    这里直接取数，只在拿到结果后写状态。
+  */
   useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
+    let cancelled = false;
+    (async () => {
+      const res = await getApiTokensAction();
+      if (cancelled) return;
+      if (res.success && res.tokens) {
+        setTokens(res.tokens);
+      } else if (res.error) {
+        toast.error(res.error);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

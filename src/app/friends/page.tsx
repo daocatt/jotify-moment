@@ -16,7 +16,7 @@ export default async function FriendsPage() {
     getFriendsCircleAction(),
   ]);
 
-  const initialFriends = "users" in friendsRes && friendsRes.users ? (friendsRes.users as any) : [];
+  const initialFriends = "users" in friendsRes && friendsRes.users ? friendsRes.users : [];
 
   return (
     <FriendsClient

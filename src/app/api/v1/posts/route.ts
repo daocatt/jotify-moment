@@ -54,9 +54,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "发帖过于频繁，请稍后再试 (Rate limit exceeded)" }, { status: 429 });
     }
 
-    let body: any;
+    // 请求体来自外部，字段一律逐项校验，所以这里只声明「可能是任意结构」，
+    // 不写 any：用 unknown 强制下面每一处都先做 typeof 收窄。
+    let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      const parsed: unknown = await req.json();
+      if (!parsed || typeof parsed !== "object") {
+        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      }
+      body = parsed as Record<string, unknown>;
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }

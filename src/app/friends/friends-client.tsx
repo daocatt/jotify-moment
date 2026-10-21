@@ -14,7 +14,6 @@ interface FriendUser {
   avatar: string | null;
   bio: string | null;
   publicHomepage: boolean;
-  lastPostAt: string | null;
 }
 
 interface SiteProfile {
