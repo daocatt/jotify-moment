@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSiteFcProfile } from "@/lib/settings";
-import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
+import { type HomeHeaderProfile } from "@/lib/site-profile";
 import { getPostsByTagAction } from "@/app/actions/posts";
 import { TagClient } from "./tag-client";
 import type { PostData } from "@/components/timeline-shell";

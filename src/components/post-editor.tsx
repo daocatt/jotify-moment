@@ -252,7 +252,7 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
           return prev + 1;
         });
       }, 1000);
-    } catch (error) {
+    } catch {
       toast.error("获取麦克风权限失败，无法录音");
     }
   };

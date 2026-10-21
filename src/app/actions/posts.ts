@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { posts, comments, reactions, users, userPinned, postTags } from "@/db/schema";
 import { eq, and, or, desc, asc, lt, isNotNull, isNull, count, inArray, ne, sql } from "drizzle-orm";
-import { getSessionUser, ensureUserSlug } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { isValidEmbedId, resolveBilibiliShortLink, parseEmbedUrl, type EmbedType } from "@/lib/embed-parser";
 import { deleteMediaFiles, isAllowedMediaUrl } from "@/lib/storage";

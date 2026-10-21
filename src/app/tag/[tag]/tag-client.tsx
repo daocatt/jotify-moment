@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import Link from "next/link";
 import { TimelineShell, type PostData } from "@/components/timeline-shell";
 import { getPostsByTagAction } from "@/app/actions/posts";
-import { ArrowLeft, Hash } from "lucide-react";
 import type { HomeHeaderProfile } from "@/lib/site-profile";
 
 export function TagClient({
