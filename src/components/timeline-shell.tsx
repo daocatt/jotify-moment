@@ -12,6 +12,7 @@ const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lig
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
 const ProductPublishModal = dynamic(() => import("@/components/product-publish-modal").then((m) => m.ProductPublishModal), { ssr: false });
 import { MomentDetailDrawer } from "@/components/moment-detail-drawer";
+import { PortfolioDrawer } from "@/components/portfolio-drawer";
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { searchPostsAction, type PostSearchResult } from "@/app/actions/posts";
 import { resolveThemeConfig } from "@/lib/theme-resolver";
@@ -19,7 +20,7 @@ import { useOAuthCallback } from "@/lib/use-oauth-callback";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users, Search, X, Loader2, Rocket, Plus, Pin } from "lucide-react";
+import { LogOut, Shield, Moon, Sun, ArrowLeft, Pen, Link, CircleUserRound, Info, Globe, ChevronDown, Users, Search, X, Loader2, Rocket } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -186,15 +187,16 @@ export function TimelineShell({
   const [searching, setSearching] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // PC Detail Drawer state
+  // PC Detail Drawer & Portfolio Drawer state
   const [drawerPostId, setDrawerPostId] = useState<string | null>(null);
   const [drawerPost, setDrawerPost] = useState<MomentPostProps["post"] | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [profileTab, setProfileTab] = useState<"all" | "products" | "pinned">("all");
 
   const handleOpenDetail = useCallback((postId: string, postData?: MomentPostProps["post"] | null) => {
     const target = postData || posts.find((p) => p.id === postId) || null;
+    setPortfolioOpen(false);
     setDrawerPostId(postId);
     setDrawerPost(target);
     setIsDrawerOpen(true);
@@ -231,8 +233,12 @@ export function TimelineShell({
       setDrawerPostId(null);
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isDrawerOpen) {
-        handleCloseDrawer();
+      if (e.key === "Escape") {
+        if (isDrawerOpen) {
+          handleCloseDrawer();
+        } else if (portfolioOpen) {
+          setPortfolioOpen(false);
+        }
       }
     };
     window.addEventListener("popstate", onPopState);
@@ -241,23 +247,13 @@ export function TimelineShell({
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isDrawerOpen, handleCloseDrawer]);
+  }, [isDrawerOpen, portfolioOpen, handleCloseDrawer]);
 
-  // Personal profile tabs filtering
+  // Personal portfolio items filtering
   const userProducts = useMemo(
     () => posts.filter((p) => p.embedType === "product_showcase"),
     [posts]
   );
-  const userPinned = useMemo(
-    () => posts.filter((p) => p.profilePinned || p.pinnedAt),
-    [posts]
-  );
-  const displayPosts = useMemo(() => {
-    if (!isUserHomePage) return posts;
-    if (profileTab === "products") return userProducts;
-    if (profileTab === "pinned") return userPinned;
-    return posts;
-  }, [isUserHomePage, profileTab, posts, userProducts, userPinned]);
   // A personal homepage searches only the page owner's posts; the main feed,
   // tag, pinned and friends pages keep the global search.
   const searchScope = isUserHomePage ? profileUser.slug ?? undefined : undefined;
@@ -616,6 +612,20 @@ export function TimelineShell({
   };
 
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
+  const showPortfolioEntry = !hidden && (userProducts.length > 0 || (isUserHomePage && isOwnPage));
+  const isSidePanelOpen = isDrawerOpen || portfolioOpen;
+
+  const togglePortfolio = () => {
+    setPortfolioOpen((v) => {
+      const next = !v;
+      if (next && isDrawerOpen) {
+        setIsDrawerOpen(false);
+        setDrawerPostId(null);
+      }
+      return next;
+    });
+  };
+
   const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
   const menuBtnBase = "inline-flex items-center justify-center h-8 rounded-lg px-3 text-xs font-medium gap-1 whitespace-nowrap select-none outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring";
   const menuBtnClass = `${menuBtnBase} ${
@@ -637,12 +647,12 @@ export function TimelineShell({
     <div className="w-full min-h-screen flex justify-center items-start overflow-x-clip relative">
       <div
         className={`w-full flex justify-center items-start transition-all duration-300 ease-out px-0 sm:px-4 ${
-          isDrawerOpen ? "lg:gap-5 xl:gap-6" : ""
+          isSidePanelOpen ? "lg:gap-5 xl:gap-6" : ""
         }`}
       >
         <main
           className={`w-full max-w-xl bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible transition-all duration-300 ease-out shrink-0 ${
-            isDrawerOpen ? "" : "mx-auto"
+            isSidePanelOpen ? "" : "mx-auto"
           }`}
         >
 
@@ -931,6 +941,38 @@ export function TimelineShell({
             className={`w-full h-full object-cover transition-all duration-500 ${coverLoaded ? (coverExpanded ? "opacity-30 blur-sm scale-105" : "opacity-85") : "opacity-0"}`}
           />
 
+          {/* Bottom-left: Portfolio floating entry (hidden when cover expanded) */}
+          {showPortfolioEntry && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute bottom-3.5 left-4 z-20 transition-all duration-300 ${
+                coverExpanded ? "opacity-0 translate-y-2 pointer-events-none" : "opacity-100 translate-y-0"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={togglePortfolio}
+                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium select-none outline-none transition-all cursor-pointer backdrop-blur-sm shadow-xs ${
+                  portfolioOpen
+                    ? "bg-orange-500 text-white border border-orange-400"
+                    : "text-white hover:bg-white/20 hover:text-white bg-black/25 border border-white/10"
+                }`}
+              >
+                <Rocket size={13} className={portfolioOpen ? "text-white" : "text-orange-400"} />
+                <span>作品集</span>
+                {userProducts.length > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-semibold leading-tight ${
+                      portfolioOpen ? "bg-white/25 text-white" : "bg-white/15 text-white/90"
+                    }`}
+                  >
+                    {userProducts.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Default state: name + avatar (hidden when expanded) */}
           <div className={`absolute bottom-4 right-[calc(1rem+4rem+0.75rem)] sm:right-[calc(1rem+5rem+0.75rem)] z-10 text-right select-none transition-all duration-300 ${coverExpanded ? "opacity-0 translate-y-2 pointer-events-none" : "opacity-100 translate-y-0"}`}>
             <h2 className="font-bold text-lg sm:text-xl text-white drop-shadow-md leading-tight">
@@ -1051,12 +1093,33 @@ export function TimelineShell({
       ) : (
         /* Minimal layout if cover is hidden (like WeChat, where avatar & name is placed inside a clean header) */
         <div className="w-full pt-16 px-4 pb-4 flex justify-between items-end border-b border-border bg-card">
-          <div className="space-y-1 text-left flex-1 min-w-0 pr-4">
+          <div className="space-y-1.5 text-left flex-1 min-w-0 pr-4">
             <h2 className="font-bold text-xl text-foreground leading-tight truncate">
               {profileUser.name}
             </h2>
             {resolvedTheme.features.showBio && profileUser.bio && (
               <p className="text-xs text-muted-foreground break-words leading-relaxed max-w-sm">{profileUser.bio}</p>
+            )}
+            {showPortfolioEntry && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={togglePortfolio}
+                  className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium select-none outline-none transition-all cursor-pointer border ${
+                    portfolioOpen
+                      ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30"
+                      : "bg-muted/60 hover:bg-muted text-foreground border-border/80"
+                  }`}
+                >
+                  <Rocket size={12} className="text-orange-500" />
+                  <span>作品集</span>
+                  {userProducts.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      {userProducts.length}
+                    </span>
+                  )}
+                </button>
+              </div>
             )}
           </div>
           <button
@@ -1102,50 +1165,7 @@ export function TimelineShell({
         </div>
       )}
 
-      {!hidden && isUserHomePage ? (
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/60 bg-muted/20 select-none">
-          <button
-            type="button"
-            onClick={() => setProfileTab("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-              profileTab === "all"
-                ? "bg-background text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-            }`}
-          >
-            全部动态 ({posts.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setProfileTab("products")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-              profileTab === "products"
-                ? "bg-background text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-            }`}
-          >
-            <Rocket size={13} className={profileTab === "products" ? "text-orange-500" : ""} />
-            作品与助理 ({userProducts.length})
-          </button>
-          {pinnedEntry && (
-            <button
-              type="button"
-              onClick={() => setProfileTab("pinned")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                profileTab === "pinned"
-                  ? "bg-background text-foreground shadow-xs border border-border/80"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              <Pin size={13} className={profileTab === "pinned" ? "text-primary" : ""} />
-              置顶精选 ({userPinned.length})
-            </button>
-          )}
-        </div>
-      ) : null}
-
-      {!hidden && !isUserHomePage && pinnedEntry}
-      {!hidden && isUserHomePage && profileTab === "all" && pinnedEntry}
+      {!hidden && pinnedEntry}
 
       {children ? (
         <div className="flex-1 pb-56">{children}</div>
@@ -1155,27 +1175,7 @@ export function TimelineShell({
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
             <span className="text-sm">本帐号已悄悄隐身</span>
           </div>
-        ) : isUserHomePage && profileTab === "products" && userProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <div className="size-14 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3 shadow-xs">
-              <Rocket size={24} />
-            </div>
-            <h3 className="text-sm font-medium text-foreground">暂无发布的作品或 AI 助理</h3>
-            <p className="text-xs text-muted-foreground max-w-xs mt-1 leading-relaxed">
-              这里将展示作者敏捷孵化的 Vibe Coding 项目、独立产品或 AI Agent。
-            </p>
-            {isOwnPage && (
-              <Button
-                size="sm"
-                onClick={() => setProductModalOpen(true)}
-                className="mt-4 h-8 text-xs rounded-lg gap-1.5"
-              >
-                <Plus size={13} />
-                发布第一个作品 / AI 助理
-              </Button>
-            )}
-          </div>
-        ) : displayPosts.length === 0 && loadingPosts ? (
+        ) : posts.length === 0 && loadingPosts ? (
           <>
             {[...Array(4)].map((_, i) => (
               <div key={i} className="animate-pulse flex gap-4 p-4">
@@ -1189,7 +1189,7 @@ export function TimelineShell({
               </div>
             ))}
           </>
-        ) : displayPosts.length === 0 ? (
+        ) : posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <div className="size-14 rounded-2xl bg-muted/60 border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5 shadow-xs">
               <Pen className="size-6 text-muted-foreground/70" strokeWidth={1.75} />
@@ -1234,7 +1234,7 @@ export function TimelineShell({
               </div>
             )}
             <div className="t-skel-content divide-y divide-border/60">
-              {displayPosts.map((post) => (
+              {posts.map((post) => (
                 <MomentPost
                   key={post.id}
                   post={post}
@@ -1273,6 +1273,23 @@ export function TimelineShell({
       </div>
       )}
         </main>
+
+        <PortfolioDrawer
+          isOpen={portfolioOpen}
+          products={userProducts}
+          ownerName={profileUser.name}
+          isOwnPage={isOwnPage}
+          onClose={() => setPortfolioOpen(false)}
+          onPublishProduct={() => setProductModalOpen(true)}
+          onSelectPost={(post) => {
+            setPortfolioOpen(false);
+            if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+              handleOpenDetail(post.id, post);
+            } else {
+              router.push(`/mo/${post.id}`);
+            }
+          }}
+        />
 
         <MomentDetailDrawer
           isOpen={isDrawerOpen}
