@@ -120,7 +120,7 @@ export function PortfolioDrawer({
           transition: "transform 320ms cubic-bezier(0.32,0.72,0,1), opacity 320ms ease-out",
           willChange: "transform",
         }}
-        className={`hidden lg:flex flex-col fixed top-6 right-0 z-40 w-[480px] xl:w-[540px] max-h-[calc(100vh-1.5rem)] bg-card border-y border-l border-border shadow-2xl rounded-l-xl overflow-hidden ${
+        className={`hidden lg:flex flex-col fixed top-6 right-[max(0px,calc((100vw-var(--detail-column-width,576px))/2-var(--detail-gutter,16px)))] z-40 w-[480px] xl:w-[540px] max-h-[calc(100vh-1.5rem)] bg-card border-y border-l border-border shadow-2xl rounded-l-xl overflow-hidden ${
           visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       >
