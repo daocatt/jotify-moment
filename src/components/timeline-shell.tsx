@@ -712,7 +712,9 @@ export function TimelineShell({
       // The shift leaves the widest panel (580px) fully clear, and never pushes
       // the column so far that the panel would overlap its right edge on narrow
       // desktops. The portfolio panel is 40px narrower and shares this shift.
-      className="[--detail-shift:max(calc(-260px-2rem),calc(304px-50vw))] lg:[--detail-shift:max(calc(-260px-2.5rem),calc(304px-50vw))] xl:[--detail-shift:max(calc(-290px-3rem),calc(304px-50vw))] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
+      // --detail-column-width / --detail-gutter let the portalled panels anchor
+      // their right edge to the column's edge rather than the viewport's.
+      className="[--detail-column-width:576px] [--detail-gutter:16px] lg:[--detail-gutter:32px] [--detail-shift:max(calc(-260px-2rem),calc(304px-50vw))] lg:[--detail-shift:max(calc(-260px-2.5rem),calc(304px-50vw))] xl:[--detail-shift:max(calc(-290px-3rem),calc(304px-50vw))] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
     >
       <div
         className={`w-full flex justify-center items-start transition-[gap,padding] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] px-0 sm:px-4 ${
