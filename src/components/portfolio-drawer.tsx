@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { PanelRightClose, X, Rocket, Plus, MessageSquare, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePresence } from "@/lib/use-presence";
 import { ProductCard, type ProductShowcaseMeta } from "@/components/product-card";
 import type { PostData } from "@/components/timeline-shell";
 import { formatDistanceToNow } from "date-fns";
@@ -26,7 +29,16 @@ export function PortfolioDrawer({
   onPublishProduct,
   onSelectPost,
 }: PortfolioDrawerProps) {
-  if (!isOpen) return null;
+  // Portalled for the same reason as the details drawer: the sliding transform
+  // must not be part of the timeline column's layout.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- portal needs a DOM target, unavailable during SSR
+    setPortalReady(true);
+  }, []);
+
+  const { mounted, visible, onTransitionEnd } = usePresence(isOpen, 340);
+  if (!portalReady || !mounted) return null;
 
   const renderContent = () => {
     if (products.length === 0) {
@@ -96,12 +108,21 @@ export function PortfolioDrawer({
     );
   };
 
-  return (
+  return createPortal(
     <>
       {/* Desktop Side Drawer (lg and above) */}
       <aside
         aria-label="作品集抽屉"
-        className="hidden lg:flex flex-col w-[480px] xl:w-[540px] bg-card border-x border-border shadow-2xl sm:mt-6 sm:rounded-t-xl sm:border-t min-h-[calc(100vh-1.5rem)] sticky top-6 max-h-[calc(100vh-1.5rem)] overflow-hidden transition-all duration-300 ease-out z-10 shrink-0"
+        aria-hidden={!visible}
+        onTransitionEnd={onTransitionEnd}
+        style={{
+          transform: visible ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 320ms cubic-bezier(0.32,0.72,0,1), opacity 320ms ease-out",
+          willChange: "transform",
+        }}
+        className={`hidden lg:flex flex-col fixed top-6 right-0 z-40 w-[480px] xl:w-[540px] max-h-[calc(100vh-1.5rem)] bg-card border-y border-l border-border shadow-2xl rounded-l-xl overflow-hidden ${
+          visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 sticky top-0 bg-background/85 backdrop-blur-md z-20 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -157,10 +178,13 @@ export function PortfolioDrawer({
 
       {/* Mobile Bottom Sheet Drawer (below lg) */}
       <div
-        className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/50 backdrop-blur-xs"
+        className={`fixed inset-0 z-50 lg:hidden flex flex-col justify-end transition-all duration-[300ms] ease-out ${
+          visible ? "bg-black/50 backdrop-blur-xs opacity-100" : "bg-black/0 opacity-0 pointer-events-none"
+        }`}
         onClick={onClose}
       >
         <div
+          style={{ transition: "transform 300ms cubic-bezier(0.32,0.72,0,1)", transform: visible ? "translateY(0)" : "translateY(100%)" }}
           className="w-full max-h-[85vh] bg-card rounded-t-2xl border-t border-border shadow-2xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
@@ -202,6 +226,7 @@ export function PortfolioDrawer({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
