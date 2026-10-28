@@ -109,10 +109,9 @@ export function MomentDetailDrawer({
       // `translate` property here, which would not transition together with
       // the inset computed for each breakpoint.
       style={{ transform: visible ? "translateX(0)" : "translateX(100%)", willChange: "transform" }}
-      // Pinned to the right edge of the main column instead of the viewport, so
-      // the panel always sits flush beside the content. --detail-gutter mirrors
-      // the 1rem/2rem padding of the column's flex row in timeline-shell.
-      className={`hidden lg:flex flex-col fixed top-6 right-[max(0px,calc((100vw-var(--detail-column-width,576px))/2-var(--detail-gutter,16px)))] z-40 w-[520px] xl:w-[580px] max-h-[calc(100vh-1.5rem)] bg-card border-y border-l border-border shadow-2xl rounded-l-xl overflow-hidden transition-[transform,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
+      // Pinned beside the right edge of the main column with a consistent gap,
+      // never overlapping the timeline and never detached on ultra-wide screens.
+      className={`hidden lg:flex flex-col fixed top-6 left-[max(612px,calc(50vw+8px))] xl:left-[max(616px,calc(50vw-26px))] z-40 w-[520px] xl:w-[580px] max-h-[calc(100vh-1.5rem)] bg-card border border-border shadow-2xl rounded-xl overflow-hidden transition-[transform,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
         visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
     >
