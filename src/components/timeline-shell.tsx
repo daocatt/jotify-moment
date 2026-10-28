@@ -679,6 +679,8 @@ export function TimelineShell({
   const showPortfolioEntry = !hidden && (userProducts.length > 0 || (isUserHomePage && isOwnPage));
   // The mobile sheet overlays the timeline, so only the desktop drawer reflows it.
   const isDesktopDetailOpen = isDetailOpen && detailIsDesktop;
+  // Both panels are fixed to the viewport edge, and both use the details shift
+  // so the column moves by exactly the same amount whichever one opens.
   const isSidePanelOpen = isDesktopDetailOpen || portfolioOpen;
 
   const togglePortfolio = () => {
@@ -707,6 +709,9 @@ export function TimelineShell({
 
   return (
     <div
+      // The shift leaves the widest panel (580px) fully clear, and never pushes
+      // the column so far that the panel would overlap its right edge on narrow
+      // desktops. The portfolio panel is 40px narrower and shares this shift.
       className="[--detail-shift:max(calc(-260px-2rem),calc(304px-50vw))] lg:[--detail-shift:max(calc(-260px-2.5rem),calc(304px-50vw))] xl:[--detail-shift:max(calc(-290px-3rem),calc(304px-50vw))] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
     >
       <div
@@ -721,7 +726,7 @@ export function TimelineShell({
           // The details panel is fixed to the viewport, so the column slides out
           // from under it instead of being squeezed by its width.
           style={{
-            transform: isDesktopDetailOpen ? "translateX(var(--detail-shift))" : "translateX(0)",
+            transform: isSidePanelOpen ? "translateX(var(--detail-shift))" : "translateX(0)",
             transition: "transform 320ms cubic-bezier(0.32,0.72,0,1)",
           }}
         >
