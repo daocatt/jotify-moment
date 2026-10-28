@@ -12,6 +12,7 @@ const Lightbox = dynamic(() => import("@/components/lightbox").then((m) => m.Lig
 const FriendCircleProfileModal = dynamic(() => import("@/components/friend-circle-profile-modal").then((m) => m.FriendCircleProfileModal), { ssr: false });
 const ProductPublishModal = dynamic(() => import("@/components/product-publish-modal").then((m) => m.ProductPublishModal), { ssr: false });
 import { MomentDetailDrawer } from "@/components/moment-detail-drawer";
+import { MomentDetailSheet } from "@/components/moment-detail-sheet";
 import { PortfolioDrawer } from "@/components/portfolio-drawer";
 import { getPublicSettingsAction } from "@/app/actions/admin";
 import { searchPostsAction, type PostSearchResult } from "@/app/actions/posts";
@@ -190,51 +191,114 @@ export function TimelineShell({
   // PC Detail Drawer & Portfolio Drawer state
   const [drawerPostId, setDrawerPostId] = useState<string | null>(null);
   const [drawerPost, setDrawerPost] = useState<MomentPostProps["post"] | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  // Which surface hosts the open detail. Latched on open so a resize mid-exit
+  // cannot hand the animation over to the other component.
+  const [detailIsDesktop, setDetailIsDesktop] = useState(true);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
+
+  // History entries opened by the details panel. The panel outlives the URL, so
+  // "closing" only flips the state — the mount node is kept for the exit
+  // transition, and the browser history is unwound once that transition ends.
+  const returnUrlRef = useRef<string | null>(null);
+  // Original timeline document.title before entering the detail panel.
+  const savedTitleRef = useRef<string | null>(null);
+
+  // Desktop docks the detail beside the timeline; mobile slides it up as a sheet.
+  // Both intercept the link so the address bar updates in place — the detail
+  // panel outlives the URL change and history is unwound after its exit animation.
+  const isDesktopDetail = () => typeof window === "undefined" || window.innerWidth >= 1024;
 
   const handleOpenDetail = useCallback((postId: string, postData?: MomentPostProps["post"] | null) => {
     const target = postData || posts.find((p) => p.id === postId) || null;
     setPortfolioOpen(false);
     setDrawerPostId(postId);
     setDrawerPost(target);
-    setIsDrawerOpen(true);
+    setIsDetailOpen(true);
+    setDetailIsDesktop(isDesktopDetail());
 
     if (typeof window !== "undefined") {
+      const alreadyInDrawer = Boolean(window.history.state?.drawer);
       const currentUrl = window.location.pathname + window.location.search;
-      window.history.pushState({ drawer: postId, returnUrl: currentUrl }, "", `/mo/${postId}`);
+      const baseReturnUrl = alreadyInDrawer
+        ? (returnUrlRef.current ?? window.history.state?.returnUrl ?? currentUrl)
+        : currentUrl;
+      const baseTitle = alreadyInDrawer
+        ? (savedTitleRef.current ?? window.history.state?.title ?? document.title)
+        : document.title;
+
+      returnUrlRef.current = baseReturnUrl;
+      savedTitleRef.current = baseTitle;
+
+      const nextState = { drawer: postId, returnUrl: baseReturnUrl, title: baseTitle };
+      if (alreadyInDrawer) {
+        window.history.replaceState(nextState, "", `/mo/${postId}`);
+      } else {
+        // Stamp our own entry too, so a later browser back still knows what to restore.
+        window.history.replaceState({ ...window.history.state, title: baseTitle }, "");
+        window.history.pushState(nextState, "", `/mo/${postId}`);
+      }
+      // Next never renders this route, so keep the tab title in step with the URL.
+      const author = target?.user?.name;
+      document.title = author ? `${author} 的 Moment` : "日志详情";
     }
   }, [posts]);
 
   const userSlug = profileUser.slug;
   const handleCloseDrawer = useCallback(() => {
-    setIsDrawerOpen(false);
-    setDrawerPostId(null);
+    setIsDetailOpen(false);
+  }, []);
 
-    if (typeof window !== "undefined") {
-      if (window.history.state && window.history.state.drawer) {
-        window.history.back();
-      } else {
-        const returnUrl = window.history.state?.returnUrl;
-        if (returnUrl) {
-          window.history.replaceState(null, "", returnUrl);
-        } else {
-          const fallback = isUserHomePage && userSlug ? `/u/${userSlug}` : "/";
-          window.history.replaceState(null, "", fallback);
-        }
+  // Runs after the exit transition. Pops our own entry so back/forward stays
+  // coherent; a foreign entry (e.g. the browser already went back) is left alone.
+  const handleDetailExited = useCallback(() => {
+    setDrawerPostId(null);
+    if (typeof window === "undefined") return;
+
+    const titleToRestore =
+      savedTitleRef.current ??
+      (typeof window.history.state?.title === "string" ? window.history.state.title : null);
+    savedTitleRef.current = null;
+
+    if (window.history.state?.drawer) {
+      returnUrlRef.current = null;
+      window.history.back();
+      if (titleToRestore !== null) {
+        document.title = titleToRestore;
       }
+      return;
+    }
+
+    if (titleToRestore !== null) {
+      document.title = titleToRestore;
+    }
+
+    const returnUrl = returnUrlRef.current || window.history.state?.returnUrl;
+    returnUrlRef.current = null;
+    if (window.location.pathname.startsWith("/mo/")) {
+      const fallback = isUserHomePage && userSlug ? `/u/${userSlug}` : "/";
+      window.history.replaceState(window.history.state, "", returnUrl || fallback);
     }
   }, [isUserHomePage, userSlug]);
 
   useEffect(() => {
     const onPopState = () => {
-      setIsDrawerOpen(false);
-      setDrawerPostId(null);
+      // Close through the state machine so the exit transition plays; the post
+      // id is cleared by onAfterClose once the animation settles.
+      setIsDetailOpen((open) => {
+        if (open) {
+          const popped = window.history.state;
+          if (popped && !popped.drawer && typeof popped.title === "string") {
+            savedTitleRef.current = popped.title;
+          }
+        }
+        return false;
+      });
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isDrawerOpen) {
+        if (isDetailOpen) {
           handleCloseDrawer();
         } else if (portfolioOpen) {
           setPortfolioOpen(false);
@@ -247,7 +311,7 @@ export function TimelineShell({
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isDrawerOpen, portfolioOpen, handleCloseDrawer]);
+  }, [isDetailOpen, portfolioOpen, handleCloseDrawer]);
 
   // Personal portfolio items filtering
   const userProducts = useMemo(
@@ -613,17 +677,17 @@ export function TimelineShell({
 
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
   const showPortfolioEntry = !hidden && (userProducts.length > 0 || (isUserHomePage && isOwnPage));
-  const isSidePanelOpen = isDrawerOpen || portfolioOpen;
+  // The mobile sheet overlays the timeline, so only the desktop drawer reflows it.
+  const isDesktopDetailOpen = isDetailOpen && detailIsDesktop;
+  // Both panels are fixed to the viewport edge, and both use the details shift
+  // so the column moves by exactly the same amount whichever one opens.
+  const isSidePanelOpen = isDesktopDetailOpen || portfolioOpen;
 
   const togglePortfolio = () => {
-    setPortfolioOpen((v) => {
-      const next = !v;
-      if (next && isDrawerOpen) {
-        setIsDrawerOpen(false);
-        setDrawerPostId(null);
-      }
-      return next;
-    });
+    if (!portfolioOpen && isDetailOpen) {
+      handleCloseDrawer();
+    }
+    setPortfolioOpen((v) => !v);
   };
 
   const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
@@ -644,16 +708,27 @@ export function TimelineShell({
   }`;
 
   return (
-    <div className="w-full min-h-screen flex justify-center items-start overflow-x-clip relative">
+    <div
+      // The shift leaves the widest panel (580px) fully clear, and never pushes
+      // the column so far that the panel would overlap its right edge on narrow
+      // desktops. The portfolio panel is 40px narrower and shares this shift.
+      className="[--detail-shift:max(calc(-260px-2rem),calc(304px-50vw))] lg:[--detail-shift:max(calc(-260px-2.5rem),calc(304px-50vw))] xl:[--detail-shift:max(calc(-290px-3rem),calc(304px-50vw))] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
+    >
       <div
-        className={`w-full flex justify-center items-start transition-all duration-300 ease-out px-0 sm:px-4 ${
+        className={`w-full flex justify-center items-start transition-[gap,padding] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] px-0 sm:px-4 ${
           isSidePanelOpen ? "lg:gap-5 xl:gap-6" : ""
         }`}
       >
         <main
-          className={`w-full max-w-xl bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible transition-all duration-300 ease-out shrink-0 ${
-            isSidePanelOpen ? "" : "mx-auto"
+          className={`w-full max-w-xl bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible shrink-0 ${
+            portfolioOpen ? "" : "mx-auto"
           }`}
+          // The details panel is fixed to the viewport, so the column slides out
+          // from under it instead of being squeezed by its width.
+          style={{
+            transform: isSidePanelOpen ? "translateX(var(--detail-shift))" : "translateX(0)",
+            transition: "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+          }}
         >
 
       {/* Top-left: additional links area (back / friends-circle / brand) */}
@@ -1283,27 +1358,36 @@ export function TimelineShell({
           onPublishProduct={() => setProductModalOpen(true)}
           onSelectPost={(post) => {
             setPortfolioOpen(false);
-            if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-              handleOpenDetail(post.id, post);
-            } else {
-              router.push(`/mo/${post.id}`);
-            }
+            handleOpenDetail(post.id, post);
           }}
         />
 
         <MomentDetailDrawer
-          isOpen={isDrawerOpen}
+          isOpen={isDetailOpen && detailIsDesktop}
           postId={drawerPostId}
           initialPost={drawerPost}
           currentUser={currentUser}
           isCustomDomain={isCustomDomain}
           mainHost={mainHost}
           onClose={handleCloseDrawer}
+          onAfterClose={handleDetailExited}
           onRefreshParent={onRefresh}
           onOpenLightbox={openLightbox}
           onRequireLogin={handleLoginClick}
         />
       </div>
+
+      <MomentDetailSheet
+        isOpen={isDetailOpen && !detailIsDesktop}
+        postId={drawerPostId}
+        initialPost={drawerPost}
+        currentUser={currentUser}
+        onClose={handleCloseDrawer}
+        onAfterClose={handleDetailExited}
+        onRefreshParent={onRefresh}
+        onOpenLightbox={openLightbox}
+        onRequireLogin={handleLoginClick}
+      />
 
       {authModalOpen && (
         <AuthModals

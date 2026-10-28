@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { usePresence } from "@/lib/use-presence";
 import { PanelRightClose, X, ExternalLink, Link2, Check, Loader2 } from "lucide-react";
 import { MomentPost, type MomentPostProps } from "@/components/moment-post";
 import { getPostByIdAction } from "@/app/actions/posts";
@@ -14,6 +16,8 @@ export interface MomentDetailDrawerProps {
   isCustomDomain?: boolean;
   mainHost?: string;
   onClose: () => void;
+  /** Fired once the exit transition finishes — used to unmount and unwind history. */
+  onAfterClose?: () => void;
   onRefreshParent: () => void;
   onOpenLightbox: (images: string[], index: number) => void;
   onRequireLogin?: () => void;
@@ -25,6 +29,7 @@ export function MomentDetailDrawer({
   initialPost,
   currentUser,
   onClose,
+  onAfterClose,
   onRefreshParent,
   onOpenLightbox,
   onRequireLogin,
@@ -34,6 +39,17 @@ export function MomentDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // The drawer is portalled to <body> so its enter/exit transform never affects
+  // the parent layout — the timeline column shifts via its own transform instead.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- portal needs a DOM target, unavailable during SSR
+    setPortalReady(true);
+  }, []);
+
+  const presenceOpen = isOpen && !!postId;
+  const { mounted, visible, onTransitionEnd } = usePresence(presenceOpen, 340, onAfterClose);
 
   const fetchPost = useCallback(async (id: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -82,15 +98,19 @@ export function MomentDetailDrawer({
     }
   }, [postId]);
 
-  if (!isOpen && !postId) return null;
+  if (!portalReady || !mounted) return null;
 
-  return (
+  return createPortal(
     <aside
       aria-label="动态详情抽屉"
-      className={`hidden lg:flex flex-col w-[520px] xl:w-[580px] bg-card border-x border-border shadow-2xl sm:mt-6 sm:rounded-t-xl sm:border-t min-h-[calc(100vh-1.5rem)] sticky top-6 max-h-[calc(100vh-1.5rem)] overflow-hidden transition-all duration-300 ease-out z-10 shrink-0 ${
-        isOpen && postId
-          ? "opacity-100 translate-x-0 pointer-events-auto"
-          : "opacity-0 -translate-x-8 pointer-events-none w-0 !m-0 !p-0 border-none overflow-hidden"
+      aria-hidden={!visible}
+      onTransitionEnd={onTransitionEnd}
+      // Inline transform: Tailwind's translate utilities are compiled to the
+      // `translate` property here, which would not transition together with
+      // the inset computed for each breakpoint.
+      style={{ transform: visible ? "translateX(0)" : "translateX(100%)", willChange: "transform" }}
+      className={`hidden lg:flex flex-col fixed top-6 right-0 z-40 w-[520px] xl:w-[580px] max-h-[calc(100vh-1.5rem)] bg-card border-y border-l border-border shadow-2xl rounded-l-xl overflow-hidden transition-[transform,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
     >
       {/* Header Bar */}
@@ -99,6 +119,7 @@ export function MomentDetailDrawer({
           <button
             type="button"
             onClick={onClose}
+            tabIndex={visible ? undefined : -1}
             aria-label="收回详情"
             title="收回详情 (Esc)"
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer group"
@@ -113,6 +134,7 @@ export function MomentDetailDrawer({
           <button
             type="button"
             onClick={handleCopyLink}
+            tabIndex={visible ? undefined : -1}
             aria-label="复制链接"
             title="复制链接"
             className="size-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
@@ -124,6 +146,7 @@ export function MomentDetailDrawer({
               href={`/mo/${postId}`}
               target="_blank"
               rel="noopener noreferrer"
+              tabIndex={visible ? undefined : -1}
               aria-label="新窗口打开"
               title="新窗口打开"
               className="size-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
@@ -134,6 +157,7 @@ export function MomentDetailDrawer({
           <button
             type="button"
             onClick={onClose}
+            tabIndex={visible ? undefined : -1}
             aria-label="关闭"
             title="关闭 (Esc)"
             className="size-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer ml-1"
@@ -177,6 +201,7 @@ export function MomentDetailDrawer({
           />
         ) : null}
       </div>
-    </aside>
+    </aside>,
+    document.body
   );
 }
