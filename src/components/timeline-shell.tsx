@@ -202,9 +202,8 @@ export function TimelineShell({
   // "closing" only flips the state — the mount node is kept for the exit
   // transition, and the browser history is unwound once that transition ends.
   const returnUrlRef = useRef<string | null>(null);
-  // Title captured at popstate time — by the time the exit animation ends and
-  // history.restore runs, history.state already belongs to the target entry.
-  const poppedTitleRef = useRef<string | null>(null);
+  // Original timeline document.title before entering the detail panel.
+  const savedTitleRef = useRef<string | null>(null);
 
   // Desktop docks the detail beside the timeline; mobile slides it up as a sheet.
   // Both intercept the link so the address bar updates in place — the detail
@@ -220,16 +219,26 @@ export function TimelineShell({
     setDetailIsDesktop(isDesktopDetail());
 
     if (typeof window !== "undefined") {
+      const alreadyInDrawer = Boolean(window.history.state?.drawer);
       const currentUrl = window.location.pathname + window.location.search;
-      returnUrlRef.current = currentUrl;
-      const title = document.title;
-      // Stamp our own entry too, so a later browser back still knows what to restore.
-      window.history.replaceState({ ...window.history.state, title }, "");
-      window.history.pushState(
-        { drawer: postId, returnUrl: currentUrl, title },
-        "",
-        `/mo/${postId}`
-      );
+      const baseReturnUrl = alreadyInDrawer
+        ? (returnUrlRef.current ?? window.history.state?.returnUrl ?? currentUrl)
+        : currentUrl;
+      const baseTitle = alreadyInDrawer
+        ? (savedTitleRef.current ?? window.history.state?.title ?? document.title)
+        : document.title;
+
+      returnUrlRef.current = baseReturnUrl;
+      savedTitleRef.current = baseTitle;
+
+      const nextState = { drawer: postId, returnUrl: baseReturnUrl, title: baseTitle };
+      if (alreadyInDrawer) {
+        window.history.replaceState(nextState, "", `/mo/${postId}`);
+      } else {
+        // Stamp our own entry too, so a later browser back still knows what to restore.
+        window.history.replaceState({ ...window.history.state, title: baseTitle }, "");
+        window.history.pushState(nextState, "", `/mo/${postId}`);
+      }
       // Next never renders this route, so keep the tab title in step with the URL.
       const author = target?.user?.name;
       document.title = author ? `${author} 的 Moment` : "日志详情";
@@ -247,23 +256,29 @@ export function TimelineShell({
     setDrawerPostId(null);
     if (typeof window === "undefined") return;
 
+    const titleToRestore =
+      savedTitleRef.current ??
+      (typeof window.history.state?.title === "string" ? window.history.state.title : null);
+    savedTitleRef.current = null;
+
     if (window.history.state?.drawer) {
+      returnUrlRef.current = null;
       window.history.back();
+      if (titleToRestore !== null) {
+        document.title = titleToRestore;
+      }
       return;
     }
-    // The title to restore when the browser already popped our entry. Stepping
-    // through the drawer with them kept it correct.
-    if (poppedTitleRef.current !== null) {
-      document.title = poppedTitleRef.current;
-      poppedTitleRef.current = null;
+
+    if (titleToRestore !== null) {
+      document.title = titleToRestore;
     }
+
     const returnUrl = returnUrlRef.current || window.history.state?.returnUrl;
     returnUrlRef.current = null;
-    if (returnUrl) {
-      window.history.replaceState(null, "", returnUrl);
-    } else {
+    if (window.location.pathname.startsWith("/mo/")) {
       const fallback = isUserHomePage && userSlug ? `/u/${userSlug}` : "/";
-      window.history.replaceState(null, "", fallback);
+      window.history.replaceState(window.history.state, "", returnUrl || fallback);
     }
   }, [isUserHomePage, userSlug]);
 
@@ -274,8 +289,9 @@ export function TimelineShell({
       setIsDetailOpen((open) => {
         if (open) {
           const popped = window.history.state;
-          poppedTitleRef.current =
-            popped && !popped.drawer && popped.title ? popped.title : document.title;
+          if (popped && !popped.drawer && typeof popped.title === "string") {
+            savedTitleRef.current = popped.title;
+          }
         }
         return false;
       });
@@ -666,14 +682,10 @@ export function TimelineShell({
   const isSidePanelOpen = isDesktopDetailOpen || portfolioOpen;
 
   const togglePortfolio = () => {
-    setPortfolioOpen((v) => {
-      const next = !v;
-      if (next && isDetailOpen) {
-        setIsDetailOpen(false);
-        setDrawerPostId(null);
-      }
-      return next;
-    });
+    if (!portfolioOpen && isDetailOpen) {
+      handleCloseDrawer();
+    }
+    setPortfolioOpen((v) => !v);
   };
 
   const coverStyle = themeReady && resolvedTheme.features.showCoverImage;
@@ -695,7 +707,7 @@ export function TimelineShell({
 
   return (
     <div
-      className="[--detail-shift:calc(-260px-2rem)] lg:[--detail-shift:calc(-260px-2.5rem)] xl:[--detail-shift:calc(-290px-3rem)] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
+      className="[--detail-shift:max(calc(-260px-2rem),calc(304px-50vw))] lg:[--detail-shift:max(calc(-260px-2.5rem),calc(304px-50vw))] xl:[--detail-shift:max(calc(-290px-3rem),calc(304px-50vw))] w-full min-h-screen flex justify-center items-start overflow-x-clip relative"
     >
       <div
         className={`w-full flex justify-center items-start transition-[gap,padding] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] px-0 sm:px-4 ${
@@ -704,18 +716,13 @@ export function TimelineShell({
       >
         <main
           className={`w-full max-w-xl bg-card min-h-screen border-x border-border shadow-sm flex flex-col relative sm:mt-6 sm:rounded-t-xl sm:border-t sm:overflow-visible shrink-0 ${
-            isSidePanelOpen ? "" : "mx-auto"
+            portfolioOpen ? "" : "mx-auto"
           }`}
           // The details panel is fixed to the viewport, so the column slides out
           // from under it instead of being squeezed by its width.
-          // The transition is declared inline too: the closing state must jump
-          // back instantly (the drawer is off-screen and history is being popped
-          // at that moment), while opening eases out from under the panel.
           style={{
             transform: isDesktopDetailOpen ? "translateX(var(--detail-shift))" : "translateX(0)",
-            transition: isDesktopDetailOpen
-              ? "transform 320ms cubic-bezier(0.32,0.72,0,1)"
-              : "none",
+            transition: "transform 320ms cubic-bezier(0.32,0.72,0,1)",
           }}
         >
 
