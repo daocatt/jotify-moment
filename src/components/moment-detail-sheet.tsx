@@ -61,7 +61,7 @@ export function MomentDetailSheet({
   }, []);
 
   const open = isOpen && !!requestedId;
-  const { mounted, visible } = usePresence(open, DURATION + 40, onAfterClose);
+  const { mounted, visible, onTransitionEnd } = usePresence(open, DURATION + 40, onAfterClose);
 
   const fetchPost = useCallback(async (id: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -167,7 +167,7 @@ export function MomentDetailSheet({
 
   if (!portalReady || !mounted) return null;
 
-  const translate = !visible ? "translateY(100%)" : `translateY(${PEEK + dragY}px)`;
+  const translate = !visible ? "translateY(100%)" : `translateY(${dragY}px)`;
 
   return createPortal(
     <div className="fixed inset-0 z-50 lg:hidden" role="presentation">
@@ -183,18 +183,22 @@ export function MomentDetailSheet({
 
       <div
         aria-label="动态详情"
+        aria-hidden={!visible}
+        onTransitionEnd={onTransitionEnd}
         style={{
+          top: PEEK,
           transform: translate,
           // Follow the finger 1:1 while dragging; ease into place otherwise.
           transition: dragging ? "none" : `transform ${DURATION}ms cubic-bezier(0.32,0.72,0,1)`,
         }}
-        className="absolute inset-x-0 bottom-0 top-0 flex flex-col bg-card rounded-t-2xl border-t border-border shadow-[0_-8px_40px_rgba(0,0,0,0.18)] overflow-hidden"
+        className="absolute inset-x-0 bottom-0 flex flex-col bg-card rounded-t-2xl border-t border-border shadow-[0_-8px_40px_rgba(0,0,0,0.18)] overflow-hidden"
       >
         {/* Grab handle + header, fixed above the scrolling content */}
         <div
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
           className="shrink-0 touch-none"
         >
           <div className="flex justify-center pt-2 pb-1">
