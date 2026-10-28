@@ -76,6 +76,7 @@ export interface MomentPostProps {
   onRefresh: () => void;
   onRequireLogin?: () => void;
   isDetailsView?: boolean;
+  /** Intercepts the detail entry click; the host picks a drawer (desktop) or a sheet (mobile). */
   onOpenDetail?: (postId: string, post?: MomentPostProps["post"]) => void;
 }
 
@@ -615,7 +616,7 @@ export const MomentPost = memo(function MomentPost({
             <Link
               href={`/mo/${post.id}`}
               onClick={(e) => {
-                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail) {
                   e.preventDefault();
                   onOpenDetail(post.id, post);
                 }
@@ -886,7 +887,7 @@ export const MomentPost = memo(function MomentPost({
               onClick={
                 !isDetailsView
                   ? () => {
-                      if (onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                      if (onOpenDetail) {
                         onOpenDetail(post.id, post);
                       } else {
                         router.push(`/mo/${post.id}`);
@@ -1127,7 +1128,7 @@ export const MomentPost = memo(function MomentPost({
             <Link
               href={`/mo/${post.id}`}
               onClick={(e) => {
-                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail && typeof window !== "undefined" && window.innerWidth >= 1024) {
+                if (!e.metaKey && !e.ctrlKey && e.button === 0 && onOpenDetail) {
                   e.preventDefault();
                   onOpenDetail(post.id, post);
                 }
