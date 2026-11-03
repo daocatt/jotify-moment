@@ -823,7 +823,7 @@ export function TimelineShell({
         )}
         {isCustomDomain && (
           <a
-            href="https://jotify.me"
+            href={mainHost ? `${typeof window !== "undefined" ? window.location.protocol : "https:"}//${mainHost}` : "/"}
             target="_blank"
             rel="noopener noreferrer"
             title="Jotify"
@@ -1453,15 +1453,7 @@ export function TimelineShell({
           <div className="flex flex-col items-center gap-3 pt-2">
             <span className="text-[11px] text-muted-foreground/60">v{APP_VERSION}</span>
             <span className="text-[11px] text-muted-foreground/60">
-              powered by{" "}
-              <a
-                href="https://github.com/daocatt/jotify-moment"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                早晚圈
-              </a>
+              powered by Jotify
             </span>
           </div>
         </DialogContent>

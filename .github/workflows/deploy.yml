@@ -67,10 +67,11 @@ jobs:
             #    keep the previous image and call it a success).
             echo "📦 Building new Docker images..."
             if ! docker compose build --no-cache >/tmp/dc-build.log 2>&1; then
-              echo "❌ Build failed — deployment aborted. Last build output:"
-              tail -80 /tmp/dc-build.log | grep -vE '(DATABASE_URL|BETTER_AUTH_SECRET|POSTGRES_PASSWORD)'
+              echo "❌ Build failed — deployment aborted."
+              echo "ℹ️ Detailed build log saved to /tmp/dc-build.log on VPS. Raw logs are withheld from CI to protect credentials."
               exit 1
             fi
+            rm -f /tmp/dc-build.log
 
             # 4. Start database
             echo "🗄️ Bootstrapping database..."

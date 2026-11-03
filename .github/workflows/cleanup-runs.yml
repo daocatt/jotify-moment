@@ -1,0 +1,67 @@
+name: Cleanup Workflow Runs
+
+on:
+  workflow_dispatch:
+    inputs:
+      delete_all:
+        description: 'Delete all historical workflow runs (including success and failure)'
+        required: true
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Dry run only (preview runs to be deleted without actually deleting)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Batch Delete Workflow Runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "🧹 Starting workflow runs cleanup..."
+          
+          # Fetch and delete runs in batches of 100 until only the current run remains
+          total_deleted=0
+          while true; do
+            # Get list of run IDs excluding the current run
+            RUNS=$(gh run list --repo "${{ github.repository }}" --limit 100 --json databaseId,status,conclusion,name,createdAt \
+              --jq ".[] | select(.databaseId != ($CURRENT_RUN_ID | tonumber)) | .databaseId")
+            
+            if [ -z "$RUNS" ]; then
+              echo "✅ No more historical workflow runs found to delete."
+              break
+            fi
+
+            batch_count=0
+            for run_id in $RUNS; do
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "[DRY RUN] Would delete run ID: $run_id"
+              else
+                echo "🗑️ Deleting run ID: $run_id"
+                gh run delete "$run_id" --repo "${{ github.repository }}" || true
+              fi
+              batch_count=$((batch_count + 1))
+            done
+
+            total_deleted=$((total_deleted + batch_count))
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[DRY RUN] Finished preview batch of $batch_count runs."
+              break
+            fi
+            
+            # Small pause between batches to respect GitHub API rate limits
+            sleep 2
+          done
+
+          echo "🎉 Cleanup complete. Total runs processed: $total_deleted"

@@ -10,7 +10,7 @@
 
 ### 1.1 现状与痛点
 Jotify Moment 目前已经具备轻量、优雅的图文动态发布与交流体验（朋友圈、个人主页、置顶列表、多媒体轮播等）。随着 Vibe Coding 与 AI Agent 生态的快速演进，越来越多的创作者和开发者：
-- 拥有属于自己的 **AI 助理**（如各类个人 Agent、Telegram Bot、Dalao Bot）；
+- 拥有属于自己的 **AI 助理**（如各类个人 Agent、Telegram Bot、MCP Agent）；
 - 正在进行 **Vibe Coding 敏捷孵化**（每天甚至每小时都有新的原型产品产生）；
 - 拥有已经上架发布、需要持续曝光和获得反馈的 **独立产品**。
 

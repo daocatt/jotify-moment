@@ -5,7 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextpro
 import fs from "fs/promises";
 import path from "path";
 // Configuration from environment variables
-const BASE_URL = (process.env.JOTIFY_BASE_URL || "https://jotify.me").replace(/\/$/, "");
+const BASE_URL = (process.env.JOTIFY_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const API_TOKEN = process.env.JOTIFY_API_TOKEN || "";
 if (!API_TOKEN) {
     console.error("Warning: JOTIFY_API_TOKEN is not set. API calls may fail with 401 Unauthorized.");
