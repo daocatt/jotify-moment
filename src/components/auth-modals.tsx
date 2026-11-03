@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Globe } from "lucide-react";
 import { loginAction, registerAction, sendVerificationCodeAction, sendResetPasswordLinkAction } from "@/app/actions/auth";
 import { getPublicSettingsAction } from "@/app/actions/admin";
 
@@ -53,7 +52,6 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
   const [allowRegState, setAllowRegState] = useState<boolean | undefined>(
     allowRegistration
   );
-  const [dalaoOAuthEnabled, setDalaoOAuthEnabled] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,10 +65,8 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
         } else {
           setAllowRegState(allowRegistration);
         }
-        setDalaoOAuthEnabled(res.settings.dalao_oauth_enabled === "true");
       } else {
         if (allowRegistration === undefined) setAllowRegState(true);
-        setDalaoOAuthEnabled(false);
       }
     });
     return () => { cancelled = true; };
@@ -293,30 +289,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
             {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
 
-          {dalaoOAuthEnabled && (mode === "login" || mode === "register") && (
-            <div className="space-y-2 mt-1">
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">或者</span>
-                </div>
-              </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className={`w-full text-xs font-medium h-10 gap-2 rounded-none border-transparent dark:border-transparent focus-visible:border-transparent ${secondaryFloatClass}`}
-                onClick={() => {
-                  window.location.href = "/api/auth/dalao/login";
-                }}
-              >
-                <Globe className="size-3.5 text-primary" />
-                <span>使用大佬论坛账号登录</span>
-              </Button>
-            </div>
-          )}
 
           <div className="flex justify-between text-xs mt-4 text-muted-foreground">
             {mode === "login" ? (

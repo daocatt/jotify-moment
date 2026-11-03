@@ -32,7 +32,7 @@ npm run build
     "jotify-moment": {
       "command": "node",
       "args": [
-        "/Users/mengdoo/codes/jotify-moment/packages/mcp-server/dist/index.js"
+        "/path/to/jotify-moment/packages/mcp-server/dist/index.js"
       ],
       "env": {
         "JOTIFY_BASE_URL": "http://localhost:3000",
