@@ -14,10 +14,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # 与 Dockerfile 的 FROM node:24.22.1-alpine 保持同一补丁号
           node-version: "24.22.1"
@@ -39,50 +39,67 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Remote SSH Deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT != '' && secrets.VPS_PORT || 22 }}
-          script: |
-            set -e
-            set -o pipefail
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PROJECT_PATH: ${{ secrets.VPS_PROJECT_PATH }}
+          VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
+        run: |
+          set -e
+          PORT="${VPS_PORT:-22}"
 
-            PROJECT_PATH="${{ secrets.VPS_PROJECT_PATH }}"
-            ENV_FILE="${{ secrets.VPS_ENV_FILE }}"
+          install -m 700 -d ~/.ssh
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-            cd "$PROJECT_PATH"
-            git fetch --all
-            echo "🚀 Deployment started at $(date) — commit $(git rev-parse --short origin/main)"
+          REMOTE_PROJECT_PATH=$(printf '%q' "$VPS_PROJECT_PATH")
+          REMOTE_ENV_FILE=$(printf '%q' "$VPS_ENV_FILE")
 
-            # 1. Sync code
-            git checkout -B main origin/main
-            git reset --hard origin/main
+          ssh -i ~/.ssh/deploy_key \
+            -p "$PORT" \
+            -o StrictHostKeyChecking=accept-new \
+            -o BatchMode=yes \
+            -o ConnectTimeout=30 \
+            "${VPS_USERNAME}@${VPS_HOST}" \
+            "PROJECT_PATH=${REMOTE_PROJECT_PATH} ENV_FILE=${REMOTE_ENV_FILE} bash -s" << 'EOF'
+          set -e
+          set -o pipefail
 
-            # 2. Prepare env
-            cp "$ENV_FILE" .env
+          cd "$PROJECT_PATH"
+          git fetch --all
+          echo "🚀 Deployment started at $(date) — commit $(git rev-parse --short origin/main)"
 
-            # 3. Build Docker images — if the build fails, STOP (never silently
-            #    keep the previous image and call it a success).
-            echo "📦 Building new Docker images..."
-            if ! docker compose build --no-cache >/tmp/dc-build.log 2>&1; then
-              echo "❌ Build failed — deployment aborted."
-              echo "ℹ️ Detailed build log saved to /tmp/dc-build.log on VPS. Raw logs are withheld from CI to protect credentials."
-              exit 1
-            fi
-            rm -f /tmp/dc-build.log
+          # 1. Sync code
+          git checkout -B main origin/main
+          git reset --hard origin/main
 
-            # 4. Start database
-            echo "🗄️ Bootstrapping database..."
-            docker compose up -d db
-            sleep 3
+          # 2. Prepare env
+          cp "$ENV_FILE" .env
 
-            # 5. Start all services
-            echo "🚀 Starting containers..."
-            docker compose up -d
+          # 3. Build Docker images — if the build fails, STOP (never silently
+          #    keep the previous image and call it a success).
+          echo "📦 Building new Docker images..."
+          if ! docker compose build --no-cache >/tmp/dc-build.log 2>&1; then
+            echo "❌ Build failed — deployment aborted."
+            echo "ℹ️ Detailed build log saved to /tmp/dc-build.log on VPS. Raw logs are withheld from CI to protect credentials."
+            exit 1
+          fi
+          rm -f /tmp/dc-build.log
 
-            # 6. Cleanup
-            docker image prune -f
+          # 4. Start database
+          echo "🗄️ Bootstrapping database..."
+          docker compose up -d db
+          sleep 3
 
-            echo "✅ Deployment successful! (commit $(git rev-parse --short HEAD))"
+          # 5. Start all services
+          echo "🚀 Starting containers..."
+          docker compose up -d
+
+          # 6. Cleanup
+          docker image prune -f
+
+          echo "✅ Deployment successful! (commit $(git rev-parse --short HEAD))"
+          EOF
