@@ -77,6 +77,8 @@ export interface PostData {
     avatar: string | null;
     role: string;
     slug: string | null;
+    publishToFeed?: boolean;
+    displayPermission?: boolean;
   };
   comments: Array<{
     id: string;

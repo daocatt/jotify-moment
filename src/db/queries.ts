@@ -117,13 +117,12 @@ function afterCursor(cond: { createdAt: Date; id: string }) {
 export async function getPostsQuery(isAdmin: boolean, cursor?: string) {
   const cursorCond = cursor ? parseCursor(cursor) : null;
   const allPosts = await db.query.posts.findMany({
-    where: isAdmin
-      ? (cursorCond
-          ? and(isNull(posts.pinnedAt), afterCursor(cursorCond))
-          : isNull(posts.pinnedAt))
-      : (cursorCond
-          ? and(eq(posts.status, "approved"), isNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers), afterCursor(cursorCond))
-          : and(eq(posts.status, "approved"), isNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers))),
+    where: and(
+      isAdmin ? undefined : eq(posts.status, "approved"),
+      isNull(posts.pinnedAt),
+      inArray(posts.userId, visibleFeedUsers),
+      cursorCond ? afterCursor(cursorCond) : undefined,
+    ),
     orderBy: [desc(posts.createdAt), desc(posts.id)],
     limit: PAGE_SIZE + 1,
     with: {

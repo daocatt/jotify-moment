@@ -101,6 +101,7 @@ export function HomeClient({
   // Prepend the freshly created post instead of re-fetching the whole timeline.
   const handlePostCreated = useCallback((post: PostData) => {
     if (post.status !== "approved") return;
+    if (post.user.publishToFeed === false || post.user.displayPermission === false) return;
     setPosts((prev) => [post, ...prev]);
     fetchPinned();
   }, [fetchPinned]);

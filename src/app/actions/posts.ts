@@ -171,6 +171,8 @@ export async function createPostAction(data: {
         avatar: user.avatar,
         role: user.role,
         slug: user.slug,
+        publishToFeed: user.publishToFeed,
+        displayPermission: user.displayPermission,
       },
       comments: [],
       reactions: [],
@@ -458,9 +460,11 @@ export async function getPinnedPostsAction() {
 
   try {
     const pinnedPosts = await db.query.posts.findMany({
-      where: isAdmin
-        ? isNotNull(posts.pinnedAt)
-        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers)),
+      where: and(
+        isAdmin ? undefined : eq(posts.status, "approved"),
+        isNotNull(posts.pinnedAt),
+        inArray(posts.userId, visibleFeedUsers),
+      ),
       orderBy: [asc(posts.pinnedAt)],
       limit: MAX_PINNED,
       with: {
@@ -511,9 +515,11 @@ export async function getPinnedPreviewAction() {
     const currentUser = await getSessionUser();
     const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
     const pinnedPosts = await db.query.posts.findMany({
-      where: isAdmin
-        ? isNotNull(posts.pinnedAt)
-        : and(eq(posts.status, "approved"), isNotNull(posts.pinnedAt), inArray(posts.userId, visibleFeedUsers)),
+      where: and(
+        isAdmin ? undefined : eq(posts.status, "approved"),
+        isNotNull(posts.pinnedAt),
+        inArray(posts.userId, visibleFeedUsers),
+      ),
       orderBy: [asc(posts.pinnedAt)],
       limit: MAX_PINNED,
       columns: {
@@ -1039,7 +1045,7 @@ export async function getPostsByTagAction(tag: string, cursor?: string) {
         // Same visibility rules as the public feed. Applied in SQL so the page
         // size and cursor stay correct (a post-fetch JS filter could under-fill
         // a page and miscompute hasMore).
-        isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers),
+        inArray(posts.userId, visibleFeedUsers),
         cursorCond
           ? or(
               lt(posts.createdAt, cursorCond.createdAt),
@@ -1106,8 +1112,6 @@ export interface PostSearchResult {
  * site. Omitted (main feed, tag, pinned, friends) the search stays global.
  */
 export async function searchPostsAction(keyword: string, ownerSlug?: string) {
-  const currentUser = await getSessionUser();
-  const isAdmin = currentUser && (currentUser.role === "super_admin" || currentUser.role === "admin");
   const cleanKeyword = keyword.trim().slice(0, 50);
 
   if (!cleanKeyword) {
@@ -1147,7 +1151,7 @@ export async function searchPostsAction(keyword: string, ownerSlug?: string) {
         // occupied one of the slots.
         ownerId
           ? eq(posts.userId, ownerId)
-          : isAdmin ? undefined : inArray(posts.userId, visibleFeedUsers)
+          : inArray(posts.userId, visibleFeedUsers)
       ),
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: 8,
