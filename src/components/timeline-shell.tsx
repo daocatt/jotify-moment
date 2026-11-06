@@ -114,6 +114,9 @@ export interface ProfileUser {
   x?: string | null;
   otherLink?: string | null;
   theme?: string | null;
+  publishToFeed?: boolean;
+  displayPermission?: boolean;
+  publicHomepage?: boolean;
 }
 
 interface TimelineShellProps {
@@ -621,6 +624,10 @@ export function TimelineShell({
   const isOwnPage = !!(profileUser.id && currentUser && profileUser.id === currentUser.id);
   const isGuest = currentUser?.role === "guest";
   const friendsCircleEnabled = sysSettings?.friends_circle_enabled === "true";
+  const isProfileUserRestricted =
+    isUserHomePage &&
+    (profileUser.publishToFeed === false || profileUser.displayPermission === false);
+  const showFriendsButton = friendsCircleEnabled && !isProfileUserRestricted;
   const renderEditor = isGuest
     ? false
     : showPostEditor === "always"
@@ -744,7 +751,7 @@ export function TimelineShell({
             <ArrowLeft size={16} />
           </Button>
         )}
-        {friendsCircleEnabled && (
+        {showFriendsButton && (
           <Button
             variant="ghost"
             size="icon"

@@ -12,6 +12,8 @@ interface ProfileUserPinned {
   bio: string | null;
   coverImage: string | null;
   hidden?: boolean;
+  publishToFeed?: boolean;
+  displayPermission?: boolean;
 }
 
 interface UserPinnedClientProps {

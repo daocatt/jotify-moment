@@ -990,7 +990,12 @@ export async function checkCustomDomainAvailabilityAction() {
 export async function getFriendsCircleAction() {
   try {
     const usersList = await db.query.users.findMany({
-      where: and(eq(users.displayPermission, true), ne(users.role, "guest")),
+      where: and(
+        eq(users.displayPermission, true),
+        eq(users.publishToFeed, true),
+        eq(users.status, "active"),
+        ne(users.role, "guest")
+      ),
       orderBy: [
         sql`${users.lastPostAt} desc nulls last`,
         sql`${users.createdAt} desc nulls last`,

@@ -116,6 +116,8 @@ export async function updateSettingAction(key: string, value: string) {
       });
     invalidateSetting(key);
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (user.slug) revalidatePath(`/u/${user.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
@@ -249,6 +251,8 @@ export async function updateUserDisplayPermissionAction(targetUserId: string, al
 
     await db.update(users).set({ displayPermission: !!allowed }).where(eq(users.id, targetUserId));
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (targetUser.slug) revalidatePath(`/u/${targetUser.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
@@ -351,6 +355,8 @@ export async function approvePostAction(postId: string) {
   try {
     await db.update(posts).set({ status: "approved" }).where(eq(posts.id, postId));
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (user.slug) revalidatePath(`/u/${user.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
@@ -475,6 +481,8 @@ export async function updateProfileAction(data: {
       .where(eq(users.id, user.id));
 
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (user.slug) revalidatePath(`/u/${user.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
@@ -501,6 +509,8 @@ export async function updatePrivacySettingsAction(data: {
       .where(eq(users.id, user.id));
 
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (user.slug) revalidatePath(`/u/${user.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {
@@ -560,6 +570,8 @@ export async function updateSiteFcProfileAction(data: {
     }
 
     revalidatePath("/");
+    revalidatePath("/friends");
+    if (user.slug) revalidatePath(`/u/${user.slug}`);
     invalidateFeedCache();
     return { success: true };
   } catch (error) {

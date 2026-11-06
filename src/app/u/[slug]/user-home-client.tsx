@@ -24,6 +24,9 @@ interface ProfileUserFull {
   otherLink: string | null;
   theme: string | null;
   hidden?: boolean;
+  publishToFeed?: boolean;
+  displayPermission?: boolean;
+  publicHomepage?: boolean;
 }
 
 export interface UserHomeClientProps {

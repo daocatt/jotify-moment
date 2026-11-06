@@ -379,6 +379,12 @@ export function SettingsClient({ user }: SettingsClientProps) {
   const [cropTarget, setCropTarget] = useState<"avatar" | "cover">("avatar");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync settings state when user props revalidate
+    setPublishToFeed(user.publishToFeed !== false);
+    setPublicHomepage(user.publicHomepage !== false);
+  }, [user.publishToFeed, user.publicHomepage]);
+
+  useEffect(() => {
     getTelegramBotNameAction().then((res) => {
       if (res.success && res.botName) {
         setTgBotName(res.botName);
@@ -471,6 +477,34 @@ export function SettingsClient({ user }: SettingsClientProps) {
       toast.error(res.error);
     } else {
       toast.success("个人资料已更新");
+      router.refresh();
+    }
+  };
+
+  const handleTogglePublicHomepage = async (checked: boolean) => {
+    setPublicHomepage(checked);
+    setPublishLoading(true);
+    const res = await updatePrivacySettingsAction({ publishToFeed, publicHomepage: checked });
+    setPublishLoading(false);
+    if (res.error) {
+      setPublicHomepage(!checked);
+      toast.error(res.error);
+    } else {
+      toast.success(checked ? "已公开个人主页" : "已设为私密个人主页");
+      router.refresh();
+    }
+  };
+
+  const handleTogglePublishToFeed = async (checked: boolean) => {
+    setPublishToFeed(checked);
+    setPublishLoading(true);
+    const res = await updatePrivacySettingsAction({ publishToFeed: checked, publicHomepage });
+    setPublishLoading(false);
+    if (res.error) {
+      setPublishToFeed(!checked);
+      toast.error(res.error);
+    } else {
+      toast.success(checked ? "已开启同步发布至全站公共流" : "已关闭同步发布至全站公共流");
       router.refresh();
     }
   };
@@ -843,7 +877,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
                           关闭后，外部访客访问您的主页时只能看到基础名片，您发布的动态（包括置顶）将被隐藏。
                         </p>
                       </div>
-                      <Switch checked={publicHomepage} onCheckedChange={setPublicHomepage} />
+                      <Switch checked={publicHomepage} onCheckedChange={handleTogglePublicHomepage} disabled={publishLoading} />
                     </div>
 
                     <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-muted/20">
@@ -853,7 +887,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
                           关闭后，新发布的动态不会出现在首页公共时间线中（私密/专属空间模式），仅在个人主页展示。
                         </p>
                       </div>
-                      <Switch checked={publishToFeed} onCheckedChange={setPublishToFeed} />
+                      <Switch checked={publishToFeed} onCheckedChange={handleTogglePublishToFeed} disabled={publishLoading} />
                     </div>
                   </div>
 
