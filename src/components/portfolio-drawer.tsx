@@ -18,6 +18,7 @@ export interface PortfolioDrawerProps {
   onClose: () => void;
   onPublishProduct: () => void;
   onSelectPost: (post: PostData) => void;
+  onOpenLightbox?: (urls: string[], index: number) => void;
 }
 
 export function PortfolioDrawer({
@@ -28,6 +29,7 @@ export function PortfolioDrawer({
   onClose,
   onPublishProduct,
   onSelectPost,
+  onOpenLightbox,
 }: PortfolioDrawerProps) {
   // Portalled for the same reason as the details drawer: the sliding transform
   // must not be part of the timeline column's layout.
@@ -47,9 +49,9 @@ export function PortfolioDrawer({
           <div className="size-14 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-3 shadow-xs">
             <Rocket size={24} />
           </div>
-          <h3 className="text-sm font-medium text-foreground">暂无发布的作品或 AI 助理</h3>
+          <h3 className="text-sm font-medium text-foreground">暂无发布的作品</h3>
           <p className="text-xs text-muted-foreground max-w-xs mt-1 leading-relaxed">
-            这里将展示作者敏捷孵化的 Vibe Coding 项目、独立产品或 AI Agent。
+            这里将展示作者发布的作品。
           </p>
           {isOwnPage && (
             <Button
@@ -60,7 +62,7 @@ export function PortfolioDrawer({
               className="mt-4 h-8 text-xs rounded-lg gap-1.5"
             >
               <Plus size={13} />
-              发布第一个作品 / AI 助理
+              发布第一个作品
             </Button>
           )}
         </div>
@@ -73,11 +75,14 @@ export function PortfolioDrawer({
           const meta = (post.embedMeta || {}) as unknown as ProductShowcaseMeta;
           const defaultText = meta.name && meta.tagline ? `${meta.name} - ${meta.tagline}` : "";
           const hasExtraNote = post.content && post.content.trim() !== defaultText.trim();
+          const images = (post.mediaUrls || []).filter((m) => m.type === "image");
 
           return (
             <div key={post.id} className="space-y-2">
               <ProductCard
                 meta={meta}
+                images={images}
+                onOpenLightbox={onOpenLightbox}
                 onClick={() => onSelectPost(post)}
               />
               <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">

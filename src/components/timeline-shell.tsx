@@ -957,8 +957,8 @@ export function TimelineShell({
                       <Rocket size={12} />
                     </div>
                     <div>
-                      <div className="font-medium text-foreground">发布作品 / AI 助理</div>
-                      <div className="text-[10px] text-muted-foreground">分享 Vibe Coding 或已上架产品</div>
+                      <div className="font-medium text-foreground">发布作品</div>
+                      <div className="text-[10px] text-muted-foreground">在 moments 分享你的作品</div>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -1368,6 +1368,7 @@ export function TimelineShell({
             setPortfolioOpen(false);
             handleOpenDetail(post.id, post);
           }}
+          onOpenLightbox={openLightbox}
         />
 
         <MomentDetailDrawer

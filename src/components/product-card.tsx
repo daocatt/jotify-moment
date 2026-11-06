@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Bot, Globe, Smartphone, Puzzle, Wrench, Rocket } from "lucide-react";
+import { ExternalLink, Bot, Globe, Smartphone, Puzzle, Wrench, Rocket, Send, Code2 } from "lucide-react";
 
 const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -11,21 +11,24 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export interface ProductShowcaseMeta {
   name: string;
   tagline: string;
-  category?: "agent" | "web_app" | "mobile_app" | "extension" | "tool" | "other";
-  status: "vibe_coding" | "live" | "beta" | "idea";
+  category?: "agent" | "web_app" | "mobile_app" | "extension" | "tool" | "other" | string;
+  status?: "vibe_coding" | "live" | "beta" | "idea" | string;
+  isOpenSource?: boolean;
   links?: {
     website?: string;
     github?: string;
     bot?: string;
+    contact?: string;
   };
   techStack?: string[];
   logoUrl?: string;
   version?: string;
+  imageLayout?: "grid" | "carousel";
   [key: string]: unknown;
 }
 
 const CATEGORY_MAP: Record<string, { label: string; icon: typeof Rocket }> = {
-  agent: { label: "AI 助理", icon: Bot },
+  agent: { label: "AI 应用", icon: Bot },
   web_app: { label: "Web 应用", icon: Globe },
   mobile_app: { label: "移动 App", icon: Smartphone },
   extension: { label: "浏览器插件", icon: Puzzle },
@@ -58,14 +61,40 @@ const STATUS_MAP: Record<string, { label: string; badgeClass: string; dotClass: 
 
 interface ProductCardProps {
   meta: ProductShowcaseMeta;
+  images?: Array<{ type: string; url: string; name?: string; thumbnailUrl?: string }>;
+  onOpenLightbox?: (urls: string[], index: number) => void;
   onClick?: () => void;
   className?: string;
 }
 
-export function ProductCard({ meta, onClick, className = "" }: ProductCardProps) {
+export function ProductCard({ meta, images = [], onOpenLightbox, onClick, className = "" }: ProductCardProps) {
   const categoryConfig = CATEGORY_MAP[meta.category || "other"] || CATEGORY_MAP.other;
-  const statusConfig = STATUS_MAP[meta.status || "vibe_coding"] || STATUS_MAP.vibe_coding;
+  const statusConfig = meta.status ? (STATUS_MAP[meta.status] || null) : null;
   const CategoryIcon = categoryConfig.icon;
+
+  const hasOpenSource = meta.isOpenSource === true || (!("isOpenSource" in meta) && Boolean(meta.links?.github));
+
+  const hasAnyLink = Boolean(
+    meta.links && (meta.links.website || meta.links.github || meta.links.contact || meta.links.bot)
+  );
+
+  const getContactHref = (contact: string) => {
+    const trimmed = contact.trim();
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("mailto:")) {
+      return trimmed;
+    }
+    if (trimmed.includes("@") && !trimmed.startsWith("@")) {
+      return `mailto:${trimmed}`;
+    }
+    return `https://t.me/${trimmed.replace(/^@/, "")}`;
+  };
+
+  const isTelegram = (contact: string) => {
+    const lower = contact.toLowerCase();
+    return lower.includes("t.me") || lower.startsWith("@") || (!lower.includes("://") && !lower.includes("@"));
+  };
+
+  const imageUrls = images.map((img) => img.url);
 
   return (
     <div
@@ -99,12 +128,19 @@ export function ProductCard({ meta, onClick, className = "" }: ProductCardProps)
                 v{meta.version}
               </span>
             )}
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusConfig.badgeClass}`}
-            >
-              <span className={`size-1.5 rounded-full ${statusConfig.dotClass}`} />
-              {statusConfig.label}
-            </span>
+            {hasOpenSource && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                <Code2 size={10} /> 开源
+              </span>
+            )}
+            {statusConfig && (
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusConfig.badgeClass}`}
+              >
+                <span className={`size-1.5 rounded-full ${statusConfig.dotClass}`} />
+                {statusConfig.label}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
@@ -121,7 +157,7 @@ export function ProductCard({ meta, onClick, className = "" }: ProductCardProps)
         </p>
       )}
 
-      {/* Tech Stack Chips */}
+      {/* Tech Stack Chips (Legacy) */}
       {meta.techStack && meta.techStack.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-3">
           {meta.techStack.map((tech) => (
@@ -135,13 +171,46 @@ export function ProductCard({ meta, onClick, className = "" }: ProductCardProps)
         </div>
       )}
 
+      {/* Product Screenshots / Gallery */}
+      {images.length > 0 && (
+        <div
+          className={`grid gap-1.5 mt-3 ${
+            images.length === 1
+              ? "grid-cols-1 max-w-[280px]"
+              : images.length === 2 || images.length === 4
+              ? "grid-cols-2"
+              : "grid-cols-3"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {images.map((img, idx) => (
+            <div
+              key={idx}
+              className="relative aspect-square bg-muted overflow-hidden rounded-lg border border-border/80 cursor-zoom-in group/img"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenLightbox?.(imageUrls, idx);
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.thumbnailUrl || img.url}
+                alt={img.name || `${meta.name} 截图 ${idx + 1}`}
+                className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover/img:scale-105"
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Action Links */}
-      {meta.links && (meta.links.website || meta.links.github || meta.links.bot) && (
+      {hasAnyLink && (
         <div
           className="flex items-center gap-2 mt-3.5 pt-3 border-t border-border/60 flex-wrap"
           onClick={(e) => e.stopPropagation()}
         >
-          {meta.links.website && (
+          {meta.links?.website && (
             <a
               href={meta.links.website}
               target="_blank"
@@ -151,7 +220,7 @@ export function ProductCard({ meta, onClick, className = "" }: ProductCardProps)
               <ExternalLink size={12} /> 体验直达
             </a>
           )}
-          {meta.links.github && (
+          {meta.links?.github && (
             <a
               href={meta.links.github}
               target="_blank"
@@ -161,7 +230,17 @@ export function ProductCard({ meta, onClick, className = "" }: ProductCardProps)
               <GithubIcon /> 源码
             </a>
           )}
-          {meta.links.bot && (
+          {meta.links?.contact && (
+            <a
+              href={getContactHref(meta.links.contact)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted/80 hover:bg-muted text-foreground border border-border transition-colors"
+            >
+              <Send size={12} /> {isTelegram(meta.links.contact) ? "Telegram" : "联系作者"}
+            </a>
+          )}
+          {meta.links?.bot && (
             <a
               href={meta.links.bot}
               target="_blank"

@@ -374,6 +374,25 @@ export const MomentPost = memo(function MomentPost({
   // Format date relative to now
   const relativeTime = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: zhCN });
 
+  // Suppress duplicate post content for showcase embeds if it merely repeats title and tagline
+  const isRedundantShowcaseContent = () => {
+    if (post.embedType !== "product_showcase" || !post.embedMeta) return false;
+    const meta = post.embedMeta as unknown as ProductShowcaseMeta;
+    const trimmed = post.content?.trim();
+    if (!trimmed) return true;
+    const name = meta.name?.trim() || "";
+    const tagline = meta.tagline?.trim() || "";
+    if (
+      trimmed === name ||
+      trimmed === `${name} - ${tagline}` ||
+      trimmed === `${name}: ${tagline}` ||
+      (tagline && trimmed === tagline)
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   const handleReaction = async (emoji: string) => {
     if (!currentUser) {
       toast.error("请先登录账户");
@@ -857,7 +876,7 @@ export const MomentPost = memo(function MomentPost({
               </div>
             </div>
           </div>
-        ) : post.content ? (
+        ) : post.content && !isRedundantShowcaseContent() ? (
           <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
             <MarkdownContent content={post.content} />
           </div>
@@ -869,7 +888,7 @@ export const MomentPost = memo(function MomentPost({
         {/* Videos Display */}
         {videoFile && (
           <div className="relative aspect-video max-w-md w-full rounded-lg overflow-hidden border border-border bg-black mt-2">
-          <video
+            <video
               src={videoFile.url}
               controls
               preload="none"
@@ -879,11 +898,13 @@ export const MomentPost = memo(function MomentPost({
           </div>
         )}
 
-        {/* Product Showcase Card */}
+        {/* Product Showcase Card (encapsulates screenshots & links internally) */}
         {post.embedType === "product_showcase" && post.embedMeta && (
           <div className="max-w-md w-full">
             <ProductCard
               meta={post.embedMeta as unknown as ProductShowcaseMeta}
+              images={images}
+              onOpenLightbox={onOpenLightbox}
               onClick={
                 !isDetailsView
                   ? () => {
@@ -899,31 +920,8 @@ export const MomentPost = memo(function MomentPost({
           </div>
         )}
 
-        {/* Media Embed — unified component for all platforms.
-            Handles: YouTube, Bilibili, TikTok (video facade) and
-            Spotify, Netease, Apple Music/Podcast (inline audio bars).
-            Falls back to ytVideoId for backward compat with old posts. */}
-        {(post.embedType && post.embedId && post.embedType !== "product_showcase") ? (
-          <div className="max-w-md w-full">
-            <MediaEmbed
-              embedType={post.embedType}
-              embedId={post.embedId}
-              embedMeta={post.embedMeta}
-            />
-          </div>
-        ) : post.ytVideoId ? (
-          // Legacy: old posts with ytVideoId only
-          <div className="max-w-md w-full">
-            <MediaEmbed
-              embedType="youtube"
-              embedId={post.ytVideoId}
-              embedMeta={null}
-            />
-          </div>
-        ) : null}
-
-        {/* Images Grid or Carousel */}
-        {images.length > 0 && (
+        {/* Images Grid or Carousel (for non-showcase posts; showcase embeds render inside ProductCard) */}
+        {post.embedType !== "product_showcase" && images.length > 0 && (
           post.embedMeta?.imageLayout === "carousel" ? (
             <ImageCarousel
               images={images}
@@ -957,6 +955,26 @@ export const MomentPost = memo(function MomentPost({
             </div>
           )
         )}
+
+        {/* Media Embed — unified component for all platforms (YouTube, Bilibili, TikTok, Spotify, Link preview, etc.) */}
+        {(post.embedType && post.embedId && post.embedType !== "product_showcase") ? (
+          <div className="max-w-md w-full mt-2">
+            <MediaEmbed
+              embedType={post.embedType}
+              embedId={post.embedId}
+              embedMeta={post.embedMeta}
+            />
+          </div>
+        ) : post.ytVideoId ? (
+          // Legacy: old posts with ytVideoId only
+          <div className="max-w-md w-full mt-2">
+            <MediaEmbed
+              embedType="youtube"
+              embedId={post.ytVideoId}
+              embedMeta={null}
+            />
+          </div>
+        ) : null}
 
         {/* Footer actions: comment, reaction picker, approvals */}
         <div className="flex items-center gap-4 pt-2 text-xs">
