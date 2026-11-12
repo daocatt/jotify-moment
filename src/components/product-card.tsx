@@ -59,15 +59,69 @@ const STATUS_MAP: Record<string, { label: string; badgeClass: string; dotClass: 
   },
 };
 
+/**
+ * Resolve product showcase meta safely, supporting fallbacks if embedMeta is empty
+ * but post.content has "Name - Tagline" format.
+ */
+export function resolveProductShowcaseMeta(
+  embedMeta: unknown,
+  fallbackContent?: string
+): ProductShowcaseMeta {
+  const metaObj =
+    typeof embedMeta === "string"
+      ? (() => {
+          try {
+            return JSON.parse(embedMeta);
+          } catch {
+            return {};
+          }
+        })()
+      : embedMeta && typeof embedMeta === "object"
+      ? (embedMeta as Record<string, unknown>)
+      : {};
+
+  let name = typeof metaObj.name === "string" ? metaObj.name.trim() : "";
+  let tagline = typeof metaObj.tagline === "string" ? metaObj.tagline.trim() : "";
+
+  // Fallback: parse from fallbackContent (e.g. "Pixel Pals - 像素小狗") if name is missing
+  if (!name && fallbackContent) {
+    const trimmed = fallbackContent.trim();
+    const separatorMatch = trimmed.match(/\s*(?:[-—–:]|--)\s*/);
+    if (separatorMatch && separatorMatch.index !== undefined) {
+      name = trimmed.slice(0, separatorMatch.index).trim();
+      if (!tagline) {
+        tagline = trimmed.slice(separatorMatch.index + separatorMatch[0].length).trim();
+      }
+    } else {
+      name = trimmed;
+    }
+  }
+
+  return {
+    ...metaObj,
+    name: name || "作品",
+    tagline,
+  } as ProductShowcaseMeta;
+}
+
 interface ProductCardProps {
   meta: ProductShowcaseMeta;
+  fallbackContent?: string;
   images?: Array<{ type: string; url: string; name?: string; thumbnailUrl?: string }>;
   onOpenLightbox?: (urls: string[], index: number) => void;
   onClick?: () => void;
   className?: string;
 }
 
-export function ProductCard({ meta, images = [], onOpenLightbox, onClick, className = "" }: ProductCardProps) {
+export function ProductCard({
+  meta: rawMeta,
+  fallbackContent,
+  images = [],
+  onOpenLightbox,
+  onClick,
+  className = "",
+}: ProductCardProps) {
+  const meta = resolveProductShowcaseMeta(rawMeta, fallbackContent);
   const categoryConfig = CATEGORY_MAP[meta.category || "other"] || CATEGORY_MAP.other;
   const statusConfig = meta.status ? (STATUS_MAP[meta.status] || null) : null;
   const CategoryIcon = categoryConfig.icon;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import {
   getUsersAction,
@@ -114,6 +115,7 @@ interface PendingPost {
 
 export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const router = useRouter();
+  const { confirm: openConfirm, dialog: confirmDialog } = useConfirmDialog();
   const [activeTab, setActiveTab] = useState("settings");
   const [loading, setLoading] = useState(true);
   const [usersList, setUsersList] = useState<AdminUser[]>([]);
@@ -274,19 +276,25 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
-  const handleAdminDeleteComment = async (commentId: string) => {
-    if (!confirm("确定要删除这条评论吗？")) return;
-    const res = await deleteCommentAction(commentId);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("评论已彻底删除");
-      if (commentsList.length === 1 && commentsPage > 1) {
-        fetchComments(commentsPage - 1);
-      } else {
-        fetchComments(commentsPage);
-      }
-    }
+  const handleAdminDeleteComment = (commentId: string) => {
+    openConfirm({
+      title: "删除评论",
+      description: "确定要删除这条评论吗？删除后将无法恢复。",
+      confirmText: "删除",
+      onConfirm: async () => {
+        const res = await deleteCommentAction(commentId);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("评论已彻底删除");
+          if (commentsList.length === 1 && commentsPage > 1) {
+            fetchComments(commentsPage - 1);
+          } else {
+            fetchComments(commentsPage);
+          }
+        }
+      },
+    });
   };
 
   const loadMoreUsers = useCallback(async () => {
@@ -575,20 +583,26 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
-  const handleTelegramUnbind = async () => {
-    if (!confirm("确认解绑并注销 Webhook 吗？")) return;
-    setTgActionLoading(true);
-    const res = await unbindTelegramAction();
-    setTgActionLoading(false);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("已成功解除 Telegram 绑定并注销 Webhook");
-      setTgBotName("");
-      setTgBotToken("");
-      setTgConfig({});
-      loadData();
-    }
+  const handleTelegramUnbind = () => {
+    openConfirm({
+      title: "解绑 Telegram Bot",
+      description: "确认解绑并注销 Webhook 吗？",
+      confirmText: "确认解绑",
+      onConfirm: async () => {
+        setTgActionLoading(true);
+        const res = await unbindTelegramAction();
+        setTgActionLoading(false);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("已成功解除 Telegram 绑定并注销 Webhook");
+          setTgBotName("");
+          setTgBotToken("");
+          setTgConfig({});
+          loadData();
+        }
+      },
+    });
   };
 
   // Resend integrations
@@ -609,22 +623,28 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
-  const handleResendDelete = async () => {
-    if (!confirm("确认清除 Resend 配置吗？")) return;
-    setResendActionLoading(true);
-    const res = await deleteResendConfigAction();
-    setResendActionLoading(false);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("Resend 配置已成功清除");
-      setResendApiKey("");
-      setResendDomain("");
-      setResendFromName("");
-      setResendFromEmailPrefix("");
-      setResendConfig({});
-      loadData();
-    }
+  const handleResendDelete = () => {
+    openConfirm({
+      title: "清除 Resend 配置",
+      description: "确认清除 Resend 配置吗？清除后将无法发送邮件通知。",
+      confirmText: "确认清除",
+      onConfirm: async () => {
+        setResendActionLoading(true);
+        const res = await deleteResendConfigAction();
+        setResendActionLoading(false);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("Resend 配置已成功清除");
+          setResendApiKey("");
+          setResendDomain("");
+          setResendFromName("");
+          setResendFromEmailPrefix("");
+          setResendConfig({});
+          loadData();
+        }
+      },
+    });
   };
 
   const isTgIntegrated = !!tgConfig.telegram_bot_token;
@@ -1699,6 +1719,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
           </TabsContent>
         </div>
       </Tabs>
+      {confirmDialog}
     </div>
   );
 }

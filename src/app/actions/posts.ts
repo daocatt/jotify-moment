@@ -161,7 +161,7 @@ export async function createPostAction(data: {
       ytVideoId: embedType === "youtube" ? embedId : null,
       embedType,
       embedId,
-      embedMeta: null,
+      embedMeta: initialEmbedMeta,
       status: status as "approved" | "pending",
       pinnedAt: null,
       createdAt: new Date(),

@@ -53,8 +53,10 @@ import {
 } from "@/components/ui/dialog";
 import { ImageCropModal } from "@/components/image-crop-modal";
 import type { SessionUser } from "@/lib/auth";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function TokensSettingsPanel() {
+  const { confirm: openConfirm, dialog: confirmDialog } = useConfirmDialog();
   const [tokens, setTokens] = useState<ApiTokenItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -123,17 +125,21 @@ function TokensSettingsPanel() {
     }
   };
 
-  const handleRevoke = async (id: string, name: string) => {
-    if (!confirm(`确定要撤销密钥 "${name}" 吗？撤销后使用该密钥的 AI Agent 将无法继续访问。`)) {
-      return;
-    }
-    const res = await revokeApiTokenAction(id);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("密钥已成功撤销");
-      setTokens((prev) => prev.filter((t) => t.id !== id));
-    }
+  const handleRevoke = (id: string, name: string) => {
+    openConfirm({
+      title: "撤销 API 密钥",
+      description: `确定要撤销密钥 "${name}" 吗？撤销后使用该密钥的 AI Agent 将无法继续访问。`,
+      confirmText: "撤销",
+      onConfirm: async () => {
+        const res = await revokeApiTokenAction(id);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("密钥已成功撤销");
+          setTokens((prev) => prev.filter((t) => t.id !== id));
+        }
+      },
+    });
   };
 
   const copyToClipboard = (text: string) => {
@@ -320,6 +326,7 @@ function TokensSettingsPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }
@@ -330,6 +337,7 @@ interface SettingsClientProps {
 
 export function SettingsClient({ user }: SettingsClientProps) {
   const router = useRouter();
+  const { confirm: openConfirm, dialog: confirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "profile";
 
@@ -568,19 +576,25 @@ export function SettingsClient({ user }: SettingsClientProps) {
     }
   };
 
-  const handleUnbindUserTelegram = async () => {
-    if (!confirm("确认解绑 Telegram 吗？")) return;
-    setTgLoading(true);
-    const res = await unbindUserTelegramAction();
-    setTgLoading(false);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("解绑成功");
-      setTgBound(false);
-      setTelegram("");
-      router.refresh();
-    }
+  const handleUnbindUserTelegram = () => {
+    openConfirm({
+      title: "解绑 Telegram",
+      description: "确认解绑 Telegram 吗？解绑后将无法通过 Telegram Bot 发送动态。",
+      confirmText: "确认解绑",
+      onConfirm: async () => {
+        setTgLoading(true);
+        const res = await unbindUserTelegramAction();
+        setTgLoading(false);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("解绑成功");
+          setTgBound(false);
+          setTelegram("");
+          router.refresh();
+        }
+      },
+    });
   };
 
   const handleRefreshStatus = async () => {
@@ -1130,6 +1144,7 @@ export function SettingsClient({ user }: SettingsClientProps) {
           </div>
         </div>
       </div>
+      {confirmDialog}
     </>
   );
 }

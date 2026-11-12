@@ -25,7 +25,7 @@ export interface CreatedPost {
   ytVideoId: string | null;
   embedType: string | null;
   embedId: string | null;
-  embedMeta: null;
+  embedMeta?: Record<string, unknown> | null;
   status: "approved" | "pending";
   pinnedAt: null;
   createdAt: Date;

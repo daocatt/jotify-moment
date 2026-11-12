@@ -14,9 +14,10 @@ import { deleteCommentAction, toggleCommentVisibilityAction, updateCommentAction
 import { approvePostAction } from "@/app/actions/admin";
 import { MediaEmbed } from "@/components/media-embed";
 import { ImageCarousel } from "@/components/image-carousel";
-import { ProductCard, type ProductShowcaseMeta } from "@/components/product-card";
+import { ProductCard, resolveProductShowcaseMeta } from "@/components/product-card";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -92,6 +93,7 @@ export const MomentPost = memo(function MomentPost({
   onOpenDetail,
 }: MomentPostProps) {
   const router = useRouter();
+  const { confirm: openConfirm, dialog: confirmDialog } = useConfirmDialog();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiClosing, setEmojiClosing] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -376,8 +378,8 @@ export const MomentPost = memo(function MomentPost({
 
   // Suppress duplicate post content for showcase embeds if it merely repeats title and tagline
   const isRedundantShowcaseContent = () => {
-    if (post.embedType !== "product_showcase" || !post.embedMeta) return false;
-    const meta = post.embedMeta as unknown as ProductShowcaseMeta;
+    if (post.embedType !== "product_showcase") return false;
+    const meta = resolveProductShowcaseMeta(post.embedMeta, post.content);
     const trimmed = post.content?.trim();
     if (!trimmed) return true;
     const name = meta.name?.trim() || "";
@@ -463,15 +465,21 @@ export const MomentPost = memo(function MomentPost({
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("确定要删除这条评论吗？")) return;
-    const res = await deleteCommentAction(commentId);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("评论已删除");
-      loadComments(true); // Local refresh
-    }
+  const handleDeleteComment = (commentId: string) => {
+    openConfirm({
+      title: "删除评论",
+      description: "确定要删除这条评论吗？删除后将无法恢复。",
+      confirmText: "删除",
+      onConfirm: async () => {
+        const res = await deleteCommentAction(commentId);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("评论已删除");
+          loadComments(true); // Local refresh
+        }
+      },
+    });
   };
 
   const handleSaveEditComment = async (commentId: string) => {
@@ -499,15 +507,21 @@ export const MomentPost = memo(function MomentPost({
     }
   };
 
-  const handleDeletePost = async () => {
-    if (!confirm("确定要删除这条日志吗？")) return;
-    const res = await deletePostAction(post.id);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("日志已删除");
-      onRefresh();
-    }
+  const handleDeletePost = () => {
+    openConfirm({
+      title: "删除日志",
+      description: "确定要删除这条日志吗？删除后将无法恢复。",
+      confirmText: "删除",
+      onConfirm: async () => {
+        const res = await deletePostAction(post.id);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("日志已删除");
+          onRefresh();
+        }
+      },
+    });
   };
 
   const handleStartEditPost = () => {
@@ -899,10 +913,11 @@ export const MomentPost = memo(function MomentPost({
         )}
 
         {/* Product Showcase Card (encapsulates screenshots & links internally) */}
-        {post.embedType === "product_showcase" && post.embedMeta && (
+        {post.embedType === "product_showcase" && (
           <div className="max-w-md w-full">
             <ProductCard
-              meta={post.embedMeta as unknown as ProductShowcaseMeta}
+              meta={resolveProductShowcaseMeta(post.embedMeta, post.content)}
+              fallbackContent={post.content}
               images={images}
               onOpenLightbox={onOpenLightbox}
               onClick={
@@ -1341,6 +1356,7 @@ export const MomentPost = memo(function MomentPost({
           </div>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 });

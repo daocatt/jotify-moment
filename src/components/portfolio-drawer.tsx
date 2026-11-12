@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { PanelRightClose, X, Rocket, Plus, MessageSquare, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePresence } from "@/lib/use-presence";
-import { ProductCard, type ProductShowcaseMeta } from "@/components/product-card";
+import { ProductCard, resolveProductShowcaseMeta } from "@/components/product-card";
 import type { PostData } from "@/components/timeline-shell";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -72,15 +72,23 @@ export function PortfolioDrawer({
     return (
       <div className="p-4 space-y-3.5 pb-20">
         {products.map((post) => {
-          const meta = (post.embedMeta || {}) as unknown as ProductShowcaseMeta;
-          const defaultText = meta.name && meta.tagline ? `${meta.name} - ${meta.tagline}` : "";
-          const hasExtraNote = post.content && post.content.trim() !== defaultText.trim();
+          const meta = resolveProductShowcaseMeta(post.embedMeta, post.content);
+          const defaultText = meta.name && meta.tagline ? `${meta.name} - ${meta.tagline}` : meta.name;
+          const trimmedContent = post.content ? post.content.trim() : "";
+          const isContentRedundant =
+            !trimmedContent ||
+            trimmedContent === defaultText.trim() ||
+            trimmedContent === `${meta.name}: ${meta.tagline}`.trim() ||
+            trimmedContent === meta.name.trim() ||
+            (meta.tagline && trimmedContent === meta.tagline.trim());
+          const hasExtraNote = !isContentRedundant;
           const images = (post.mediaUrls || []).filter((m) => m.type === "image");
 
           return (
             <div key={post.id} className="space-y-2">
               <ProductCard
                 meta={meta}
+                fallbackContent={post.content}
                 images={images}
                 onOpenLightbox={onOpenLightbox}
                 onClick={() => onSelectPost(post)}
@@ -154,22 +162,21 @@ export function PortfolioDrawer({
 
           <div className="flex items-center gap-1.5 shrink-0">
             {isOwnPage && (
-              <Button
-                size="sm"
-                variant="outline"
+              <button
+                type="button"
                 onClick={onPublishProduct}
-                className="h-7 px-2.5 text-xs rounded-full gap-1 cursor-pointer"
+                className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium bg-orange-500 hover:bg-orange-600 active:scale-95 text-white shadow-xs transition-all cursor-pointer"
               >
-                <Plus size={12} />
-                发布作品
-              </Button>
+                <Plus size={13} />
+                <span>发布作品</span>
+              </button>
             )}
             <button
               type="button"
               onClick={onClose}
               aria-label="关闭"
               title="关闭 (Esc)"
-              className="size-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+              className="size-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
             >
               <X className="size-4" />
             </button>
@@ -205,21 +212,20 @@ export function PortfolioDrawer({
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {isOwnPage && (
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={onPublishProduct}
-                  className="h-7 px-2.5 text-xs rounded-full gap-1"
+                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium bg-orange-500 hover:bg-orange-600 active:scale-95 text-white shadow-xs transition-all cursor-pointer"
                 >
-                  <Plus size={12} />
-                  发布作品
-                </Button>
+                  <Plus size={13} />
+                  <span>发布作品</span>
+                </button>
               )}
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="关闭"
-                className="size-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                className="size-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
               >
                 <X className="size-4" />
               </button>
