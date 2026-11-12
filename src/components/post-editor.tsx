@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal } from "lucide-react";
+import { Image as ImageIcon, Video, Mic, Trash2, Square, Loader2, Heading3, Bold, List, Hash, Globe, LayoutGrid, GalleryHorizontal, X } from "lucide-react";
 import { createPostAction } from "@/app/actions/posts";
 import { parseEmbedUrl } from "@/lib/embed-parser";
 
@@ -42,9 +42,10 @@ export interface CreatedPost {
 
 interface PostEditorProps {
   onSuccess: (post?: CreatedPost) => void;
+  onCancel?: () => void;
 }
 
-export function PostEditor({ onSuccess }: PostEditorProps) {
+export function PostEditor({ onSuccess, onCancel }: PostEditorProps) {
   const [content, setContent] = useState("");
   const [mediaFiles, setMediaFiles] = useState<Array<{ type: string; url: string; name: string; thumbnailUrl?: string }>>([]);
   const [imageLayout, setImageLayout] = useState<"grid" | "carousel">("grid");
@@ -323,6 +324,18 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
           onChange={(e) => setContent(e.target.value)}
           className="min-h-[100px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-base bg-transparent"
         />
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading || uploading || isRecording}
+            aria-label="关闭发布区域"
+            title="关闭发布区域"
+            className="absolute top-0 right-0 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <X size={16} />
+          </button>
+        )}
         <span className={`absolute bottom-1 right-0 text-[10px] ${content.length > MAX_POST_LENGTH * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
           {content.length}/{MAX_POST_LENGTH}
         </span>
@@ -408,8 +421,8 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-2 border-t border-border/60">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60">
+        <div className="flex flex-wrap items-center gap-1">
           {/* Markdown toolbar */}
           <div className="flex items-center gap-0.5 mr-1 pr-1 border-r border-border/60">
             <button
@@ -522,10 +535,23 @@ export function PostEditor({ onSuccess }: PostEditorProps) {
           </button>
         </div>
 
-        <Button onClick={handlePublish} disabled={loading || uploading || isRecording}>
-          {(loading || uploading) && <Loader2 className="mr-2 animate-spin size-4" />}
-          发布
-        </Button>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              disabled={loading || uploading || isRecording}
+            >
+              取消
+            </Button>
+          )}
+          <Button size="sm" onClick={handlePublish} disabled={loading || uploading || isRecording}>
+            {(loading || uploading) && <Loader2 className="mr-2 animate-spin size-4" />}
+            发布
+          </Button>
+        </div>
       </div>
     </div>
   );

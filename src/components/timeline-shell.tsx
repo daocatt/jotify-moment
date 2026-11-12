@@ -931,22 +931,19 @@ export function TimelineShell({
                 />
                 <DropdownMenuContent align="end" className="min-w-44 p-1.5 shadow-lg">
                   <DropdownMenuItem
-                    onClick={() => {
-                      if (!editorOpen) toggleEditor();
-                      else {
-                        setTimeout(() => {
-                          document.getElementById("post-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }, 50);
-                      }
-                    }}
+                    onClick={toggleEditor}
                     className="flex items-center gap-2.5 py-2 px-2.5 text-xs cursor-pointer rounded-md"
                   >
                     <div className="size-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
                       <Pen size={12} />
                     </div>
                     <div>
-                      <div className="font-medium text-foreground">发布日常动态</div>
-                      <div className="text-[10px] text-muted-foreground">记录想法、图文与生活</div>
+                      <div className="font-medium text-foreground">
+                        {editorOpen ? "收起发布区域" : "发布日常动态"}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {editorOpen ? "关闭当前的动态编辑框" : "记录想法、图文与生活"}
+                      </div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -1244,6 +1241,7 @@ export function TimelineShell({
                 onRefresh();
               }
             }}
+            onCancel={() => setEditorOpen(false)}
           />
         </div>
       )}
