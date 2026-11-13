@@ -6,9 +6,11 @@
 
 ## 一、背景说明
 
-- **基础镜像更新**：[`Dockerfile.db`](../Dockerfile.db) 已升级为 `FROM postgres:18-alpine`。
+- **基础镜像与挂载路径更新**：
+  - [`Dockerfile.db`](../Dockerfile.db) 已升级为 `FROM postgres:18-alpine`。
+  - [`docker-compose.yml`](../docker-compose.yml) 卷挂载路径调整为官方 18+ 推荐的父目录：`- ${DOCKER_DATA_PATH:-./data}/postgres:/var/lib/postgresql`（PG 18 会自动在其下生成 `18/docker/` 结构）。
 - **构建策略优化**：CI/CD [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) 构建指令已更新为 `docker compose build --no-cache --pull`，确保每次构建都强制拉取最新的官方基础镜像，防范已公布的 CVE 安全漏洞。
-- **跨大版本（17 → 18）不兼容限制**：PostgreSQL 跨大版本升级时，底层的磁盘存储格式（Data Catalog / Page Layout）不兼容。直接以 PG 18 读取 PG 17 挂载的数据目录会导致启动崩溃。因此必须通过 **数据导出（Dump）→ 重置空数据目录（Init PG18）→ 数据导入（Restore）** 的标准流程完成迁移。
+- **跨大版本（17 → 18）不兼容限制**：PostgreSQL 跨大版本升级时，底层的磁盘存储格式（Data Catalog / Page Layout）不兼容。直接以 PG 18 读取 PG 17 挂载的数据目录会导致启动崩溃。因此必须通过 **数据导出（Dump）→ 重置空数据目录（Init PG18）→ 数据导入（Restore）** 的标准流程完成迁移。千万不要将 PG 17 的老物理目录文件直接复制进 `18/docker`。
 
 ---
 
