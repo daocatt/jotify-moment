@@ -1,6 +1,6 @@
 # PostgreSQL image with the pg_bigm extension preinstalled.
 #
-# The official postgres:17-alpine image compiles PostgreSQL from source into
+# The official postgres:18-alpine image compiles PostgreSQL from source into
 # /usr/local and runs `make install-world-bin`, so PGXS and the server headers
 # are already present. Only the ICU headers have to be added, because
 # PostgreSQL is built --with-icu (see the icu-dev note below).
@@ -8,7 +8,7 @@
 # pg_bigm provides the 2-gram GIN index behind the keyword search in
 # src/app/actions/posts.ts (searchPostsAction). Without it that query falls
 # back to a sequential scan over posts.content.
-FROM postgres:17-alpine
+FROM postgres:18-alpine
 
 ARG PG_BIGM_VERSION=v1.2-20250903
 ARG PG_BIGM_SHA256=4d4fb48161e3f9e99207851299379c83b3e5d1d3c1a07c35f6a3153d577b3142

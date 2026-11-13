@@ -82,7 +82,7 @@ jobs:
           # 3. Build Docker images — if the build fails, STOP (never silently
           #    keep the previous image and call it a success).
           echo "📦 Building new Docker images..."
-          if ! docker compose build --no-cache >/tmp/dc-build.log 2>&1; then
+          if ! docker compose build --no-cache --pull >/tmp/dc-build.log 2>&1; then
             echo "❌ Build failed — deployment aborted."
             echo "ℹ️ Detailed build log saved to /tmp/dc-build.log on VPS. Raw logs are withheld from CI to protect credentials."
             exit 1
