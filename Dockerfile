@@ -4,8 +4,8 @@
 #    - 安全补丁要到**下次重建镜像**才生效，钉住之后至少一眼能看出当前跑的是哪个补丁。
 #    升级时对照 https://nodejs.org/en/blog/vulnerability 的公告，
 #    并同步改 .github/workflows/deploy.yml 的 node-version 与下方 esbuild --target。
-#    当前：24.22.1（2026-10-21 安全版本，24.x 线修 4 个 high + 4 个 medium）
-FROM node:24.22.1-alpine AS builder
+#    当前：24.22.3（2026-11-11 安全版本，24.x 线修 16 个漏洞，7 个 high）
+FROM node:24.22.3-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -26,7 +26,7 @@ ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
 RUN npm run build
 
-FROM node:24.22.1-alpine AS runner
+FROM node:24.22.3-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
