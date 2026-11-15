@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCachedPublicFeed } from "@/lib/feed-cache";
+import { getCachedPublicFeed, getCachedSuperAdminProfile } from "@/lib/feed-cache";
 import { getSiteFcProfile } from "@/lib/settings";
 import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
 import { HomeClient } from "./home-client";
@@ -10,18 +10,21 @@ import { getPublicSettingsAction } from "@/app/actions/admin";
 export const dynamic = "force-dynamic";
 
 /**
- * The homepage header is ALWAYS the GLOBAL site (friends-circle) basic profile —
- * strictly separate from the admin's personal profile. When the profile is not
- * filled in yet, the name slot shows "请完善信息->" (no admin fallback).
+ * The homepage header displays the global site (friends-circle) profile when configured;
+ * otherwise it gracefully falls back to the super admin's profile so the site's default
+ * public homepage always has an avatar and identity.
  */
 async function resolveHomeProfile(): Promise<HomeHeaderProfile> {
-  const fc = await getSiteFcProfile();
+  const [fc, superAdmin] = await Promise.all([
+    getSiteFcProfile(),
+    getCachedSuperAdminProfile(),
+  ]);
   return {
-    name: fc.title || SITE_PROFILE_PLACEHOLDER,
+    name: fc.title || superAdmin?.name || SITE_PROFILE_PLACEHOLDER,
     slug: null,
-    avatar: fc.logo || null,
-    bio: fc.desc || null,
-    coverImage: fc.cover || null,
+    avatar: fc.logo || superAdmin?.avatar || null,
+    bio: fc.desc || superAdmin?.bio || null,
+    coverImage: fc.cover || superAdmin?.coverImage || null,
   };
 }
 
@@ -55,6 +58,9 @@ export default async function Home() {
   return (
     <>
       <link rel="preload" as="image" href={coverUrl} fetchPriority="high" />
+      {profile.avatar && (
+        <link rel="preload" as="image" href={profile.avatar} fetchPriority="high" />
+      )}
       <HomeClient
         initialProfile={profile}
         initialPosts={initialPosts}

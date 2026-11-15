@@ -10,7 +10,8 @@ import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScr
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
 import { invalidateStorageConfigCache, isAllowedMediaUrl } from "@/lib/storage";
 import { getSetting, invalidateSetting, getSiteFcProfile } from "@/lib/settings";
-import { invalidateFeedCache } from "@/lib/feed-cache";
+import { invalidateFeedCache, getCachedSuperAdminProfile } from "@/lib/feed-cache";
+import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
 import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
@@ -522,8 +523,18 @@ export async function updatePrivacySettingsAction(data: {
 /** Public read of the global site friends-circle profile. */
 export async function getSiteFcProfileAction() {
   try {
-    const profile = await getSiteFcProfile();
-    return { success: true, profile };
+    const [profile, superAdmin] = await Promise.all([
+      getSiteFcProfile(),
+      getCachedSuperAdminProfile(),
+    ]);
+    const effectiveProfile: HomeHeaderProfile = {
+      name: profile.title || superAdmin?.name || SITE_PROFILE_PLACEHOLDER,
+      slug: null,
+      avatar: profile.logo || superAdmin?.avatar || null,
+      bio: profile.desc || superAdmin?.bio || null,
+      coverImage: profile.cover || superAdmin?.coverImage || null,
+    };
+    return { success: true, profile, effectiveProfile };
   } catch (error) {
     console.error("getSiteFcProfileAction error:", error);
     return { error: "Failed to fetch site profile" };

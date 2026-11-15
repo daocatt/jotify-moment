@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TimelineShell } from "@/components/timeline-shell";
 import { getFriendsCircleAction } from "@/app/actions/posts";
 import { getSiteFcProfileAction } from "@/app/actions/admin";
+import { type HomeHeaderProfile } from "@/lib/site-profile";
 import { toast } from "sonner";
 
 interface FriendUser {
@@ -25,20 +26,24 @@ interface SiteProfile {
 
 interface FriendsClientProps {
   initialSiteProfile?: SiteProfile | null;
+  initialEffectiveProfile?: HomeHeaderProfile | null;
   initialFriends?: FriendUser[];
 }
 
 export function FriendsClient({
   initialSiteProfile = null,
+  initialEffectiveProfile = null,
   initialFriends = [],
 }: FriendsClientProps = {}) {
   const [siteProfile, setSiteProfile] = useState<SiteProfile | null>(initialSiteProfile);
+  const [effectiveProfile, setEffectiveProfile] = useState<HomeHeaderProfile | null>(initialEffectiveProfile);
   const [friends, setFriends] = useState<FriendUser[]>(initialFriends);
   const [loading, setLoading] = useState(!initialSiteProfile && initialFriends.length === 0);
 
   const loadProfile = useCallback(async () => {
     const res = await getSiteFcProfileAction();
     if (res.success && res.profile) setSiteProfile(res.profile);
+    if (res.success && res.effectiveProfile) setEffectiveProfile(res.effectiveProfile);
   }, []);
 
   const loadFriends = useCallback(async () => {
@@ -60,8 +65,8 @@ export function FriendsClient({
     }
   }, [loadProfile, loadFriends, initialSiteProfile, initialFriends.length]);
 
-  // Header = the global site (friends-circle) profile, strictly separate from any personal profile.
-  const profileUser = {
+  // Header = the effective site/friends-circle profile.
+  const profileUser = effectiveProfile ?? {
     name: siteProfile?.title || "朋友圈",
     slug: null,
     avatar: siteProfile?.logo || null,

@@ -44,7 +44,9 @@ export function HomeClient({
 
   const fetchProfile = useCallback(async () => {
     const res = await getSiteFcProfileAction();
-    if (res.success && res.profile) {
+    if (res.success && res.effectiveProfile) {
+      setProfile(res.effectiveProfile);
+    } else if (res.success && res.profile) {
       setProfile({
         name: res.profile.title || SITE_PROFILE_PLACEHOLDER,
         slug: null,

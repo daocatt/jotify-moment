@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { APP_VERSION } from "@/lib/version";
+import { SITE_PROFILE_PLACEHOLDER } from "@/lib/site-profile";
 
 export interface CurrentUser {
   id: string;
@@ -336,7 +337,16 @@ export function TimelineShell({
 
   const targetAvatarSrc = profileUser.avatar || null;
   const [avatarSrc, setAvatarSrc] = useState<string | null>(targetAvatarSrc);
+  const [prevTargetAvatarSrc, setPrevTargetAvatarSrc] = useState(targetAvatarSrc);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  if (targetAvatarSrc !== prevTargetAvatarSrc) {
+    setPrevTargetAvatarSrc(targetAvatarSrc);
+    setAvatarSrc(targetAvatarSrc);
+    setAvatarLoaded(false);
+    setAvatarError(false);
+  }
 
   useEffect(() => {
     if (targetCoverSrc === coverSrc) return;
@@ -401,19 +411,36 @@ export function TimelineShell({
     }
   }, [coverSrc]);
 
+  // Sync avatar loaded state if already cached in browser memory or when image finishes loading
   useEffect(() => {
-    if (!targetAvatarSrc || targetAvatarSrc === avatarSrc) return;
+    if (!avatarSrc) return;
+    let cancelled = false;
     const img = new window.Image();
     img.onload = () => {
-      setAvatarSrc(targetAvatarSrc);
-      setAvatarLoaded(true);
+      if (!cancelled) {
+        setAvatarLoaded(true);
+        setAvatarError(false);
+      }
     };
     img.onerror = () => {
-      setAvatarSrc(targetAvatarSrc);
-      setAvatarLoaded(true);
+      if (!cancelled) {
+        setAvatarLoaded(false);
+        setAvatarError(true);
+      }
     };
-    img.src = targetAvatarSrc;
-  }, [targetAvatarSrc, avatarSrc]);
+    img.src = avatarSrc;
+    if (img.complete && img.naturalWidth > 0) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setAvatarLoaded(true);
+          setAvatarError(false);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarSrc]);
 
   useEffect(() => {
     if (!loadingPosts && posts.length > 0) {
@@ -1071,12 +1098,24 @@ export function TimelineShell({
               className={`size-16 sm:size-20 overflow-hidden bg-muted ring-2 ring-background block outline-none focus-visible:ring-foreground rounded-[var(--theme-radius-avatar)] ${onAvatarClick || isOwnPage ? "cursor-pointer" : "cursor-default"}`}
               title={isOwnPage ? "编辑个人资料" : undefined}
             >
-                {targetAvatarSrc && avatarSrc ? (
+                {targetAvatarSrc && avatarSrc && !avatarError ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} onLoad={() => setAvatarLoaded(true)} alt="User Avatar" className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`} />
+                <img
+                  src={avatarSrc}
+                  onLoad={() => {
+                    setAvatarLoaded(true);
+                    setAvatarError(false);
+                  }}
+                  onError={() => {
+                    setAvatarLoaded(false);
+                    setAvatarError(true);
+                  }}
+                  alt="User Avatar"
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                  {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
+                  {profileUser.id ? profileUser.name.charAt(0) : (profileUser.name && profileUser.name !== SITE_PROFILE_PLACEHOLDER ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />)}
                 </div>
               )}
             </button>
@@ -1093,12 +1132,24 @@ export function TimelineShell({
             <div className="w-full max-w-[360px]">
               <div className="flex items-start gap-4 mb-3">
               <div className={`size-16 sm:size-20 overflow-hidden bg-muted ring-2 ring-background shrink-0 rounded-[var(--theme-radius-avatar)]`}>
-              {targetAvatarSrc && avatarSrc ? (
+              {targetAvatarSrc && avatarSrc && !avatarError ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc} onLoad={() => setAvatarLoaded(true)} alt="User Avatar" className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`} />
+                  <img
+                    src={avatarSrc}
+                    onLoad={() => {
+                      setAvatarLoaded(true);
+                      setAvatarError(false);
+                    }}
+                    onError={() => {
+                      setAvatarLoaded(false);
+                      setAvatarError(true);
+                    }}
+                    alt="User Avatar"
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                    {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
+                    {profileUser.id ? profileUser.name.charAt(0) : (profileUser.name && profileUser.name !== SITE_PROFILE_PLACEHOLDER ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />)}
                   </div>
                 )}
               </div>
@@ -1208,12 +1259,24 @@ export function TimelineShell({
             className={`size-16 sm:size-20 overflow-hidden bg-muted ring-2 ring-border block outline-none focus-visible:ring-foreground shrink-0 rounded-[var(--theme-radius-avatar)] ${onAvatarClick || isOwnPage ? "cursor-pointer" : "cursor-default"}`}
             title={isOwnPage ? "编辑个人资料" : undefined}
           >
-            {targetAvatarSrc && avatarSrc ? (
+            {targetAvatarSrc && avatarSrc && !avatarError ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} onLoad={() => setAvatarLoaded(true)} alt="User Avatar" className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`} />
+              <img
+                src={avatarSrc}
+                onLoad={() => {
+                  setAvatarLoaded(true);
+                  setAvatarError(false);
+                }}
+                onError={() => {
+                  setAvatarLoaded(false);
+                  setAvatarError(true);
+                }}
+                alt="User Avatar"
+                className={`w-full h-full object-cover transition-opacity duration-300 ${avatarLoaded ? "opacity-100" : "opacity-0"}`}
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground font-bold text-lg sm:text-xl">
-                {profileUser.id ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />}
+                {profileUser.id ? profileUser.name.charAt(0) : (profileUser.name && profileUser.name !== SITE_PROFILE_PLACEHOLDER ? profileUser.name.charAt(0) : <CircleUserRound size={26} className="text-muted-foreground" />)}
               </div>
             )}
           </button>

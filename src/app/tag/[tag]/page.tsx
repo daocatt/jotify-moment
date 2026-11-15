@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getSiteFcProfile } from "@/lib/settings";
+import { getCachedSuperAdminProfile } from "@/lib/feed-cache";
 import { type HomeHeaderProfile } from "@/lib/site-profile";
 import { getPostsByTagAction } from "@/app/actions/posts";
 import { TagClient } from "./tag-client";
@@ -8,13 +9,16 @@ import type { PostData } from "@/components/timeline-shell";
 export const dynamic = "force-dynamic";
 
 async function resolveTagHeaderProfile(tag: string): Promise<HomeHeaderProfile> {
-  const fc = await getSiteFcProfile();
+  const [fc, superAdmin] = await Promise.all([
+    getSiteFcProfile(),
+    getCachedSuperAdminProfile(),
+  ]);
   return {
     name: `#${tag}`,
     slug: null,
-    avatar: fc.logo || null,
+    avatar: fc.logo || superAdmin?.avatar || null,
     bio: fc.desc ? `话题 #${tag} · ${fc.desc}` : `包含 #${tag} 的所有动态`,
-    coverImage: fc.cover || null,
+    coverImage: fc.cover || superAdmin?.coverImage || null,
   };
 }
 
