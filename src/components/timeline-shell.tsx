@@ -876,7 +876,7 @@ export function TimelineShell({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-[10px] font-semibold">
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
                   {currentUser ? currentUser.name.charAt(0) : "G"}
                 </div>
               )}
@@ -941,7 +941,7 @@ export function TimelineShell({
                       <div className="font-medium text-foreground">
                         {editorOpen ? "收起发布区域" : "发布日常动态"}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {editorOpen ? "关闭当前的动态编辑框" : "记录想法、图文与生活"}
                       </div>
                     </div>
@@ -955,7 +955,7 @@ export function TimelineShell({
                     </div>
                     <div>
                       <div className="font-medium text-foreground">发布作品</div>
-                      <div className="text-[10px] text-muted-foreground">在 moments 分享你的作品</div>
+                      <div className="text-xs text-muted-foreground">在 moments 分享你的作品</div>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -1042,7 +1042,7 @@ export function TimelineShell({
                 <span>作品集</span>
                 {userProducts.length > 0 && (
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-semibold leading-tight ${
+                    className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold leading-tight ${
                       portfolioOpen ? "bg-white/25 text-white" : "bg-white/15 text-white/90"
                     }`}
                   >
@@ -1083,7 +1083,7 @@ export function TimelineShell({
             {isOwnPage && (
               <div className={`absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white transition-opacity pointer-events-none rounded-[var(--theme-radius-avatar)] ${bannerHovered ? "sm:opacity-100 opacity-0" : "opacity-0"}`}>
                 <Pen size={18} />
-                <span className="text-[10px] mt-0.5">编辑</span>
+                <span className="text-[11px] mt-0.5">编辑</span>
               </div>
             )}
           </div>
@@ -1166,7 +1166,7 @@ export function TimelineShell({
               );
             })()}
 
-            <p className="text-[10px] text-white/50 mt-4 text-center">点击收起</p>
+            <p className="text-xs text-white/60 mt-4 text-center">点击收起</p>
             </div>
           </div>
         </div>
@@ -1194,7 +1194,7 @@ export function TimelineShell({
                   <Rocket size={12} className="text-orange-500" />
                   <span>作品集</span>
                   {userProducts.length > 0 && (
-                    <span className="text-[10px] text-muted-foreground font-semibold">
+                    <span className="text-[11px] text-muted-foreground font-semibold">
                       {userProducts.length}
                     </span>
                   )}

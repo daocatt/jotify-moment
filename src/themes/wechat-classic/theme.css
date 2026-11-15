@@ -2,8 +2,8 @@
   /* WeChat standard font styling: native system UI fonts, CJK resolved explicitly.
      No trailing generic — body-level fallbacks remain reachable. */
   --theme-font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
-    "Microsoft YaHei", "Helvetica Neue", Arial;
-  --theme-line-height: 1.6;
+    "Microsoft YaHei UI", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans SC", "Helvetica Neue", Arial;
+  --theme-line-height: 1.625;
 
   /* Straight angles, tight padding, no shadows */
   --theme-radius-card: 0px;

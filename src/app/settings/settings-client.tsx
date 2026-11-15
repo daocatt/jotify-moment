@@ -185,11 +185,11 @@ function TokensSettingsPanel() {
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm text-foreground truncate">{token.name}</span>
-                  <span className="text-[10px] font-mono bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">
+                  <span className="text-[11px] font-mono bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">
                     {token.tokenPrefix}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
                     创建于 {new Date(token.createdAt).toLocaleDateString()}
@@ -951,12 +951,12 @@ export function SettingsClient({ user }: SettingsClientProps) {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-foreground">
-                            {themeItem.name} <span className="text-[10px] text-muted-foreground font-normal">v{themeItem.version}</span>
+                            {themeItem.name} <span className="text-[11px] text-muted-foreground font-normal">v{themeItem.version}</span>
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             作者: {themeItem.author} · 模式: {themeItem.features.supportedModes.join(", ")}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                          <div className="text-xs text-muted-foreground mt-0.5">
                             顶部封面: {themeItem.features.showCoverImage ? "显示" : "隐藏"}
                           </div>
                         </div>

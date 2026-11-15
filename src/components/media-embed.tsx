@@ -249,7 +249,7 @@ export function MediaEmbed({ embedType, embedId, embedMeta }: MediaEmbedProps) {
               {embedMeta?.title && (
                 <p className="text-white text-xs font-medium truncate">{embedMeta.title}</p>
               )}
-              <p className="text-white/60 text-[10px]">{meta.label}</p>
+              <p className="text-white/70 text-[11px]">{meta.label}</p>
             </div>
           )}
         </button>

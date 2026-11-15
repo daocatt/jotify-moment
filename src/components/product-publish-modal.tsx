@@ -298,7 +298,7 @@ export function ProductPublishModal({ isOpen, onClose, onSuccess }: ProductPubli
                     <button
                       type="button"
                       onClick={() => setImageLayout("grid")}
-                      className={`px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 transition-colors cursor-pointer ${
+                      className={`px-1.5 py-0.5 text-[11px] rounded flex items-center gap-1 transition-colors cursor-pointer ${
                         imageLayout === "grid"
                           ? "bg-background text-foreground shadow-xs font-medium"
                           : "text-muted-foreground hover:text-foreground"
@@ -309,7 +309,7 @@ export function ProductPublishModal({ isOpen, onClose, onSuccess }: ProductPubli
                     <button
                       type="button"
                       onClick={() => setImageLayout("carousel")}
-                      className={`px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 transition-colors cursor-pointer ${
+                      className={`px-1.5 py-0.5 text-[11px] rounded flex items-center gap-1 transition-colors cursor-pointer ${
                         imageLayout === "carousel"
                           ? "bg-background text-foreground shadow-xs font-medium"
                           : "text-muted-foreground hover:text-foreground"
@@ -357,14 +357,14 @@ export function ProductPublishModal({ isOpen, onClose, onSuccess }: ProductPubli
                   {uploadingImages ? (
                     <>
                       <Loader2 size={18} className="animate-spin text-primary" />
-                      <span className="text-[10px]">上传中...</span>
+                      <span className="text-[11px]">上传中...</span>
                     </>
                   ) : (
                     <>
                       <div className="size-6 rounded-full bg-muted flex items-center justify-center">
                         <Plus size={14} />
                       </div>
-                      <span className="text-[10px]">添加图片</span>
+                      <span className="text-[11px]">添加图片</span>
                     </>
                   )}
                 </button>

@@ -322,7 +322,7 @@ export function PostEditor({ onSuccess, onCancel }: PostEditorProps) {
           value={content}
           maxLength={MAX_POST_LENGTH}
           onChange={(e) => setContent(e.target.value)}
-          className="min-h-[100px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-base bg-transparent"
+          className="min-h-[100px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-[15px] sm:text-base leading-relaxed bg-transparent"
         />
         {onCancel && (
           <button
@@ -336,7 +336,7 @@ export function PostEditor({ onSuccess, onCancel }: PostEditorProps) {
             <X size={16} />
           </button>
         )}
-        <span className={`absolute bottom-1 right-0 text-[10px] ${content.length > MAX_POST_LENGTH * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
+        <span className={`absolute bottom-1 right-0 text-[11px] font-mono ${content.length > MAX_POST_LENGTH * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
           {content.length}/{MAX_POST_LENGTH}
         </span>
       </div>
@@ -413,7 +413,7 @@ export function PostEditor({ onSuccess, onCancel }: PostEditorProps) {
         <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center justify-between text-green-600 dark:text-green-400">
           <div className="flex items-center gap-2">
             <Mic className="animate-pulse size-5" />
-            <span className="text-sm font-semibold">正在录制语音... {formatDuration(recordingDuration)} <span className="text-[10px] font-normal text-green-500/70">/ {formatDuration(MAX_RECORDING_SECONDS)}</span></span>
+            <span className="text-sm font-semibold">正在录制语音... {formatDuration(recordingDuration)} <span className="text-[11px] font-normal text-green-500/70">/ {formatDuration(MAX_RECORDING_SECONDS)}</span></span>
           </div>
           <Button size="sm" variant="destructive" onClick={stopRecording} className="h-8">
             <Square className="mr-1 size-3 fill-current" /> 停止

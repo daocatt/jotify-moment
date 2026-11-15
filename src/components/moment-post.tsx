@@ -616,18 +616,18 @@ export const MomentPost = memo(function MomentPost({
               type="button"
               onClick={goToUserHome}
               disabled={!post.user.slug}
-              className="font-semibold text-[#576B95] dark:text-blue-400 text-sm sm:text-base cursor-pointer hover:underline disabled:cursor-default disabled:hover:no-underline"
+              className="font-semibold text-[#576B95] dark:text-blue-400 text-[15px] sm:text-base cursor-pointer hover:underline disabled:cursor-default disabled:hover:no-underline tracking-tight"
             >
               {post.user.name}
             </button>
             {post.pinnedAt && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary">
                 <Pin className="size-3" /> 置顶
               </span>
             )}
             {post.status === "pending" && (
               <div className="inline-flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-500">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-500">
                   <AlertCircle className="size-3" /> 待审核
                 </span>
                 {isAdmin && (
@@ -635,7 +635,7 @@ export const MomentPost = memo(function MomentPost({
                     size="sm"
                     variant="outline"
                     onClick={handleApprovePost}
-                    className="min-h-0 h-[18px] py-0 px-1.5 text-[9px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm leading-none flex items-center"
+                    className="min-h-0 h-5 py-0 px-2 text-[11px] bg-white dark:bg-zinc-900 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded font-medium leading-none flex items-center"
                   >
                     <CheckCircle className="mr-0.5 size-2.5" /> 审核通过
                   </Button>
@@ -644,7 +644,7 @@ export const MomentPost = memo(function MomentPost({
             )}
           </div>
           {isDetailsView ? (
-            <span className="text-[11px] sm:text-xs text-muted-foreground">{relativeTime}</span>
+            <span className="text-xs text-muted-foreground">{relativeTime}</span>
           ) : (
             <Link
               href={`/mo/${post.id}`}
@@ -654,7 +654,7 @@ export const MomentPost = memo(function MomentPost({
                   onOpenDetail(post.id, post);
                 }
               }}
-              className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
               title="查看此动态详情"
             >
               {relativeTime}
@@ -675,7 +675,7 @@ export const MomentPost = memo(function MomentPost({
                 className="min-h-[90px] border-none resize-none focus-visible:ring-0 p-0 pr-16 shadow-none text-sm bg-transparent"
                 autoFocus
               />
-              <span className={`absolute bottom-0 right-0 text-[10px] ${editPostContent.length > 1000 * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
+              <span className={`absolute bottom-0 right-0 text-[11px] font-mono ${editPostContent.length > 1000 * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
                 {editPostContent.length}/1000
               </span>
             </div>
@@ -756,7 +756,7 @@ export const MomentPost = memo(function MomentPost({
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 flex items-center justify-between text-green-600 dark:text-green-400">
                 <div className="flex items-center gap-2">
                   <Mic className="animate-pulse size-4" />
-                  <span className="text-xs font-semibold">正在录制语音... {Math.floor(editRecordingDuration / 60)}:{(editRecordingDuration % 60).toString().padStart(2, "0")} <span className="text-[10px] font-normal text-green-500/70">/ 1:00</span></span>
+                  <span className="text-xs font-semibold">正在录制语音... {Math.floor(editRecordingDuration / 60)}:{(editRecordingDuration % 60).toString().padStart(2, "0")} <span className="text-[11px] font-normal text-green-500/70">/ 1:00</span></span>
                 </div>
                 <Button size="sm" variant="destructive" onClick={stopEditRecording} className="h-7 text-xs">
                   <Square className="mr-1 size-2.5 fill-current" /> 停止
@@ -891,7 +891,7 @@ export const MomentPost = memo(function MomentPost({
             </div>
           </div>
         ) : post.content && !isRedundantShowcaseContent() ? (
-          <div className="break-words prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-[''] prose-code:after:content-[''] prose-img:rounded-lg max-w-none text-foreground leading-relaxed">
+          <div className="prose-moment">
             <MarkdownContent content={post.content} />
           </div>
         ) : null}
@@ -1064,7 +1064,7 @@ export const MomentPost = memo(function MomentPost({
               >
                 <Edit2 size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-amber-500" />
               </button>
-              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">编辑</span>
+              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">编辑</span>
             </div>
           )}
 
@@ -1081,7 +1081,7 @@ export const MomentPost = memo(function MomentPost({
                   <Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
                 </button>
                 {showPinMenu && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-[10px] font-medium z-50 overflow-hidden min-w-[80px]">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-xs font-medium z-50 overflow-hidden min-w-[84px]">
                     <button
                       onClick={handleToggleProfilePin}
                       disabled={profilePinLoading}
@@ -1117,7 +1117,7 @@ export const MomentPost = memo(function MomentPost({
                     </span>
                   )}
                 </button>
-                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.profilePinned ? "取消主页置顶" : "主页置顶"}</span>
+                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.profilePinned ? "取消主页置顶" : "主页置顶"}</span>
               </div>
             ) : isAdmin ? (
               <div className="relative">
@@ -1137,7 +1137,7 @@ export const MomentPost = memo(function MomentPost({
                     </span>
                   )}
                 </button>
-                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.pinnedAt ? "取消全局置顶" : "全局置顶"}</span>
+                <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">{post.pinnedAt ? "取消全局置顶" : "全局置顶"}</span>
               </div>
             ) : null
           )}
@@ -1153,7 +1153,7 @@ export const MomentPost = memo(function MomentPost({
               >
                 <Trash2 size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
               </button>
-              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">删除</span>
+              <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">删除</span>
             </div>
           )}
 
@@ -1261,14 +1261,14 @@ export const MomentPost = memo(function MomentPost({
                           return (
                             <div
                               key={comment.id}
-                              className={`group flex items-start justify-between text-xs sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
+                              className={`group flex items-start justify-between text-[13px] sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
                             >
                               <div className="flex-1 min-w-0 pr-2">
                                 <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
                                   {comment.userId.name}
                                 </span>
                                 {isCommentHidden && (
-                                  <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 rounded ml-1 select-none">
+                                  <span className="text-[11px] font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1 rounded ml-1 select-none">
                                     已隐藏
                                   </span>
                                 )}
@@ -1284,7 +1284,7 @@ export const MomentPost = memo(function MomentPost({
                                     />
                                     <Button
                                       size="sm"
-                                      className="h-6 text-[10px] px-2"
+                                      className="h-6 text-xs px-2"
                                       onClick={() => handleSaveEditComment(comment.id)}
                                     >
                                       保存
@@ -1292,7 +1292,7 @@ export const MomentPost = memo(function MomentPost({
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 text-[10px] px-2 text-muted-foreground"
+                                      className="h-6 text-xs px-2 text-muted-foreground"
                                       onClick={() => setEditingCommentId(null)}
                                     >
                                       取消

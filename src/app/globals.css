@@ -28,7 +28,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", "Noto Sans Mono CJK SC", monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -252,15 +252,26 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Latin: bundled Geist webfont → native system UI fonts (matches jotify-forum).
-       CJK: PingFang SC (macOS) / Hiragino Sans GB (macOS legacy) / Microsoft YaHei (Windows)
-       fall through after the Latin faces, so no extra webfont is needed for Chinese. */
-    font-family: var(--theme-font-sans, var(--font-geist-sans)), -apple-system, BlinkMacSystemFont,
-      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Roboto,
-      'Helvetica Neue', Arial, 'Noto Sans CJK SC', system-ui, sans-serif;
+    /* Font Stack:
+       1. Custom theme font or bundled Geist webfont for top-tier Latin typography
+       2. Native modern system UI fonts
+       3. CJK fonts: PingFang SC (macOS/iOS), Hiragino Sans GB, Microsoft YaHei UI & YaHei (Windows),
+          Source Han Sans / Noto Sans SC / HarmonyOS Sans SC (Android/Linux)
+       4. Emojis and generic fallbacks */
+    font-family: var(--theme-font-sans, var(--font-geist-sans)),
+      system-ui, -apple-system, BlinkMacSystemFont,
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
+      "Source Han Sans SC", "Noto Sans SC", "HarmonyOS Sans SC",
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif,
+      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     font-size: 15px;
-    line-height: var(--theme-line-height, 1.6);
+    line-height: var(--theme-line-height, 1.625);
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   html {
     @apply font-sans;
@@ -268,6 +279,156 @@
 }
 
 @layer components {
+  /* ── Dedicated Moments Post Content Typography ── */
+  .prose-moment {
+    font-size: 0.9375rem; /* 15px — optimal reading size for moments */
+    line-height: 1.625;
+    color: var(--foreground);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  /* Compact paragraph vertical rhythm */
+  .prose-moment p {
+    margin-top: 0.35em;
+    margin-bottom: 0.35em;
+  }
+  .prose-moment p:first-child {
+    margin-top: 0;
+  }
+  .prose-moment p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Harmonious in-moment headings */
+  .prose-moment h1,
+  .prose-moment h2,
+  .prose-moment h3,
+  .prose-moment h4 {
+    color: var(--foreground);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.35;
+    margin-top: 0.55em;
+    margin-bottom: 0.25em;
+  }
+  .prose-moment h1:first-child,
+  .prose-moment h2:first-child,
+  .prose-moment h3:first-child,
+  .prose-moment h4:first-child {
+    margin-top: 0;
+  }
+  .prose-moment h1 { font-size: 1.125rem; } /* 18px */
+  .prose-moment h2 { font-size: 1.0625rem; } /* 17px */
+  .prose-moment h3 { font-size: 1rem; }     /* 16px */
+  .prose-moment h4 { font-size: 0.9375rem; }/* 15px */
+
+  /* Links & Mentions */
+  .prose-moment a {
+    color: var(--theme-color-link, #576B95);
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.15s ease, text-decoration 0.15s ease;
+  }
+  .prose-moment a:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Clean blockquote with subtle tinted background */
+  .prose-moment blockquote {
+    margin: 0.45em 0;
+    padding: 0.35em 0.75em;
+    border-left: 3px solid var(--theme-color-primary, var(--primary));
+    background-color: color-mix(in srgb, var(--muted) 65%, transparent);
+    border-radius: 0 0.375rem 0.375rem 0;
+    color: var(--muted-foreground);
+    font-style: normal;
+  }
+  .prose-moment blockquote p {
+    margin: 0.15em 0;
+  }
+
+  /* Lists */
+  .prose-moment ul,
+  .prose-moment ol {
+    margin: 0.35em 0;
+    padding-left: 1.25rem;
+  }
+  .prose-moment ul {
+    list-style-type: disc;
+  }
+  .prose-moment ol {
+    list-style-type: decimal;
+  }
+  .prose-moment li {
+    margin: 0.15em 0;
+    line-height: 1.55;
+  }
+
+  /* Inline code with protective margins and subtle border */
+  .prose-moment :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem; /* 13px */
+    background-color: var(--muted);
+    color: var(--foreground);
+    padding: 0.12em 0.35em;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border);
+    margin: 0 0.2em;
+    white-space: break-spaces;
+  }
+  .prose-moment :not(pre) > code::before,
+  .prose-moment :not(pre) > code::after {
+    content: none;
+  }
+
+  /* Code block */
+  .prose-moment pre {
+    margin: 0.5em 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.5rem;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+  .prose-moment pre code {
+    background-color: transparent !important;
+    padding: 0 !important;
+    font-size: inherit !important;
+    border: none !important;
+    color: inherit !important;
+  }
+
+  /* Table */
+  .prose-moment table {
+    width: 100%;
+    margin: 0.5em 0;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+  .prose-moment th {
+    font-weight: 600;
+    text-align: left;
+    padding: 0.35rem 0.55rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--foreground);
+  }
+  .prose-moment td {
+    padding: 0.3rem 0.55rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prose-moment hr {
+    margin: 0.65em 0;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
   /* ── Dialog / Popover: deeper shadow ── */
   [data-slot="dialog-content"] {
     box-shadow:

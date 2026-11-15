@@ -178,18 +178,18 @@ export function ProductCard({
               {meta.name}
             </h4>
             {meta.version && (
-              <span className="text-[10px] text-muted-foreground font-mono px-1.5 py-0.2 rounded bg-muted/80 border border-border/50">
+              <span className="text-[11px] text-muted-foreground font-mono px-1.5 py-0.5 rounded bg-muted/80 border border-border/50">
                 v{meta.version}
               </span>
             )}
             {hasOpenSource && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                <Code2 size={10} /> 开源
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                <Code2 size={11} /> 开源
               </span>
             )}
             {statusConfig && (
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusConfig.badgeClass}`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusConfig.badgeClass}`}
               >
                 <span className={`size-1.5 rounded-full ${statusConfig.dotClass}`} />
                 {statusConfig.label}
@@ -197,8 +197,8 @@ export function ProductCard({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-            <CategoryIcon className="size-3 opacity-70" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+            <CategoryIcon className="size-3.5 opacity-70" />
             <span>{categoryConfig.label}</span>
           </div>
         </div>
@@ -206,7 +206,7 @@ export function ProductCard({
 
       {/* Slogan / Tagline */}
       {meta.tagline && (
-        <p className="text-xs sm:text-[13px] text-muted-foreground/95 mt-2.5 leading-relaxed font-normal">
+        <p className="text-[13px] sm:text-sm text-muted-foreground/95 mt-2.5 leading-relaxed font-normal">
           {meta.tagline}
         </p>
       )}
@@ -217,7 +217,7 @@ export function ProductCard({
           {meta.techStack.map((tech) => (
             <span
               key={tech}
-              className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md font-mono bg-muted/70 text-foreground/80 border border-border/60 transition-colors group-hover:border-border"
+              className="text-[11px] px-2 py-0.5 rounded-md font-mono bg-muted/70 text-foreground/80 border border-border/60 transition-colors group-hover:border-border"
             >
               {tech}
             </span>

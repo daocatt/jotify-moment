@@ -899,9 +899,9 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-green-600">● 已成功一键集成</span>
-                      <span className="text-[10px] text-muted-foreground">配置实时生效</span>
+                      <span className="text-xs text-muted-foreground">配置实时生效</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground break-all space-y-1">
+                    <div className="text-xs text-muted-foreground break-all space-y-1">
                       <p>Webhook URL: {window.location.origin}/api/telegram/webhook</p>
                       <p>Secret Token: {tgConfig.telegram_webhook_secret?.slice(0, 8)}...</p>
                     </div>
@@ -995,16 +995,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       @{resendDomain || "发信域名"}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">发信域名自动追加且无法修改，系统将使用该后缀发送邮件</p>
+                  <p className="text-xs text-muted-foreground">发信域名自动追加且无法修改，系统将使用该后缀发送邮件</p>
                 </div>
 
                 {isResendIntegrated && (
                   <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-green-600">● 邮件服务运行中</span>
-                      <span className="text-[10px] text-muted-foreground">实时发信中</span>
+                      <span className="text-xs text-muted-foreground">实时发信中</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <p>完整发信地址: {resendFromName} &lt;{resendFromEmailPrefix}@{resendDomain}&gt;</p>
                       <p>API Key: re_***...{resendApiKey.slice(-6)}</p>
                     </div>
@@ -1074,7 +1074,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       云上传 (S3/R2)
                     </button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {storageMode === "local" ? "文件将保存到服务器本地 public/uploads/ 目录" : "文件将上传到 S3 兼容的对象存储服务（如 Cloudflare R2、AWS S3 等）"}
                   </p>
                 </div>
@@ -1090,7 +1090,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       onChange={(e) => setStorageMaxSize(e.target.value)}
                       placeholder="50"
                     />
-                    <p className="text-[10px] text-muted-foreground">范围 1-500 MB</p>
+                    <p className="text-xs text-muted-foreground">范围 1-500 MB</p>
                   </div>
                   <div className="grid gap-1.5">
                     <label className="text-xs font-semibold text-muted-foreground">允许的文件后缀</label>
@@ -1099,7 +1099,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       onChange={(e) => setStorageExtensions(e.target.value)}
                       placeholder="jpg,jpeg,png,gif,webp,mp4,webm,mp3,wav,ogg,m4a"
                     />
-                    <p className="text-[10px] text-muted-foreground">多个后缀用英文逗号分隔，不含点号</p>
+                    <p className="text-xs text-muted-foreground">多个后缀用英文逗号分隔，不含点号</p>
                   </div>
                 </div>
 
@@ -1166,7 +1166,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                         value={s3PublicUrl}
                         onChange={(e) => setS3PublicUrl(e.target.value)}
                       />
-                      <p className="text-[10px] text-muted-foreground">文件的公开访问基础 URL，用于生成可访问的文件链接</p>
+                      <p className="text-xs text-muted-foreground">文件的公开访问基础 URL，用于生成可访问的文件链接</p>
                     </div>
                   </div>
                 )}
@@ -1175,9 +1175,9 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-green-600">● 云存储已配置</span>
-                      <span className="text-[10px] text-muted-foreground">配置实时生效</span>
+                      <span className="text-xs text-muted-foreground">配置实时生效</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <p>Bucket: {s3BucketName}</p>
                       <p>Endpoint: {s3Endpoint || "(未配置)"}</p>
                       <p>Public URL: {s3PublicUrl || "(未配置，将使用 Endpoint/Bucket 拼接)"}</p>
@@ -1190,9 +1190,9 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   <div className="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-border text-xs space-y-2 mt-2 font-mono">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-blue-600">● 本地存储模式</span>
-                      <span className="text-[10px] text-muted-foreground">文件保存到服务器</span>
+                      <span className="text-xs text-muted-foreground">文件保存到服务器</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <p>存储路径: public/uploads/YYYYMM/</p>
                       <p>文件名: 32位随机加密哈希.后缀</p>
                     </div>
@@ -1241,7 +1241,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       size="sm"
                       variant="outline"
                       onClick={() => handleApprovePost(post.id)}
-                      className="min-h-0 h-6 text-[10px] px-2 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm"
+                      className="min-h-0 h-6 text-[11px] px-2 border-green-500/30 text-green-600 hover:bg-green-500/10 rounded-sm font-medium"
                     >
                       <CheckCircle className="mr-1 size-3" /> 审核通过
                     </Button>
@@ -1278,7 +1278,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{user.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                          <span className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${
                             user.role === "super_admin"
                               ? "bg-red-500/10 text-red-500"
                               : user.role === "admin"
@@ -1294,7 +1294,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
-                        <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
                           <span>自定义域名: </span>
                           {user.allowCustomDomain ? (
                             <>
@@ -1304,7 +1304,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                   href={`https://${user.customDomain}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-primary hover:underline font-mono text-[10px] ml-1 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
+                                  className="text-primary hover:underline font-mono text-[11px] ml-1 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
                                 >
                                   {user.customDomain}
                                 </a>
@@ -1316,7 +1316,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                             <span className="text-red-500 font-medium">禁止</span>
                           )}
                         </div>
-                        <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
                           <span>信息流展示: </span>
                           {user.displayPermission ? (
                             <span className="text-green-600 font-medium">允许</span>
@@ -1325,7 +1325,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                           )}
                         </div>
                         {user.loginDisabledAt && (
-                          <span className="text-[10px] text-orange-500 font-medium block mt-0.5">登录已禁用</span>
+                          <span className="text-[11px] text-orange-500 font-medium block mt-0.5">登录已禁用</span>
                         )}
                       </div>
                     </div>
@@ -1368,7 +1368,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                     <Eye size={13} /> 展示权限
                                   </span>
                                   <span
-                                    className={`shrink-0 text-[9px] font-medium rounded px-1 py-px leading-none ${
+                                    className={`shrink-0 text-[11px] font-medium rounded px-1.5 py-0.5 leading-none ${
                                       user.displayPermission
                                         ? "bg-green-500/10 text-green-600"
                                         : "bg-zinc-500/10 text-zinc-500"
@@ -1388,7 +1388,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                     <Globe size={13} /> 自定义域名
                                   </span>
                                   <span
-                                    className={`shrink-0 text-[9px] font-medium rounded px-1 py-px leading-none ${
+                                    className={`shrink-0 text-[11px] font-medium rounded px-1.5 py-0.5 leading-none ${
                                       user.allowCustomDomain
                                         ? "bg-green-500/10 text-green-600"
                                         : "bg-zinc-500/10 text-zinc-500"
@@ -1494,7 +1494,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   <div className="flex items-center justify-between pt-2 border-t border-border/40">
                     <div className="space-y-0.5">
                       <label className="text-xs font-semibold">允许使用自定义域名</label>
-                      <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
+                      <p className="text-xs text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
                     </div>
                     <Switch
                       checked={newAllowDomain}
@@ -1567,7 +1567,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                     <div className="flex items-center justify-between pt-2 border-t border-border/40">
                       <div className="space-y-0.5">
                         <label className="text-xs font-semibold">允许使用自定义域名</label>
-                        <p className="text-[10px] text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
+                        <p className="text-xs text-muted-foreground">控制此用户是否拥有绑定自定义域名的权限</p>
                       </div>
                       <Switch
                         checked={editAllowCustomDomain}
@@ -1617,7 +1617,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">{comment.author?.name || "未知用户"}</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                            <span className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${
                               comment.author?.role === "super_admin"
                                 ? "bg-red-500/10 text-red-500"
                                 : comment.author?.role === "admin"
@@ -1627,12 +1627,12 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                               {comment.author?.role === "super_admin" ? "超级管理员" : comment.author?.role === "admin" ? "管理员" : "普通用户"}
                             </span>
                             {comment.status === "hidden" && (
-                              <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded font-medium">
+                              <span className="text-[11px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded font-medium">
                                 已隐藏
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {new Date(comment.createdAt).toLocaleString()}
                           </span>
                         </div>
