@@ -18,16 +18,9 @@ import { getPublicSettingsAction } from "@/app/actions/admin";
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const TURNSTILE_ENABLED = !!TURNSTILE_SITE_KEY;
 
-// Sunken / inset input: carved into the surface, lightens on focus.
-// Straight corners (--radius: 0) per the project's square design.
-const sunkenInputClass =
-  "h-10 rounded-none border-black/[0.08] dark:border-white/[0.08] bg-black/[0.03] dark:bg-white/[0.04] shadow-[inset_0_1.5px_3px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_1.5px_3px_rgba(0,0,0,0.35)] focus-visible:bg-background dark:focus-visible:bg-zinc-900/60 focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:border-ring/60 transition-all duration-150";
-
-// Floating button: lifts with a deeper shadow on hover, settles on press.
-const floatHoverClass =
-  "transition-all duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0";
-const primaryFloatClass = `${floatHoverClass} shadow-[0_2px_8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.08)] active:shadow-[0_1px_3px_rgba(0,0,0,0.14)]`;
-const secondaryFloatClass = `${floatHoverClass} shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_3px_10px_rgba(0,0,0,0.1)]`;
+// Unified refined form styling
+const formInputClass =
+  "h-9 rounded-md border-input/80 bg-background/80 shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:bg-zinc-900/50 dark:border-zinc-800 dark:shadow-[0_1px_2px_rgba(0,0,0,0.25)] focus-visible:bg-background dark:focus-visible:bg-zinc-900/80 focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:border-ring transition-all duration-150";
 
 interface AuthModalsProps {
   isOpen: boolean;
@@ -211,7 +204,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className={sunkenInputClass}
+                  className={formInputClass}
                 />
               </div>
             </>
@@ -225,7 +218,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className={sunkenInputClass}
+              className={formInputClass}
             />
           </div>
 
@@ -240,14 +233,14 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                   onChange={(e) => setCode(e.target.value)}
                   maxLength={6}
                   required
-                  className={sunkenInputClass}
+                  className={formInputClass}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleSendCode}
                   disabled={loading || countdown > 0}
-                  className={`whitespace-nowrap min-w-[100px] h-10 rounded-none border-transparent dark:border-transparent focus-visible:border-transparent ${secondaryFloatClass}`}
+                  className="whitespace-nowrap min-w-[104px] h-9 rounded-md shadow-2xs font-medium text-xs active:scale-[0.98] transition-all"
                 >
                   {countdown > 0 ? `${countdown}s` : "获取验证码"}
                 </Button>
@@ -264,7 +257,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className={sunkenInputClass}
+                className={formInputClass}
               />
             </div>
           )}
@@ -285,7 +278,7 @@ export function AuthModals({ isOpen, onClose, initialMode = "login", onSuccess, 
             </div>
           )}
 
-          <Button type="submit" className={`w-full mt-2 h-10 rounded-none ${primaryFloatClass}`} disabled={loading}>
+          <Button type="submit" className="w-full mt-2 h-9 rounded-md font-medium text-sm shadow-2xs active:scale-[0.98] transition-all" disabled={loading}>
             {loading ? "正在处理..." : mode === "login" ? "登录" : mode === "register" ? "注册" : "发送重置邮件"}
           </Button>
 

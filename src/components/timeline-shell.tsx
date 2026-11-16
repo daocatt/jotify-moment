@@ -815,7 +815,7 @@ export function TimelineShell({
                       value={searchKeyword}
                       onChange={(e) => setSearchKeyword(e.target.value)}
                       placeholder="搜索发布的图文…"
-                      className="w-full h-9 rounded-none border border-border bg-background pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/60 transition-all"
+                      className="w-full h-9 rounded-md border border-input/80 bg-background/80 shadow-[0_1px_2px_rgba(0,0,0,0.03)] pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring transition-all dark:bg-zinc-900/50 dark:border-zinc-800"
                     />
                     {searching && searchKeyword.trim() && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
                   </div>
