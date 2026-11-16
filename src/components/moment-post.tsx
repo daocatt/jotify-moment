@@ -602,7 +602,7 @@ export const MomentPost = memo(function MomentPost({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={post.user.avatar} alt="Author Avatar" className="w-full h-full object-cover" loading={isDetailsView ? "eager" : "lazy"} decoding="async" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground font-semibold text-sm">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground font-medium text-sm">
             {post.user.name.charAt(0)}
           </div>
         )}
@@ -616,7 +616,7 @@ export const MomentPost = memo(function MomentPost({
               type="button"
               onClick={goToUserHome}
               disabled={!post.user.slug}
-              className="font-semibold text-[#576B95] dark:text-blue-400 text-[15px] sm:text-base cursor-pointer hover:underline disabled:cursor-default disabled:hover:no-underline tracking-tight"
+              className="font-medium text-[#576B95] dark:text-blue-400 text-[15px] cursor-pointer hover:underline disabled:cursor-default disabled:hover:no-underline tracking-tight"
             >
               {post.user.name}
             </button>
@@ -1213,13 +1213,13 @@ export const MomentPost = memo(function MomentPost({
                         .join("  ");
 
                       return (
-                        <span className="font-semibold">
+                        <span className="font-medium">
                           {firstPersonName}等{totalReactions}人 {emojiSummary}
                         </span>
                       );
                     } else {
                       return (
-                        <span className="font-semibold flex flex-wrap gap-x-2">
+                        <span className="font-medium flex flex-wrap gap-x-2">
                           {postState.reactions.map((r) => (
                             <span key={r.id} className="inline-block transition-transform hover:scale-110">
                               {r.userId.name} {r.emoji}
@@ -1264,7 +1264,7 @@ export const MomentPost = memo(function MomentPost({
                               className={`group flex items-start justify-between text-[13px] sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
                             >
                               <div className="flex-1 min-w-0 pr-2">
-                                <span className="font-semibold text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
+                                <span className="font-medium text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
                                   {comment.userId.name}
                                 </span>
                                 {isCommentHidden && (
