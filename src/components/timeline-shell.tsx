@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { MomentPost, type MomentPostProps } from "@/components/moment-post";
+import { MomentSkeleton } from "@/components/moment-skeleton";
 
 const AuthModals = dynamic(() => import("@/components/auth-modals").then((m) => m.AuthModals), { ssr: false });
 const PostEditor = dynamic(() => import("@/components/post-editor").then((m) => m.PostEditor), { ssr: false });
@@ -1321,19 +1322,7 @@ export function TimelineShell({
             <span className="text-sm">本帐号已悄悄隐身</span>
           </div>
         ) : posts.length === 0 && loadingPosts ? (
-          <>
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="animate-pulse flex gap-4 p-4">
-                <div className="size-10 rounded bg-border/50 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-border/50 rounded w-24" />
-                  <div className="h-3 bg-border/50 rounded w-full" />
-                  <div className="h-3 bg-border/50 rounded w-3/4" />
-                  <div className="h-24 bg-border/50 rounded w-full mt-3" />
-                </div>
-              </div>
-            ))}
-          </>
+          <MomentSkeleton count={4} />
         ) : posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <div className="size-14 rounded-2xl bg-muted/60 border border-border/60 flex items-center justify-center text-muted-foreground mb-3.5 shadow-xs">
@@ -1365,17 +1354,8 @@ export function TimelineShell({
         ) : (
           <div className={`t-skel ${revealed ? "is-revealed" : ""}`}>
             {loadingPosts && (
-              <div className="t-skel-skeleton is-pulsing divide-y divide-border/60">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="flex gap-4 p-4">
-                    <div className="size-10 rounded bg-border/50 shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 bg-border/50 rounded w-24" />
-                      <div className="h-3 bg-border/50 rounded w-full" />
-                      <div className="h-3 bg-border/50 rounded w-3/4" />
-                    </div>
-                  </div>
-                ))}
+              <div className="t-skel-skeleton is-pulsing">
+                <MomentSkeleton count={3} />
               </div>
             )}
             <div className="t-skel-content divide-y divide-border/60">
@@ -1393,17 +1373,7 @@ export function TimelineShell({
               {hasMore ? (
                 <div>
                   {loadingMore && (
-                    <div className="divide-y divide-border/60">
-                      {[...Array(2)].map((_, i) => (
-                        <div key={`sk-${i}`} className="flex gap-4 p-4 animate-pulse">
-                          <div className="size-10 rounded bg-border/50 shrink-0" />
-                          <div className="flex-1 space-y-2">
-                            <div className="h-3 bg-border/50 rounded w-20" />
-                            <div className="h-3 bg-border/50 rounded w-full" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <MomentSkeleton count={2} />
                   )}
                   <div ref={sentinelRef} className="h-1" />
                 </div>

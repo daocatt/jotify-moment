@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MomentPost } from "@/components/moment-post";
+import { MomentSkeleton } from "@/components/moment-skeleton";
 import { Lightbox } from "@/components/lightbox";
 import { AuthModals } from "@/components/auth-modals";
 import { getPostByIdAction } from "@/app/actions/posts";
@@ -129,11 +130,13 @@ export function MoClient({ id, isCustomDomain = false, mainHost, initialPost, in
 
   if (loading && !post) {
     return (
-      <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-sm flex items-center justify-center sm:mt-6 sm:rounded-t-xl">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <Loader2 className="size-5 animate-spin" />
-          <span className="text-xs">加载中...</span>
+      <main className="flex-1 w-full max-w-xl mx-auto bg-card min-h-screen border-x border-border shadow-xs sm:mt-6 sm:rounded-t-xl overflow-hidden">
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border p-3 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="size-4" /> 返回动态
+          </Button>
         </div>
+        <MomentSkeleton count={1} isDetailsView />
       </main>
     );
   }
