@@ -19,6 +19,11 @@ import {
   updateUserDisplayPermissionAction,
   approvePostAction,
   updateUserEmailAction,
+  updateUserSlugAction,
+  adminUpdateUserCustomDomainAction,
+  adminReviewCustomDomainAction,
+  adminRemoveUserCustomDomainAction,
+  adminDeleteUserAction,
   adminChangePasswordAction,
   getTelegramConfigAction,
   integrateTelegramAction,
@@ -60,6 +65,7 @@ import {
   UserPlus,
   MoreHorizontal,
   Globe,
+  XCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -98,6 +104,7 @@ interface AdminUser {
   loginDisabledAt: Date | null;
   createdAt: Date;
   customDomain: string | null;
+  customDomainStatus: string | null;
   allowCustomDomain: boolean;
   displayPermission: boolean;
 }
@@ -131,8 +138,11 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     require_approval: "false",
     global_theme: "default",
     allow_custom_domains: "true",
+    custom_domain_cname_target: "to.jotify.me",
     friends_circle_enabled: "false",
   });
+  const [cnameTargetInput, setCnameTargetInput] = useState("to.jotify.me");
+  const [cnameSaving, setCnameSaving] = useState(false);
 
   // Telegram states
   const [tgBotName, setTgBotName] = useState("");
@@ -170,8 +180,11 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
 
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [editEmail, setEditEmail] = useState("");
+  const [editSlug, setEditSlug] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editAllowCustomDomain, setEditAllowCustomDomain] = useState(false);
+  const [editCustomDomain, setEditCustomDomain] = useState("");
+  const [editCustomDomainStatus, setEditCustomDomainStatus] = useState<"approved" | "pending" | "rejected">("approved");
   const [editRole, setEditRole] = useState<"admin" | "user" | "guest">("user");
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -203,6 +216,7 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
       if (settingsRes.settings) {
         setSysSettings(settingsRes.settings);
         setFaviconUrl(settingsRes.settings.site_favicon || "");
+        setCnameTargetInput(settingsRes.settings.custom_domain_cname_target || "to.jotify.me");
       }
       if (pendingRes.posts) setPendingPosts(pendingRes.posts as PendingPost[]);
       
@@ -389,6 +403,19 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
+  const handleSaveCnameTarget = async () => {
+    const target = cnameTargetInput.trim().toLowerCase() || "to.jotify.me";
+    setCnameSaving(true);
+    const res = await updateSettingAction("custom_domain_cname_target", target);
+    setCnameSaving(false);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      setSysSettings((prev) => ({ ...prev, custom_domain_cname_target: target }));
+      toast.success("CNAME 目标解析地址已更新");
+    }
+  };
+
   const handleToggleUserStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === "active" ? "suspended" : "active";
     const res = await updateUserStatusAction(userId, newStatus);
@@ -443,6 +470,52 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
     }
   };
 
+  const handleReviewCustomDomain = async (userId: string, status: "approved" | "rejected") => {
+    const res = await adminReviewCustomDomainAction(userId, status);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success(status === "approved" ? "域名审核已通过" : "域名审核已驳回");
+      updateUserInList(userId, { customDomainStatus: status });
+    }
+  };
+
+  const handleRemoveCustomDomain = (user: AdminUser) => {
+    openConfirm({
+      title: "移除自定义域名",
+      description: `确定要移除用户「${user.name}」的自定义域名「${user.customDomain}」吗？移除后该域名将立即失效。`,
+      confirmText: "确认移除",
+      variant: "destructive",
+      onConfirm: async () => {
+        const res = await adminRemoveUserCustomDomainAction(user.id);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("自定义域名已移除");
+          updateUserInList(user.id, { customDomain: null, customDomainStatus: null });
+        }
+      },
+    });
+  };
+
+  const handleDeleteUser = (user: AdminUser) => {
+    openConfirm({
+      title: "删除用户账号",
+      description: `确定要永久删除用户「${user.name}」(${user.email}) 吗？此操作将永久删除该用户的所有个人信息、发布的所有 moments 动态、作品展示、评论、点赞及 API 密钥，且不可恢复！`,
+      confirmText: "确认彻底删除",
+      variant: "destructive",
+      onConfirm: async () => {
+        const res = await adminDeleteUserAction(user.id);
+        if (res.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("用户已彻底删除");
+          setUsersList((prev) => prev.filter((u) => u.id !== user.id));
+        }
+      },
+    });
+  };
+
   const handleApprovePost = async (postId: string) => {
     const res = await approvePostAction(postId);
     if (res.error) {
@@ -456,8 +529,12 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
   const openEditor = (user: AdminUser) => {
     setEditingUser(user);
     setEditEmail(user.email);
+    setEditSlug(user.slug || "");
     setEditPassword("");
     setEditAllowCustomDomain(user.allowCustomDomain);
+    setEditCustomDomain(user.customDomain || "");
+    const statusVal = user.customDomainStatus === "pending" || user.customDomainStatus === "rejected" ? user.customDomainStatus : "approved";
+    setEditCustomDomainStatus(statusVal);
     setEditRole(user.role === "super_admin" ? "admin" : user.role);
     setShowEditPassword(false);
   };
@@ -478,6 +555,16 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         }
       }
 
+      const trimmedSlug = editSlug.trim();
+      if (trimmedSlug !== (editingUser.slug || "")) {
+        const res = await updateUserSlugAction(editingUser.id, trimmedSlug);
+        if (res.error) {
+          errors.push(`个性化地址: ${res.error}`);
+        } else {
+          successLabels.push("个性化地址");
+        }
+      }
+
       if (editPassword) {
         if (editPassword.length < MIN_PASSWORD_LENGTH) {
           errors.push(`密码长度至少为 ${MIN_PASSWORD_LENGTH} 位`);
@@ -493,6 +580,22 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
 
       if (editAllowCustomDomain !== editingUser.allowCustomDomain) {
         const res = await updateUserCustomDomainPermissionAction(editingUser.id, editAllowCustomDomain);
+        if (res.error) {
+          errors.push(`自定义域名权限: ${res.error}`);
+        } else {
+          successLabels.push("自定义域名权限");
+        }
+      }
+
+      const trimmedDomain = editCustomDomain.trim();
+      const currentDomain = (editingUser.customDomain || "").trim();
+      const currentStatus = editingUser.customDomainStatus;
+      if (trimmedDomain !== currentDomain || (trimmedDomain && editCustomDomainStatus !== currentStatus)) {
+        const res = await adminUpdateUserCustomDomainAction(
+          editingUser.id,
+          trimmedDomain || null,
+          trimmedDomain ? editCustomDomainStatus : null
+        );
         if (res.error) {
           errors.push(`自定义域名: ${res.error}`);
         } else {
@@ -522,8 +625,11 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
         }
         updateUserInList(editingUser.id, {
           ...(editEmail.trim() !== editingUser.email ? { email: editEmail.trim() } : {}),
+          ...(trimmedSlug !== (editingUser.slug || "") ? { slug: trimmedSlug || null } : {}),
           ...(isSuperAdmin && editRole !== editingUser.role ? { role: editRole as AdminUser["role"] } : {}),
           ...(editAllowCustomDomain !== editingUser.allowCustomDomain ? { allowCustomDomain: editAllowCustomDomain } : {}),
+          customDomain: trimmedDomain || null,
+          customDomainStatus: trimmedDomain ? editCustomDomainStatus : null,
         });
       } else if (errors.length === 0) {
         toast.success("没有需要更新的内容");
@@ -829,6 +935,33 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                   onCheckedChange={() => handleToggleSetting("allow_custom_domains", sysSettings.allow_custom_domains)}
                 />
               </div>
+
+              {sysSettings.allow_custom_domains === "true" && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border pt-4">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-semibold">自定义域名 CNAME 目标解析地址</h3>
+                    <p className="text-xs text-muted-foreground">用户绑定自定义域名时需将 CNAME 记录解析至该地址（默认：to.jotify.me）</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      className="w-52 h-8 text-xs font-mono"
+                      placeholder="to.jotify.me"
+                      value={cnameTargetInput}
+                      onChange={(e) => setCnameTargetInput(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs shrink-0"
+                      disabled={cnameSaving || cnameTargetInput.trim() === (sysSettings.custom_domain_cname_target || "to.jotify.me")}
+                      onClick={handleSaveCnameTarget}
+                    >
+                      {cnameSaving ? <Loader2 className="size-3 animate-spin" /> : "保存"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-between border-t border-border pt-4">
                 <div className="space-y-0.5">
@@ -1295,19 +1428,76 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span>个性化地址: </span>
+                          {user.slug ? (
+                            <a
+                              href={`/u/${user.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline font-mono text-[11px] bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
+                            >
+                              /u/{user.slug}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground/50">(未设置)</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
                           <span>自定义域名: </span>
                           {user.allowCustomDomain ? (
                             <>
                               <span className="text-green-600 font-medium">允许</span>
                               {user.customDomain ? (
-                                <a
-                                  href={`https://${user.customDomain}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline font-mono text-[11px] ml-1 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
-                                >
-                                  {user.customDomain}
-                                </a>
+                                <div className="inline-flex items-center gap-1.5 ml-1">
+                                  <a
+                                    href={`https://${user.customDomain}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline font-mono text-[11px] bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded"
+                                  >
+                                    {user.customDomain}
+                                  </a>
+                                  {user.customDomainStatus === "approved" ? (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                      已生效
+                                    </span>
+                                  ) : user.customDomainStatus === "rejected" ? (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                      已驳回
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                      待审核
+                                    </span>
+                                  )}
+                                  {user.customDomainStatus === "pending" && (
+                                    <div className="inline-flex items-center gap-1 ml-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleReviewCustomDomain(user.id, "approved")}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                      >
+                                        通过
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleReviewCustomDomain(user.id, "rejected")}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                                      >
+                                        驳回
+                                      </button>
+                                    </div>
+                                  )}
+                                  {user.customDomainStatus === "rejected" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReviewCustomDomain(user.id, "approved")}
+                                      className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors ml-1"
+                                    >
+                                      重新通过
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground/50">(未绑定)</span>
                               )}
@@ -1357,6 +1547,42 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                               <UserCheck size={13} /> 编辑账号
                             </DropdownMenuItem>
 
+                            {user.customDomain && (
+                              <>
+                                <DropdownMenuSeparator />
+                                {user.customDomainStatus === "pending" && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() => handleReviewCustomDomain(user.id, "approved")}
+                                      className="whitespace-nowrap text-xs text-emerald-600 dark:text-emerald-400"
+                                    >
+                                      <CheckCircle size={13} /> 通过域名审核
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleReviewCustomDomain(user.id, "rejected")}
+                                      className="whitespace-nowrap text-xs text-rose-600 dark:text-rose-400"
+                                    >
+                                      <XCircle size={13} /> 驳回域名审核
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {user.customDomainStatus === "rejected" && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleReviewCustomDomain(user.id, "approved")}
+                                    className="whitespace-nowrap text-xs text-emerald-600 dark:text-emerald-400"
+                                  >
+                                    <CheckCircle size={13} /> 重新通过域名
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => handleRemoveCustomDomain(user)}
+                                  className="whitespace-nowrap text-xs text-amber-600 dark:text-amber-400"
+                                >
+                                  <Globe size={13} /> 移除自定义域名
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
                             {user.role !== "super_admin" && (
                               <>
                                 <DropdownMenuSeparator />
@@ -1377,15 +1603,12 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                     {user.displayPermission ? "已开启" : "已关闭"}
                                   </span>
                                 </DropdownMenuItem>
-                                {/* 自定义域名与展示权限同为「按用户放行」的开关，
-                                    后端 action 与 handler 早已就位，之前只是没接入 UI，
-                                    只能在「编辑账号」弹窗里逐项勾选才能改。 */}
                                 <DropdownMenuItem
                                   onClick={() => handleToggleUserCustomDomainPermission(user.id, user.allowCustomDomain)}
                                   className="flex items-center justify-between gap-2 whitespace-nowrap text-xs"
                                 >
                                   <span className="flex items-center gap-1.5">
-                                    <Globe size={13} /> 自定义域名
+                                    <Globe size={13} /> 自定义域名权限
                                   </span>
                                   <span
                                     className={`shrink-0 text-[11px] font-medium rounded px-1.5 py-0.5 leading-none ${
@@ -1410,6 +1633,14 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                                     <LockOpen size={13} /> 解锁登录
                                   </DropdownMenuItem>
                                 )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteUser(user)}
+                                  variant="destructive"
+                                  className="whitespace-nowrap text-xs text-rose-600 focus:text-rose-600 focus:bg-rose-500/10"
+                                >
+                                  <Trash2 size={13} /> 删除用户
+                                </DropdownMenuItem>
                               </>
                             )}
                           </DropdownMenuContent>
@@ -1534,6 +1765,17 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                       />
                     </div>
                     <div className="grid gap-1.5">
+                      <label className="text-xs font-semibold">个性化地址 (slug)</label>
+                      <Input
+                        type="text"
+                        placeholder="例如: alex，留空则清空"
+                        value={editSlug}
+                        maxLength={32}
+                        onChange={(e) => setEditSlug(e.target.value)}
+                      />
+                      <p className="text-[11px] text-muted-foreground">主页路径：/u/{editSlug.trim() || "..."}</p>
+                    </div>
+                    <div className="grid gap-1.5">
                       <label className="text-xs font-semibold">重置密码 (可选)</label>
                       <div className="relative">
                         <Input
@@ -1573,6 +1815,45 @@ export function AdminConsoleClient({ currentUser }: AdminConsoleClientProps) {
                         checked={editAllowCustomDomain}
                         onCheckedChange={setEditAllowCustomDomain}
                       />
+                    </div>
+                    <div className="space-y-3 pt-2 border-t border-border/40">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold">自定义域名</label>
+                        {editCustomDomain && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10"
+                            onClick={() => {
+                              setEditCustomDomain("");
+                              setEditCustomDomainStatus("approved");
+                            }}
+                          >
+                            移除域名
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="例如: moment.domain.com，留空则清空"
+                        value={editCustomDomain}
+                        onChange={(e) => setEditCustomDomain(e.target.value)}
+                      />
+                      {editCustomDomain.trim() && (
+                        <div className="grid gap-1.5">
+                          <label className="text-xs font-semibold">域名审核状态</label>
+                          <select
+                            value={editCustomDomainStatus}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditCustomDomainStatus(e.target.value as "approved" | "pending" | "rejected")}
+                            className="w-full h-9 text-xs px-3 border border-border bg-background rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="approved">已通过 (生效中)</option>
+                            <option value="pending">待审核</option>
+                            <option value="rejected">已驳回</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

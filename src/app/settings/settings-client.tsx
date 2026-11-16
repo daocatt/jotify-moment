@@ -356,6 +356,8 @@ export function SettingsClient({ user }: SettingsClientProps) {
   const [otherLink, setOtherLink] = useState(user.otherLink || "");
   const [selectedTheme, setSelectedTheme] = useState(user.theme || "");
   const [customDomain, setCustomDomain] = useState(user.customDomain || "");
+  const [customDomainStatus, setCustomDomainStatus] = useState<string | null>(user.customDomainStatus || null);
+  const [cnameTarget, setCnameTarget] = useState("to.jotify.me");
   const [publishToFeed, setPublishToFeed] = useState(user.publishToFeed !== false);
   const [publicHomepage, setPublicHomepage] = useState(user.publicHomepage !== false);
 
@@ -401,6 +403,9 @@ export function SettingsClient({ user }: SettingsClientProps) {
     checkCustomDomainAvailabilityAction().then((res) => {
       if (res.success) {
         setGlobalCustomDomainsAllowed(res.allowed);
+        if (res.cnameTarget) {
+          setCnameTarget(res.cnameTarget);
+        }
       }
     });
   }, []);
@@ -485,6 +490,11 @@ export function SettingsClient({ user }: SettingsClientProps) {
       toast.error(res.error);
     } else {
       toast.success("个人资料已更新");
+      if (customDomain.trim() && customDomain.trim() !== (user.customDomain || "").trim()) {
+        setCustomDomainStatus("pending");
+      } else if (!customDomain.trim()) {
+        setCustomDomainStatus(null);
+      }
       router.refresh();
     }
   };
@@ -801,15 +811,40 @@ export function SettingsClient({ user }: SettingsClientProps) {
                       </div>
 
                       {globalCustomDomainsAllowed && user.allowCustomDomain === true && (
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-foreground">独立自定义域名</label>
+                        <div className="space-y-2 p-3.5 bg-muted/40 rounded-xl border border-border/70">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-foreground">独立自定义域名</label>
+                            {customDomain && customDomain.trim() === (user.customDomain || "").trim() && (
+                              <div>
+                                {customDomainStatus === "approved" ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                    <CheckCircle size={11} />
+                                    已生效
+                                  </span>
+                                ) : customDomainStatus === "rejected" ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                                    未通过审核
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                    <Clock size={11} />
+                                    待管理员审核
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           <Input
                             type="text"
                             placeholder="例如: moment.yourdomain.com"
                             value={customDomain}
                             onChange={(e) => setCustomDomain(e.target.value)}
                           />
-                          <p className="text-[11px] text-muted-foreground">需提前将该域名的 CNAME 解析至本站服务器。</p>
+                          <div className="text-[11px] text-muted-foreground space-y-1 bg-background/60 p-2.5 rounded-lg border border-border/50">
+                            <p className="font-medium text-foreground/90">DNS 解析与审核说明：</p>
+                            <p>1. 请前往域名解析服务商，添加一条 <span className="font-semibold text-foreground">CNAME</span> 记录，将主机记录指向：<code className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-foreground font-mono select-all font-semibold">{cnameTarget}</code></p>
+                            <p>2. 添加或修改自定义域名后需经管理员审核，审核通过后方可生效并自动签发 SSL 证书。</p>
+                          </div>
                         </div>
                       )}
 

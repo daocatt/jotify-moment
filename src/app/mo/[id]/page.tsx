@@ -23,9 +23,9 @@ export async function generateMetadata({
   const isCustomDomain = hdrs.get("x-custom-domain") === "true";
   const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
   const proto = hdrs.get("x-forwarded-proto") === "https" ? "https" : "http";
-  const author = post.user as { customDomain?: string | null; allowCustomDomain?: boolean };
+  const author = post.user as { customDomain?: string | null; allowCustomDomain?: boolean; customDomainStatus?: string | null };
   const authorCustomDomain =
-    author.customDomain && author.allowCustomDomain ? author.customDomain : null;
+    author.customDomain && author.allowCustomDomain && author.customDomainStatus === "approved" ? author.customDomain : null;
 
   // Custom domain is authoritative: canonical to it when served there, or when
   // the main-host copy belongs to a custom-domain owner (dedup).

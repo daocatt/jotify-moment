@@ -27,6 +27,7 @@ export interface SessionUser {
   status: "active" | "suspended";
   theme: string | null;
   customDomain: string | null;
+  customDomainStatus: string | null;
   allowCustomDomain: boolean;
   publishToFeed: boolean;
   displayPermission: boolean;
@@ -109,6 +110,7 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
       status: (dbUser.status as "active" | "suspended") || "active",
       theme: dbUser.theme,
       customDomain: dbUser.customDomain,
+      customDomainStatus: dbUser.customDomainStatus,
       allowCustomDomain: dbUser.allowCustomDomain,
       publishToFeed: dbUser.publishToFeed,
       displayPermission: dbUser.displayPermission,

@@ -79,6 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             status: true,
             displayPermission: true,
             customDomain: true,
+            customDomainStatus: true,
             allowCustomDomain: true,
           },
         },
@@ -88,7 +89,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const p of activePosts) {
       if (p.author?.status === "active" && p.author?.displayPermission) {
         // Custom-domain owners are canonicalized to their own domain — skip here.
-        if (p.author.customDomain && p.author.allowCustomDomain) continue;
+        if (p.author.customDomain && p.author.allowCustomDomain && p.author.customDomainStatus === "approved") continue;
         routes.push({
           url: `${baseUrl}/mo/${p.id}`,
           lastModified: p.createdAt,

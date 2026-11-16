@@ -33,6 +33,7 @@ async function resolveCustomDomain(hostname: string): Promise<string | null> {
     where: and(
       eq(users.customDomain, hostname),
       eq(users.allowCustomDomain, true),
+      eq(users.customDomainStatus, "approved"),
     ),
     columns: { slug: true },
   });

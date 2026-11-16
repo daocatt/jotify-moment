@@ -736,7 +736,7 @@ export async function getUserBySlugAction(slug: string) {
       columns: {
         id: true, name: true, slug: true, avatar: true, bio: true, coverImage: true, role: true, status: true,
         wechat: true, telegram: true, github: true, x: true, otherLink: true, theme: true,
-        customDomain: true, allowCustomDomain: true,
+        customDomain: true, customDomainStatus: true, allowCustomDomain: true,
         publishToFeed: true, displayPermission: true, publicHomepage: true,
       },
     });
@@ -976,10 +976,11 @@ export async function getPostByIdAction(postId: string) {
 export async function checkCustomDomainAvailabilityAction() {
   try {
     const allowed = (await getSetting("allow_custom_domains")) === "true";
-    return { success: true, allowed };
+    const cnameTarget = (await getSetting("custom_domain_cname_target")) || "to.jotify.me";
+    return { success: true, allowed, cnameTarget };
   } catch (error) {
     console.error("checkCustomDomainAvailabilityAction error:", error);
-    return { success: false, allowed: false };
+    return { success: false, allowed: false, cnameTarget: "to.jotify.me" };
   }
 }
 

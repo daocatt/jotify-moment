@@ -36,11 +36,12 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Feature Disabled", { status: 403 });
     }
 
-    // 3. Query the user record having this domain and authorized custom domain permission
+    // 3. Query the user record having this domain and approved custom domain permission
     const user = await db.query.users.findFirst({
       where: and(
         eq(users.customDomain, domain),
-        eq(users.allowCustomDomain, true)
+        eq(users.allowCustomDomain, true),
+        eq(users.customDomainStatus, "approved")
       ),
       columns: { id: true }
     });

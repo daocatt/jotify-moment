@@ -53,6 +53,7 @@ export interface CurrentUser {
   x: string | null;
   otherLink: string | null;
   customDomain: string | null;
+  customDomainStatus?: string | null;
   allowCustomDomain: boolean;
   publishToFeed?: boolean;
   displayPermission?: boolean;
@@ -1007,9 +1008,9 @@ export function TimelineShell({
                     <Pen size={13} /> 个人设置
                   </DropdownMenuItem>
                 )}
-                {isUserHomePage && isOwnPage && currentUser.customDomain && (
+                {isUserHomePage && isOwnPage && currentUser.customDomain && currentUser.customDomainStatus === "approved" && (
                   <DropdownMenuItem onClick={goToCustomHome} className="whitespace-nowrap text-xs">
-                    <Globe size={13} /> 主页
+                    <Globe size={13} /> 独立域名主页
                   </DropdownMenuItem>
                 )}
                 {isAdmin && (

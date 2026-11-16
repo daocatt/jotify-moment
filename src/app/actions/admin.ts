@@ -8,7 +8,7 @@ import path from "path";
 import { getSessionUser, MIN_PASSWORD_LENGTH } from "@/lib/auth";
 import { hashPassword as hashPasswordScrypt, verifyPassword as verifyPasswordScrypt } from "better-auth/crypto";
 import { VALID_THEME_IDS } from "@/lib/theme-resolver";
-import { invalidateStorageConfigCache, isAllowedMediaUrl } from "@/lib/storage";
+import { invalidateStorageConfigCache, isAllowedMediaUrl, deleteMediaFiles } from "@/lib/storage";
 import { getSetting, invalidateSetting, getSiteFcProfile } from "@/lib/settings";
 import { invalidateFeedCache, getCachedSuperAdminProfile } from "@/lib/feed-cache";
 import { SITE_PROFILE_PLACEHOLDER, type HomeHeaderProfile } from "@/lib/site-profile";
@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
 
 const VALID_ROLES = ["super_admin", "admin", "user", "guest"] as const;
 const VALID_STATUSES = ["active", "suspended"] as const;
-const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret", "allow_custom_domains", "friends_circle_enabled"];
+const VALID_SETTING_KEYS = ["allow_registration", "require_approval", "global_theme", "telegram_bot_name", "telegram_bot_token", "telegram_webhook_secret", "allow_custom_domains", "custom_domain_cname_target", "friends_circle_enabled"];
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -103,6 +103,12 @@ export async function updateSettingAction(key: string, value: string) {
     if (!VALID_THEME_IDS.includes(value)) {
       return { error: "Invalid theme id" };
     }
+  } else if (key === "custom_domain_cname_target") {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed && !/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(trimmed)) {
+      return { error: "CNAME 域名格式不正确" };
+    }
+    value = trimmed;
   } else if (value !== "true" && value !== "false") {
     return { error: "Invalid setting value" };
   }
@@ -152,6 +158,7 @@ export async function getUsersAction(cursor?: string) {
         loginDisabledAt: true,
         createdAt: true,
         customDomain: true,
+        customDomainStatus: true,
         allowCustomDomain: true,
         displayPermission: true,
       },
@@ -220,7 +227,7 @@ export async function updateUserCustomDomainPermissionAction(targetUserId: strin
 
     await db.update(users).set({
       allowCustomDomain: allowed,
-      ...(!allowed && { customDomain: null }),
+      ...(!allowed && { customDomain: null, customDomainStatus: null }),
     }).where(eq(users.id, targetUserId));
     revalidatePath("/");
     return { success: true };
@@ -310,6 +317,233 @@ export async function updateUserRoleAction(targetUserId: string, role: string) {
     return { success: true };
   } catch (error) {
     console.error("updateUserRoleAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function updateUserSlugAction(targetUserId: string, slug: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+    if (!targetUser) return { error: "User not found" };
+
+    const trimmedSlug = slug.trim();
+    if (trimmedSlug.length > 32) {
+      return { error: "个性化地址不能超过 32 位" };
+    }
+
+    if (trimmedSlug) {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.slug, trimmedSlug),
+      });
+      if (existing && existing.id !== targetUserId) {
+        return { error: "该个性化地址已被占用" };
+      }
+    }
+
+    const oldSlug = targetUser.slug;
+    await db.update(users).set({ slug: trimmedSlug || null }).where(eq(users.id, targetUserId));
+
+    revalidatePath("/");
+    revalidatePath("/friends");
+    if (oldSlug) revalidatePath(`/u/${oldSlug}`);
+    if (trimmedSlug) revalidatePath(`/u/${trimmedSlug}`);
+    invalidateFeedCache();
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserSlugAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function adminUpdateUserCustomDomainAction(
+  targetUserId: string,
+  domain: string | null,
+  status?: "approved" | "pending" | "rejected" | null
+) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+    if (!targetUser) return { error: "User not found" };
+
+    let customDomain = domain?.trim().toLowerCase() || null;
+    let customDomainStatus = status ?? null;
+
+    if (customDomain) {
+      customDomain = customDomain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+      const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
+      if (!DOMAIN_RE.test(customDomain)) {
+        return { error: "域名格式不合法，请输入如 moment.example.com 的格式" };
+      }
+
+      const mainHostEnv = process.env.MAIN_HOST || "";
+      const mainHosts = mainHostEnv.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+      if (mainHosts.includes(customDomain)) {
+        return { error: "不能使用主站域名作为自定义域名" };
+      }
+
+      const existingDomain = await db.query.users.findFirst({
+        where: eq(users.customDomain, customDomain),
+      });
+      if (existingDomain && existingDomain.id !== targetUserId) {
+        return { error: "该自定义域名已被其他用户使用" };
+      }
+
+      if (!customDomainStatus) {
+        customDomainStatus = "approved";
+      }
+    } else {
+      customDomain = null;
+      customDomainStatus = null;
+    }
+
+    await db.update(users).set({
+      customDomain,
+      customDomainStatus,
+    }).where(eq(users.id, targetUserId));
+
+    revalidatePath("/");
+    revalidatePath("/friends");
+    if (targetUser.slug) revalidatePath(`/u/${targetUser.slug}`);
+    invalidateFeedCache();
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminUpdateUserCustomDomainAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function adminReviewCustomDomainAction(
+  targetUserId: string,
+  status: "approved" | "rejected"
+) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  if (status !== "approved" && status !== "rejected") {
+    return { error: "审核状态无效" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+    if (!targetUser) return { error: "User not found" };
+    if (!targetUser.customDomain) return { error: "该用户未绑定自定义域名" };
+
+    await db.update(users).set({
+      customDomainStatus: status,
+    }).where(eq(users.id, targetUserId));
+
+    revalidatePath("/");
+    revalidatePath("/friends");
+    if (targetUser.slug) revalidatePath(`/u/${targetUser.slug}`);
+    invalidateFeedCache();
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminReviewCustomDomainAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function adminRemoveUserCustomDomainAction(targetUserId: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+    if (!targetUser) return { error: "User not found" };
+
+    await db.update(users).set({
+      customDomain: null,
+      customDomainStatus: null,
+    }).where(eq(users.id, targetUserId));
+
+    revalidatePath("/");
+    revalidatePath("/friends");
+    if (targetUser.slug) revalidatePath(`/u/${targetUser.slug}`);
+    invalidateFeedCache();
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminRemoveUserCustomDomainAction error:", error);
+    return { error: "Internal server error" };
+  }
+}
+
+export async function adminDeleteUserAction(targetUserId: string) {
+  const user = await getSessionUser();
+  if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+    });
+    if (!targetUser) return { error: "User not found" };
+
+    if (targetUser.role === "super_admin") {
+      return { error: "无法删除超级管理员账号" };
+    }
+    if (targetUser.id === user.id) {
+      return { error: "无法删除当前登录账号" };
+    }
+    if (targetUser.role === "admin" && user.role !== "super_admin") {
+      return { error: "只有超级管理员可以删除管理员账号" };
+    }
+
+    try {
+      const userPosts = await db.query.posts.findMany({
+        where: eq(posts.userId, targetUserId),
+        columns: { mediaUrls: true },
+      });
+      for (const p of userPosts) {
+        if (Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0) {
+          await deleteMediaFiles(p.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>);
+        }
+      }
+      if (targetUser.avatar) {
+        await deleteMediaFiles([{ type: "image", url: targetUser.avatar, name: "avatar" }]);
+      }
+      if (targetUser.coverImage) {
+        await deleteMediaFiles([{ type: "image", url: targetUser.coverImage, name: "cover" }]);
+      }
+    } catch (e) {
+      console.warn("adminDeleteUserAction media cleanup warning:", e);
+    }
+
+    await db.delete(users).where(eq(users.id, targetUserId));
+
+    revalidatePath("/");
+    revalidatePath("/friends");
+    if (targetUser.slug) revalidatePath(`/u/${targetUser.slug}`);
+    invalidateFeedCache();
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminDeleteUserAction error:", error);
     return { error: "Internal server error" };
   }
 }
@@ -446,7 +680,7 @@ export async function updateProfileAction(data: {
 
     const dbUser = await db.query.users.findFirst({
       where: eq(users.id, user.id),
-      columns: { allowCustomDomain: true }
+      columns: { allowCustomDomain: true, customDomain: true, customDomainStatus: true }
     });
     if (!dbUser?.allowCustomDomain) {
       return { error: "管理员已禁用您的自定义域名权限" };
@@ -458,6 +692,21 @@ export async function updateProfileAction(data: {
     if (existingDomain && existingDomain.id !== user.id) {
       return { error: "该自定义域名已被其他用户使用" };
     }
+  }
+
+  const currentUserRecord = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
+    columns: { customDomain: true, customDomainStatus: true },
+  });
+
+  let customDomainStatus: string | null = null;
+  if (!customDomain) {
+    customDomainStatus = null;
+  } else if (currentUserRecord?.customDomain === customDomain) {
+    customDomainStatus = currentUserRecord.customDomainStatus || "pending";
+  } else {
+    // New or modified custom domain requires admin review
+    customDomainStatus = "pending";
   }
 
   try {
@@ -476,6 +725,7 @@ export async function updateProfileAction(data: {
         otherLink: data.otherLink || null,
         theme: data.theme || null,
         customDomain: customDomain,
+        customDomainStatus: customDomainStatus,
         publishToFeed: data.publishToFeed ?? user.publishToFeed,
         publicHomepage: data.publicHomepage ?? user.publicHomepage,
       })

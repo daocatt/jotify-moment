@@ -26,6 +26,7 @@ export const users = pgTable("users", {
   image: text("image"),
   theme: text("theme"),
   customDomain: text("custom_domain").unique(),
+  customDomainStatus: text("custom_domain_status").default("approved"),
   allowCustomDomain: boolean("allow_custom_domain").default(false).notNull(),
   // User self-control: when off, this account's posts are hidden from the global home feed
   // (still reachable via the profile page) — a per-account "stealth" mode.

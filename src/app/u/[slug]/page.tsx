@@ -43,7 +43,7 @@ export async function generateMetadata({
   let canonical: string;
   if (isCustomDomain) {
     canonical = `${proto}://${host}/`;
-  } else if (user.customDomain && user.allowCustomDomain) {
+  } else if (user.customDomain && user.allowCustomDomain && user.customDomainStatus === "approved") {
     canonical = `https://${user.customDomain}/`;
   } else {
     canonical = `/u/${encodeURIComponent(slug)}`;

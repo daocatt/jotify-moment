@@ -75,6 +75,7 @@ export async function authenticateApiRequest(req: Request): Promise<Authenticate
           status: user.status,
           theme: user.theme,
           customDomain: user.customDomain,
+          customDomainStatus: user.customDomainStatus,
           allowCustomDomain: user.allowCustomDomain,
           publishToFeed: user.publishToFeed,
           displayPermission: user.displayPermission,
