@@ -318,6 +318,12 @@ export async function deletePostAction(postId: string) {
 
     const mediaUrls = post.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>;
     await deleteMediaFiles(mediaUrls);
+    if (post.embedType === "product_showcase" && post.embedMeta && typeof post.embedMeta === "object") {
+      const meta = post.embedMeta as { logoUrl?: string };
+      if (meta.logoUrl && typeof meta.logoUrl === "string") {
+        await deleteMediaFiles([{ type: "image", url: meta.logoUrl, name: "logo" }]);
+      }
+    }
 
     await db.delete(posts).where(eq(posts.id, postId));
     revalidatePath("/");

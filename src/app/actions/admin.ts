@@ -517,11 +517,17 @@ export async function adminDeleteUserAction(targetUserId: string) {
     try {
       const userPosts = await db.query.posts.findMany({
         where: eq(posts.userId, targetUserId),
-        columns: { mediaUrls: true },
+        columns: { mediaUrls: true, embedType: true, embedMeta: true },
       });
       for (const p of userPosts) {
         if (Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0) {
           await deleteMediaFiles(p.mediaUrls as Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>);
+        }
+        if (p.embedType === "product_showcase" && p.embedMeta && typeof p.embedMeta === "object") {
+          const meta = p.embedMeta as { logoUrl?: string };
+          if (meta.logoUrl && typeof meta.logoUrl === "string") {
+            await deleteMediaFiles([{ type: "image", url: meta.logoUrl, name: "logo" }]);
+          }
         }
       }
       if (targetUser.avatar) {

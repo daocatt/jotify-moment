@@ -388,44 +388,80 @@ export async function uploadFile(
 export async function deleteMediaFiles(mediaUrls: Array<{ type: string; url: string; name: string; duration?: number; thumbnailUrl?: string }>) {
   const config = await getStorageConfig();
 
+  // Initialize S3 client once if S3 credentials are configured
+  const hasS3Config = !!(config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName);
+  let s3Client: S3Client | null = null;
+  if (hasS3Config) {
+    s3Client = new S3Client({
+      endpoint: config.s3Endpoint || undefined,
+      region: config.s3Region || "auto",
+      credentials: {
+        accessKeyId: config.s3AccessKeyId,
+        secretAccessKey: config.s3SecretAccessKey,
+      },
+    });
+  }
+
   for (const media of mediaUrls) {
     const urlsToDelete = [media.url];
     if (media.thumbnailUrl) urlsToDelete.push(media.thumbnailUrl);
 
-    for (const url of urlsToDelete) {
-      try {
-        if (config.mode === "s3" && config.s3AccessKeyId && config.s3SecretAccessKey && config.s3BucketName) {
-          const s3Client = new S3Client({
-            endpoint: config.s3Endpoint || undefined,
-            region: config.s3Region || "auto",
-            credentials: {
-              accessKeyId: config.s3AccessKeyId,
-              secretAccessKey: config.s3SecretAccessKey,
-            },
-          });
+    for (const rawUrl of urlsToDelete) {
+      if (!rawUrl || typeof rawUrl !== "string") continue;
+      const url = rawUrl.trim();
 
-          const publicUrl = config.s3PublicUrl
-            ? `${config.s3PublicUrl}`
-            : config.s3Endpoint
-              ? `${config.s3Endpoint}/${config.s3BucketName}`
-              : null;
-          if (publicUrl && url.startsWith(publicUrl)) {
-            const key = url.slice(publicUrl.length + 1);
-            if (key && !key.startsWith("/") && !key.includes("..")) {
-              await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
-            }
+      // Case 1: Local file storage (/uploads/...)
+      if (url.startsWith("/uploads/") && !url.includes("..")) {
+        try {
+          const publicDir = path.resolve(process.cwd(), "public");
+          const relativePath = url.replace(/^\/+/, "");
+          const filePath = path.resolve(process.cwd(), "public", relativePath);
+          if (filePath.startsWith(publicDir + path.sep) && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
           }
-        } else {
-          if (url.startsWith("/uploads/") && !url.includes("..")) {
-            const publicDir = path.resolve(process.cwd(), "public");
-            const filePath = path.resolve(process.cwd(), "public", url);
-            if (filePath.startsWith(publicDir + path.sep) && fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          }
+        } catch (localErr) {
+          console.error("Failed to delete local media file:", url, localErr);
         }
-      } catch (error) {
-        console.error("Failed to delete media file:", url, error);
+      }
+
+      // Case 2: S3 / Cloudflare R2 storage
+      if ((url.startsWith("http://") || url.startsWith("https://")) && s3Client && config.s3BucketName) {
+        try {
+          let key: string | null = null;
+
+          try {
+            const parsedUrl = new URL(url);
+            let pathname = decodeURIComponent(parsedUrl.pathname);
+            if (pathname.startsWith("/")) pathname = pathname.slice(1);
+
+            if (config.s3BucketName && pathname.startsWith(config.s3BucketName + "/")) {
+              key = pathname.slice(config.s3BucketName.length + 1);
+            } else if (config.s3PublicUrl) {
+              const cleanPublic = config.s3PublicUrl.replace(/\/+$/, "");
+              if (url.startsWith(cleanPublic + "/")) {
+                key = url.slice(cleanPublic.length + 1);
+              }
+            }
+
+            if (!key && (pathname.startsWith("profile/") || pathname.startsWith("moment/"))) {
+              key = pathname;
+            }
+          } catch {
+            if (config.s3PublicUrl) {
+              const cleanPublic = config.s3PublicUrl.replace(/\/+$/, "");
+              if (url.startsWith(cleanPublic + "/")) {
+                key = url.slice(cleanPublic.length + 1);
+              }
+            }
+          }
+
+          if (key && !key.startsWith("/") && !key.includes("..")) {
+            key = key.split("?")[0];
+            await s3Client.send(new DeleteObjectCommand({ Bucket: config.s3BucketName, Key: key }));
+          }
+        } catch (s3Err) {
+          console.error("Failed to delete S3/R2 media file:", url, s3Err);
+        }
       }
     }
   }
