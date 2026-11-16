@@ -992,11 +992,11 @@ export const MomentPost = memo(function MomentPost({
         ) : null}
 
         {/* Footer actions: comment, reaction picker, approvals */}
-        <div className="flex items-center gap-4 pt-2 text-xs">
+        <div className="flex items-center gap-1.5 pt-2 text-xs">
           {/* Reaction Button */}
           <div className="relative">
             <button
-              className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+              className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
               onClick={() => {
                 if (!currentUser) {
                   toast.error("请先登录账户");
@@ -1011,7 +1011,7 @@ export const MomentPost = memo(function MomentPost({
                 }
               }}
             >
-              <Smile size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-orange-500 group-hover:fill-orange-100 dark:group-hover:fill-orange-950/40" />
+              <Smile size={15} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-amber-500 fill-none" />
             </button>
             {showEmojiPicker && (
               <div
@@ -1038,7 +1038,7 @@ export const MomentPost = memo(function MomentPost({
           </div>
 
           <button
-            className="group -m-1.5 p-1.5 size-8 flex items-center justify-center bg-transparent border-none cursor-pointer rounded-full hover:bg-muted/50 transition-colors shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+            className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
             onClick={() => {
               if (!currentUser) {
                 toast.error("请先登录账户");
@@ -1048,7 +1048,7 @@ export const MomentPost = memo(function MomentPost({
               setShowCommentInput((prev) => !prev);
             }}
           >
-            <MessageSquare size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-green-500 group-hover:fill-green-100 dark:group-hover:fill-green-950/40" />
+            <MessageSquare size={15} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-emerald-500 fill-none" />
           </button>
 
 
@@ -1058,11 +1058,11 @@ export const MomentPost = memo(function MomentPost({
             <div className="relative">
               <button
                 onClick={handleStartEditPost}
-                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
                 onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                 onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
               >
-                <Edit2 size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-amber-500" />
+                <Edit2 size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-blue-500 fill-none" />
               </button>
               <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">编辑</span>
             </div>
@@ -1076,9 +1076,9 @@ export const MomentPost = memo(function MomentPost({
                   onClick={() => setShowPinMenu((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={showPinMenu}
-                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
                 >
-                  <Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" />
+                  <Pin size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-primary fill-none" />
                 </button>
                 {showPinMenu && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background rounded shadow-lg text-xs font-medium z-50 overflow-hidden min-w-[84px]">
@@ -1104,16 +1104,16 @@ export const MomentPost = memo(function MomentPost({
                 <button
                   onClick={handleToggleProfilePin}
                   disabled={profilePinLoading}
-                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
                   onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                   onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
                 >
                   {profilePinLoading ? (
-                    <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+                    <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                   ) : (
                     <span className="t-icon-swap" data-state={post.profilePinned ? "a" : "b"}>
-                      <span className="t-icon" data-icon="a"><PinOff size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
-                      <span className="t-icon" data-icon="b"><Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="a"><PinOff size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-primary fill-none" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-primary fill-none" /></span>
                     </span>
                   )}
                 </button>
@@ -1124,16 +1124,16 @@ export const MomentPost = memo(function MomentPost({
                 <button
                   onClick={handleTogglePin}
                   disabled={pinLoading}
-                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                  className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
                   onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                   onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
                 >
                   {pinLoading ? (
-                    <Loader2 className="size-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+                    <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                   ) : (
                     <span className="t-icon-swap" data-state={post.pinnedAt ? "a" : "b"}>
-                      <span className="t-icon" data-icon="a"><PinOff size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
-                      <span className="t-icon" data-icon="b"><Pin size={16} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-blue-500" /></span>
+                      <span className="t-icon" data-icon="a"><PinOff size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-primary fill-none" /></span>
+                      <span className="t-icon" data-icon="b"><Pin size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-primary fill-none" /></span>
                     </span>
                   )}
                 </button>
@@ -1147,11 +1147,11 @@ export const MomentPost = memo(function MomentPost({
             <div className="relative">
               <button
                 onClick={handleDeletePost}
-                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+                className="group size-7 flex items-center justify-center bg-transparent border-none p-0 cursor-pointer rounded-md hover:bg-rose-500/10 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
                 onMouseEnter={(e) => (e.currentTarget.nextElementSibling?.classList.add("is-shown"), e.currentTarget.nextElementSibling?.classList.remove("is-hiding"))}
                 onMouseLeave={(e) => { const tt = e.currentTarget.nextElementSibling; if (tt) { tt.classList.remove("is-shown"); tt.classList.add("is-hiding"); } }}
               >
-                <Trash2 size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 fill-zinc-100 dark:fill-zinc-800 group-hover:stroke-red-500 group-hover:fill-red-100 dark:group-hover:fill-red-950/40" />
+                <Trash2 size={14} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-rose-500 fill-none" />
               </button>
               <span className="t-tt absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap bg-foreground text-background shadow-sm pointer-events-none">删除</span>
             </div>
@@ -1168,9 +1168,9 @@ export const MomentPost = memo(function MomentPost({
               }}
               aria-label="查看更多"
               title="查看更多"
-              className="ml-auto group size-7 flex items-center justify-center bg-transparent p-0 cursor-pointer min-h-0 rounded-none shadow-none outline-none focus:outline-none focus-visible:outline-none text-muted-foreground"
+              className="ml-auto group size-7 flex items-center justify-center bg-transparent p-0 cursor-pointer rounded-md hover:bg-muted/60 active:scale-95 transition-all outline-none focus:outline-none focus-visible:outline-none text-muted-foreground/70"
             >
-              <ChevronRight size={18} strokeWidth={1.5} className="transition-colors stroke-zinc-600 dark:stroke-zinc-400 group-hover:stroke-orange-500 dark:group-hover:stroke-orange-400" />
+              <ChevronRight size={15} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-foreground" />
             </Link>
           )}
         </div>

@@ -1417,6 +1417,10 @@ export function TimelineShell({
       )}
       </div>
       )}
+          {/* Footer copyright: PC端位于最底左侧，移动端居中 */}
+          <footer className="pt-6 pb-10 px-4 text-[11px] text-muted-foreground/60 flex items-center justify-center sm:justify-start select-none tracking-wide">
+            <span>made with love by zwq</span>
+          </footer>
         </main>
 
         <PortfolioDrawer
