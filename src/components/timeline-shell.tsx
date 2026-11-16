@@ -1387,11 +1387,16 @@ export function TimelineShell({
       )}
       </div>
       )}
-          {/* Footer copyright: PC端位于最底左侧，移动端居中 */}
-          <footer className="pt-6 pb-10 px-4 text-[11px] text-muted-foreground/60 flex items-center justify-center sm:justify-start select-none tracking-wide">
+          {/* Footer copyright: 移动端居中显示在 timeline 最底部 */}
+          <footer className="sm:hidden pt-6 pb-10 px-4 text-[11px] text-muted-foreground/60 flex items-center justify-center select-none tracking-wide">
             <span>made with love by zwq</span>
           </footer>
         </main>
+
+        {/* PC 端 footer copyright: 固定在浏览器的左下角 */}
+        <footer className="hidden sm:flex fixed bottom-4 left-6 z-20 text-[11px] text-muted-foreground/50 select-none tracking-wide hover:text-muted-foreground/80 transition-colors pointer-events-auto">
+          <span>made with love by zwq</span>
+        </footer>
 
         <PortfolioDrawer
           isOpen={portfolioOpen}
