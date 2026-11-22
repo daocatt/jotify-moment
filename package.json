@@ -7,12 +7,13 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/scan-themes.js",
-    "dev": "next dev",
+    "dev": "tsx watch src/server.ts",
     "prebuild": "node scripts/scan-themes.js",
-    "build": "next build",
-    "start": "next start",
+    "build": "vite build && vite build --ssr && node scripts/build-server.mjs",
+    "start": "node dist/server.mjs",
     "themes:scan": "node scripts/scan-themes.js",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx --env-file=.env src/db/migrate.ts",
     "db:backfill-tags": "npx tsx --env-file=.env src/db/backfill-tags.ts",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
     "@base-ui/react": "^1.6.0",
+    "@hono/node-server": "^2.1.11",
     "@tailwindcss/typography": "^0.5.20",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.22",
@@ -29,6 +31,7 @@
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.2",
     "highlight.js": "^11.12.0",
+    "hono": "^4.13.20",
     "lucide-react": "^1.22.0",
     "next": "^16.3.5",
     "next-themes": "^0.4.6",
@@ -38,6 +41,7 @@
     "react-dom": "19.2.4",
     "react-image-crop": "^11.1.2",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.6",
     "rehype-highlight": "^7.0.2",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
@@ -52,15 +56,19 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/bcryptjs": "^2.4.6",
+    "@types/cookie": "^0.6.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
+    "@vitejs/plugin-react": "^4.7.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "^16.3.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^6.4.6"
   }
 }
