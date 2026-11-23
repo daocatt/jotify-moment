@@ -20,8 +20,9 @@ import {
   type PageLoadResult,
 } from "@/server/page-loaders";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, posts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getSetting } from "@/lib/settings";
 
 // Route Handlers
 import * as uploadRoute from "@/app/api/upload/route";
@@ -94,6 +95,10 @@ async function checkHasAdmin(): Promise<boolean> {
   return hasAdmin;
 }
 
+async function isCustomDomainGloballyAllowed(): Promise<boolean> {
+  return (await getSetting("allow_custom_domains")) === "true";
+}
+
 // Check admin initialization & Custom Domain Middleware
 app.use("*", async (c, next) => {
   const pathname = c.req.path;
@@ -101,7 +106,7 @@ app.use("*", async (c, next) => {
     pathname.startsWith("/api") ||
     pathname.startsWith("/assets") ||
     pathname.startsWith("/uploads") ||
-    pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|webp|webmanifest|txt|xml)$/)
+    pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|webp|webmanifest)$/)
   ) {
     return next();
   }
@@ -111,23 +116,68 @@ app.use("*", async (c, next) => {
     return c.redirect("/init");
   }
 
-  const host = c.req.header("host") || "";
-  const hostname = host.split(":")[0].toLowerCase();
+  const rawHost = c.req.header("x-forwarded-host") || c.req.header("host") || "";
+  const hostname = rawHost.split(",")[0].trim().split(":")[0].toLowerCase();
   const mainHosts = getMainHosts();
   const isMainHost = mainHosts.length === 0 || mainHosts.includes(hostname);
 
   if (!isMainHost) {
+    const isGloballyAllowed = await isCustomDomainGloballyAllowed();
+    if (!isGloballyAllowed) {
+      return c.text("Custom domains are disabled", 404);
+    }
+
     const slug = await resolveCustomDomain(hostname);
     if (!slug) {
       return c.text("Domain not found or pending approval", 404);
     }
-    c.req.raw.headers.set("x-custom-domain", "true");
-    c.req.raw.headers.set("x-custom-domain-slug", slug);
 
-    // Custom domain rewrite: "/" serves user's profile
+    const reqHeaders = new Headers(c.req.raw.headers);
+    reqHeaders.set("x-custom-domain", "true");
+    reqHeaders.set("x-custom-domain-slug", slug);
+
+    // Custom domain rewrite: "/" serves user's profile at routePath "/"
     if (pathname === "/") {
-      return handleSsr(c, () => loadUserHomePage(slug, c.req.raw.headers), `/u/${slug}`);
+      return handleSsr(c, () => loadUserHomePage(slug, reqHeaders), "/", reqHeaders);
     }
+
+    // Custom domain pinned posts page
+    if (pathname === `/u/${slug}/pinned` || pathname === "/pinned") {
+      return handleSsr(c, () => loadUserHomePage(slug, reqHeaders), pathname, reqHeaders);
+    }
+
+    // Custom domain moment detail page (only if post belongs to the domain owner)
+    if (pathname.startsWith("/mo/")) {
+      const postId = pathname.split("/")[2];
+      if (postId) {
+        const [post, owner] = await Promise.all([
+          db.query.posts.findFirst({
+            where: eq(posts.id, postId),
+            columns: { userId: true },
+          }),
+          db.query.users.findFirst({
+            where: and(eq(users.slug, slug), eq(users.allowCustomDomain, true)),
+            columns: { id: true },
+          }),
+        ]);
+        if (post && owner && post.userId === owner.id) {
+          return handleSsr(c, () => loadMomentPage(postId, reqHeaders), `/mo/${postId}`, reqHeaders);
+        }
+      }
+      return c.text("Not Found", 404);
+    }
+
+    if (pathname === "/sitemap.xml") {
+      return toHonoHandler(sitemapRoute.GET)(c);
+    }
+    if (pathname === "/robots.txt") {
+      return toHonoHandler(robotsRoute.GET)(c);
+    }
+
+    const primaryHost = mainHosts[0] || "localhost:3000";
+    const protocol = c.req.header("x-forwarded-proto") || "https";
+    const urlObj = new URL(c.req.url);
+    return c.redirect(`${protocol}://${primaryHost}${pathname}${urlObj.search}`);
   }
 
   return next();
@@ -233,14 +283,26 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-async function handleSsr(c: Context, loadFn: () => Promise<PageLoadResult>, routePath: string) {
+async function handleSsr(
+  c: Context,
+  loadFn: () => Promise<PageLoadResult>,
+  routePath: string,
+  customHeaders?: Headers
+) {
   const cookieMap = new Map<string, string>();
   const cookieHeader = c.req.header("cookie") || "";
   cookieHeader.split(";").forEach((pair) => {
     const [k, ...v] = pair.trim().split("=");
     if (k) cookieMap.set(k, decodeURIComponent(v.join("=")));
   });
-  setServerContext(c.req.raw.headers, cookieMap);
+
+  const effectiveHeaders = customHeaders || (() => {
+    const h = new Headers(c.req.raw.headers);
+    h.delete("x-custom-domain");
+    h.delete("x-custom-domain-slug");
+    return h;
+  })();
+  setServerContext(effectiveHeaders, cookieMap);
 
   const pageRes = await loadFn();
   if (pageRes.redirectUrl) {
@@ -263,6 +325,7 @@ async function handleSsr(c: Context, loadFn: () => Promise<PageLoadResult>, rout
     <meta name="twitter:description" content="${escapeHtml(metadata.ogDescription || metadata.description || "")}" />
     ${metadata.ogImage ? `<meta name="twitter:image" content="${escapeHtml(metadata.ogImage)}" />` : ""}
     ${metadata.canonical ? `<link rel="canonical" href="${escapeHtml(metadata.canonical)}" />` : ""}
+    ${metadata.jsonLd ? `<script type="application/ld+json">${JSON.stringify(metadata.jsonLd).replace(/</g, "\\u003c")}</script>` : ""}
   `;
 
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${JSON.stringify(initialData).replace(/</g, "\\u003c")}; window.__INITIAL_ROUTE__ = ${JSON.stringify(routePath)};</script>`;
@@ -280,15 +343,15 @@ async function handleSsr(c: Context, loadFn: () => Promise<PageLoadResult>, rout
 app.get("/", (c) => handleSsr(c, loadHomePage, "/"));
 app.get("/u/:slug", (c) => {
   const slug = c.req.param("slug");
-  return handleSsr(c, () => loadUserHomePage(slug, c.req.raw.headers), `/u/${slug}`);
+  return handleSsr(c, () => loadUserHomePage(slug), `/u/${slug}`);
 });
 app.get("/u/:slug/pinned", (c) => {
   const slug = c.req.param("slug");
-  return handleSsr(c, () => loadUserHomePage(slug, c.req.raw.headers), `/u/${slug}/pinned`);
+  return handleSsr(c, () => loadUserHomePage(slug), `/u/${slug}/pinned`);
 });
 app.get("/mo/:id", (c) => {
   const id = c.req.param("id");
-  return handleSsr(c, () => loadMomentPage(id, c.req.raw.headers), `/mo/${id}`);
+  return handleSsr(c, () => loadMomentPage(id), `/mo/${id}`);
 });
 app.get("/friends", (c) => handleSsr(c, loadFriendsPage, "/friends"));
 app.get("/pinned", (c) => handleSsr(c, loadPinnedPage, "/pinned"));

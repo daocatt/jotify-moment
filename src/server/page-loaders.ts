@@ -28,6 +28,7 @@ export interface PageMetadata {
   ogImage?: string;
   canonical?: string;
   twitterCard?: string;
+  jsonLd?: Record<string, unknown> | null;
 }
 
 export interface PageLoadResult {
@@ -113,7 +114,9 @@ export async function loadUserHomePage(slug: string, reqHeaders?: Headers): Prom
   }
 
   const isCustomDomain = reqHeaders?.get("x-custom-domain") === "true";
-  const host = reqHeaders?.get("x-forwarded-host") || reqHeaders?.get("host") || "";
+  const customDomainSlug = reqHeaders?.get("x-custom-domain-slug") || (isCustomDomain ? slug : undefined);
+  const mainHost = process.env.MAIN_HOST?.split(",")[0]?.trim() || "localhost:3000";
+  const host = (reqHeaders?.get("x-forwarded-host") || reqHeaders?.get("host") || "").split(",")[0].trim();
   const proto = reqHeaders?.get("x-forwarded-proto") === "https" ? "https" : "http";
 
   let canonical: string;
@@ -128,6 +131,9 @@ export async function loadUserHomePage(slug: string, reqHeaders?: Headers): Prom
   return {
     initialData: {
       slug,
+      isCustomDomain,
+      customDomainSlug,
+      mainHost,
       initialUser: user,
       initialPinnedPosts,
       initialPosts,
@@ -153,16 +159,33 @@ export async function loadMomentPage(id: string, reqHeaders?: Headers): Promise<
   let title = "Moment 详情";
   let excerpt = "查看 Moment 详情";
   let firstImage: string | undefined;
+  let jsonLd: Record<string, unknown> | null = null;
 
   if (post) {
     title = `${post.user.name} 的 Moment`;
     excerpt = plainExcerpt(post.content) || "查看 Moment 详情";
     const mediaUrls = post.mediaUrls as Array<{ type: string; url: string }> | undefined;
     firstImage = mediaUrls?.find((m) => m.type === "image")?.url;
+    const images = mediaUrls?.filter((m) => m.type === "image").map((m) => m.url) || [];
+    jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SocialMediaPosting",
+      headline: plainExcerpt(post.content, 50),
+      articleBody: post.content,
+      datePublished: post.createdAt,
+      author: {
+        "@type": "Person",
+        name: post.user?.name,
+        image: post.user?.avatar,
+      },
+      image: images.length > 0 ? images : undefined,
+    };
   }
 
   const isCustomDomain = reqHeaders?.get("x-custom-domain") === "true";
-  const host = reqHeaders?.get("x-forwarded-host") || reqHeaders?.get("host") || "";
+  const customDomainSlug = reqHeaders?.get("x-custom-domain-slug") || undefined;
+  const mainHost = process.env.MAIN_HOST?.split(",")[0]?.trim() || "localhost:3000";
+  const host = (reqHeaders?.get("x-forwarded-host") || reqHeaders?.get("host") || "").split(",")[0].trim();
   const proto = reqHeaders?.get("x-forwarded-proto") === "https" ? "https" : "http";
   const author = post?.user as { customDomain?: string | null; allowCustomDomain?: boolean; customDomainStatus?: string | null } | undefined;
   const authorCustomDomain =
@@ -180,6 +203,9 @@ export async function loadMomentPage(id: string, reqHeaders?: Headers): Promise<
   return {
     initialData: {
       id,
+      isCustomDomain,
+      customDomainSlug,
+      mainHost,
       initialPost: post,
       initialError: post ? null : "日志不存在或已被删除",
     },
@@ -191,6 +217,7 @@ export async function loadMomentPage(id: string, reqHeaders?: Headers): Promise<
       ogImage: firstImage || "/default-og.png",
       canonical,
       twitterCard: firstImage ? "summary_large_image" : "summary",
+      jsonLd,
     },
   };
 }

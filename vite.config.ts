@@ -7,8 +7,7 @@ function serverActionsPlugin(): Plugin {
   return {
     name: "vite-plugin-server-actions",
     enforce: "pre",
-    transform(code, id, options) {
-      if (options?.ssr) return null; // Keep server implementation in SSR
+    transform(code, id) {
       if (!id.includes("/src/app/actions/")) return null;
 
       const exportNames: string[] = [];

@@ -22,8 +22,29 @@ interface AppProps {
   initialPath?: string;
 }
 
+interface CustomDomainInfo {
+  isCustomDomain: boolean;
+  slug: string;
+  mainHost?: string;
+}
+
 export function App({ initialData }: AppProps) {
   const location = useLocation();
+
+  const customDomainInfo = React.useMemo<CustomDomainInfo | null>(() => {
+    const source =
+      typeof window !== "undefined"
+        ? (window as unknown as { __INITIAL_DATA__?: Record<string, unknown> }).__INITIAL_DATA__
+        : initialData;
+    if (source?.isCustomDomain) {
+      return {
+        isCustomDomain: true,
+        slug: ((source.customDomainSlug || source.slug) as string) || "",
+        mainHost: (source.mainHost as string) || undefined,
+      };
+    }
+    return null;
+  }, [initialData]);
 
   // Helper to extract initialData only if we are on the initial route matching path
   const getInitialProps = (matchPath: string): Record<string, unknown> => {
@@ -33,6 +54,7 @@ export function App({ initialData }: AppProps) {
       if (initialRoute === matchPath && winData) {
         return winData;
       }
+      return {};
     }
     return initialData || {};
   };
@@ -42,19 +64,39 @@ export function App({ initialData }: AppProps) {
       <Routes>
         <Route
           path="/"
-          element={<HomeWrapper initialData={getInitialProps(location.pathname)} />}
+          element={
+            <HomeWrapper
+              initialData={getInitialProps(location.pathname)}
+              customDomainInfo={customDomainInfo}
+            />
+          }
         />
         <Route
           path="/u/:slug"
-          element={<UserHomeWrapper initialData={getInitialProps(location.pathname)} />}
+          element={
+            <UserHomeWrapper
+              initialData={getInitialProps(location.pathname)}
+              customDomainInfo={customDomainInfo}
+            />
+          }
         />
         <Route
           path="/u/:slug/pinned"
-          element={<UserPinnedWrapper initialData={getInitialProps(location.pathname)} />}
+          element={
+            <UserPinnedWrapper
+              initialData={getInitialProps(location.pathname)}
+              customDomainInfo={customDomainInfo}
+            />
+          }
         />
         <Route
           path="/mo/:id"
-          element={<MoWrapper initialData={getInitialProps(location.pathname)} />}
+          element={
+            <MoWrapper
+              initialData={getInitialProps(location.pathname)}
+              customDomainInfo={customDomainInfo}
+            />
+          }
         />
         <Route
           path="/friends"
@@ -62,7 +104,12 @@ export function App({ initialData }: AppProps) {
         />
         <Route
           path="/pinned"
-          element={<PinnedWrapper initialData={getInitialProps(location.pathname)} />}
+          element={
+            <PinnedWrapper
+              initialData={getInitialProps(location.pathname)}
+              customDomainInfo={customDomainInfo}
+            />
+          }
         />
         <Route
           path="/tag/:tag"
@@ -86,27 +133,83 @@ export function App({ initialData }: AppProps) {
 }
 
 // Route wrappers that inject params and SSR props
-function HomeWrapper({ initialData }: { initialData: Record<string, unknown> }) {
+function HomeWrapper({
+  initialData,
+  customDomainInfo,
+}: {
+  initialData: Record<string, unknown>;
+  customDomainInfo: CustomDomainInfo | null;
+}) {
+  if (customDomainInfo?.isCustomDomain && customDomainInfo.slug) {
+    return (
+      <UserHomeClient
+        slug={customDomainInfo.slug}
+        isCustomDomain={true}
+        mainHost={customDomainInfo.mainHost}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        {...(initialData as any)}
+      />
+    );
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <HomeClient {...(initialData as any)} />;
 }
 
-function UserHomeWrapper({ initialData }: { initialData: Record<string, unknown> }) {
+function UserHomeWrapper({
+  initialData,
+  customDomainInfo,
+}: {
+  initialData: Record<string, unknown>;
+  customDomainInfo: CustomDomainInfo | null;
+}) {
   const { slug = "" } = useParams();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <UserHomeClient slug={slug} {...(initialData as any)} />;
+  return (
+    <UserHomeClient
+      isCustomDomain={customDomainInfo?.isCustomDomain ?? false}
+      mainHost={customDomainInfo?.mainHost}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(initialData as any)}
+      slug={slug}
+    />
+  );
 }
 
-function UserPinnedWrapper({ initialData }: { initialData: Record<string, unknown> }) {
+function UserPinnedWrapper({
+  initialData,
+  customDomainInfo,
+}: {
+  initialData: Record<string, unknown>;
+  customDomainInfo: CustomDomainInfo | null;
+}) {
   const { slug = "" } = useParams();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <UserPinnedClient slug={slug} {...(initialData as any)} />;
+  return (
+    <UserPinnedClient
+      isCustomDomain={customDomainInfo?.isCustomDomain ?? false}
+      mainHost={customDomainInfo?.mainHost}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(initialData as any)}
+      slug={slug}
+    />
+  );
 }
 
-function MoWrapper({ initialData }: { initialData: Record<string, unknown> }) {
+function MoWrapper({
+  initialData,
+  customDomainInfo,
+}: {
+  initialData: Record<string, unknown>;
+  customDomainInfo: CustomDomainInfo | null;
+}) {
   const { id = "" } = useParams();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <MoClient id={id} {...(initialData as any)} />;
+  return (
+    <MoClient
+      isCustomDomain={customDomainInfo?.isCustomDomain ?? false}
+      mainHost={customDomainInfo?.mainHost}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(initialData as any)}
+      id={id}
+    />
+  );
 }
 
 function FriendsWrapper({ initialData }: { initialData: Record<string, unknown> }) {
@@ -114,7 +217,24 @@ function FriendsWrapper({ initialData }: { initialData: Record<string, unknown> 
   return <FriendsClient {...(initialData as any)} />;
 }
 
-function PinnedWrapper({ initialData }: { initialData: Record<string, unknown> }) {
+function PinnedWrapper({
+  initialData,
+  customDomainInfo,
+}: {
+  initialData: Record<string, unknown>;
+  customDomainInfo: CustomDomainInfo | null;
+}) {
+  if (customDomainInfo?.isCustomDomain && customDomainInfo.slug) {
+    return (
+      <UserPinnedClient
+        slug={customDomainInfo.slug}
+        isCustomDomain={true}
+        mainHost={customDomainInfo.mainHost}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        {...(initialData as any)}
+      />
+    );
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <PinnedClient {...(initialData as any)} />;
 }
