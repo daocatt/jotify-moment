@@ -859,23 +859,6 @@ export function TimelineShell({
             )}
           </div>
         )}
-        {isCustomDomain && (
-          <a
-            href={mainHost ? `${typeof window !== "undefined" ? window.location.protocol : "https:"}//${mainHost}` : "/"}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Jotify"
-            aria-label="Jotify"
-            className={`size-8 min-h-0 rounded-full overflow-hidden p-0.5 outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${coverStyle ? "bg-black/25 backdrop-blur-sm border border-white/10 hover:bg-white/20" : "hover:bg-muted"}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo-lined.svg"
-              alt="Jotify"
-              className={`h-full w-full object-cover ${coverStyle ? "invert" : "dark:invert"}`}
-            />
-          </a>
-        )}
       </div>
 
       {/* Sticky Top Bar (contained within the main timeline column) */}
@@ -1389,13 +1372,17 @@ export function TimelineShell({
       )}
           {/* Footer copyright: 移动端居中显示在 timeline 最底部 */}
           <footer className="sm:hidden pt-6 pb-10 px-4 text-[11px] text-muted-foreground/60 flex items-center justify-center select-none tracking-wide">
-            <span>made with love by zwq</span>
+            <a href="https://jotify.me" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              powered by jotify.me
+            </a>
           </footer>
         </main>
 
         {/* PC 端 footer copyright: 固定在浏览器的左下角 */}
         <footer className="hidden sm:flex fixed bottom-4 left-6 z-20 text-[11px] text-muted-foreground/50 select-none tracking-wide hover:text-muted-foreground/80 transition-colors pointer-events-auto">
-          <span>made with love by zwq</span>
+          <a href="https://jotify.me" target="_blank" rel="noopener noreferrer" className="hover:underline">
+            powered by jotify.me
+          </a>
         </footer>
 
         <PortfolioDrawer
@@ -1501,11 +1488,19 @@ export function TimelineShell({
             <DialogTitle className="text-xl">Jotify Moment</DialogTitle>
             <DialogDescription className="text-sm">轻日志 轻生活</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-3 pt-2">
+          <div className="flex flex-col items-center gap-2 pt-2 text-center">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Jotify Moment 是一个极简的个人生活与动态记录平台。
+            </p>
             <span className="text-[11px] text-muted-foreground/60">v{APP_VERSION}</span>
-            <span className="text-[11px] text-muted-foreground/60">
-              powered by Jotify
-            </span>
+            <a
+              href="https://jotify.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-muted-foreground/60 hover:text-foreground hover:underline transition-colors"
+            >
+              powered by jotify.me
+            </a>
           </div>
         </DialogContent>
       </Dialog>

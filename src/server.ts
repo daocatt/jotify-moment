@@ -40,6 +40,10 @@ import * as authLogoutRoute from "@/app/api/auth/logout/route";
 import * as oauth2TokenRoute from "@/app/api/auth/oauth2/token/route";
 import * as oauth2AuthorizeRoute from "@/app/api/auth/oauth2/authorize/route";
 import * as oauth2CallbackRoute from "@/app/api/auth/oauth2/callback/route";
+import * as betterAuthRoute from "@/app/api/auth/[...better-auth]/route";
+import manifest from "@/app/manifest";
+import robots from "@/app/robots";
+import sitemap from "@/app/sitemap";
 
 const app = new Hono();
 
@@ -141,6 +145,11 @@ app.use("*", async (c, next) => {
       return handleSsr(c, () => loadUserHomePage(slug, reqHeaders), "/", reqHeaders);
     }
 
+    // Canonicalize /u/:slug on custom domain to "/"
+    if (pathname === `/u/${slug}`) {
+      return c.redirect("/", 301);
+    }
+
     // Custom domain pinned posts page
     if (pathname === `/u/${slug}/pinned` || pathname === "/pinned") {
       return handleSsr(c, () => loadUserHomePage(slug, reqHeaders), pathname, reqHeaders);
@@ -183,9 +192,6 @@ app.use("*", async (c, next) => {
   return next();
 });
 
-// Better Auth Endpoint
-app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
-
 // Server Actions Bridge
 app.post("/api/action/:name", async (c) => {
   const name = c.req.param("name");
@@ -220,7 +226,7 @@ app.post("/api/action/:name", async (c) => {
   }
 });
 
-// RESTful API routes
+// RESTful API routes (specific auth endpoints MUST be registered before /api/auth/* catch-all)
 app.post("/api/upload", toHonoHandler(uploadRoute.POST));
 app.get("/api/v1/posts", toHonoHandler(postsRoute.GET));
 app.post("/api/v1/posts", toHonoHandler(postsRoute.POST));
@@ -238,14 +244,71 @@ app.post("/api/auth/oauth2/token", toHonoHandler(oauth2TokenRoute.POST));
 app.get("/api/auth/oauth2/authorize", toHonoHandler(oauth2AuthorizeRoute.GET));
 app.get("/api/auth/oauth2/callback", toHonoHandler(oauth2CallbackRoute.GET));
 
-// Static Assets
+// Better Auth catch-all endpoint
+app.get("/api/auth/*", toHonoHandler(betterAuthRoute.GET));
+app.post("/api/auth/*", toHonoHandler(betterAuthRoute.POST));
+app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// Dynamic Web Manifest, Robots.txt, and Sitemap.xml
+app.get("/manifest.webmanifest", (c) =>
+  c.json(manifest(), 200, { "Content-Type": "application/manifest+json; charset=utf-8" })
+);
+
+app.get("/robots.txt", async (c) => {
+  const data = await robots();
+  const rulesList = Array.isArray(data.rules) ? data.rules : [data.rules];
+  const lines: string[] = [];
+  for (const r of rulesList) {
+    const agents = Array.isArray(r.userAgent) ? r.userAgent : [r.userAgent || "*"];
+    for (const ua of agents) {
+      lines.push(`User-agent: ${ua}`);
+    }
+    if (r.allow) {
+      const allows = Array.isArray(r.allow) ? r.allow : [r.allow];
+      for (const a of allows) lines.push(`Allow: ${a}`);
+    }
+    if (r.disallow) {
+      const disallows = Array.isArray(r.disallow) ? r.disallow : [r.disallow];
+      for (const d of disallows) lines.push(`Disallow: ${d}`);
+    }
+    lines.push("");
+  }
+  if (data.sitemap) {
+    const sitemaps = Array.isArray(data.sitemap) ? data.sitemap : [data.sitemap];
+    for (const s of sitemaps) lines.push(`Sitemap: ${s}`);
+  }
+  return c.text(lines.join("\n") + "\n");
+});
+
+app.get("/sitemap.xml", async (c) => {
+  const entries = await sitemap();
+  const urlItems = entries.map((item) => {
+    const lastmod = item.lastModified
+      ? item.lastModified instanceof Date
+        ? item.lastModified.toISOString()
+        : new Date(item.lastModified).toISOString()
+      : undefined;
+    return [
+      "<url>",
+      `<loc>${escapeHtml(item.url)}</loc>`,
+      lastmod ? `<lastmod>${lastmod}</lastmod>` : "",
+      item.changeFrequency ? `<changefreq>${item.changeFrequency}</changefreq>` : "",
+      item.priority !== undefined ? `<priority>${item.priority}</priority>` : "",
+      "</url>",
+    ]
+      .filter(Boolean)
+      .join("");
+  });
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlItems.join("\n")}\n</urlset>`;
+  return c.body(xml, 200, { "Content-Type": "application/xml; charset=utf-8" });
+});
+
+// Static Assets (Vite client bundle + all public/ assets including SVGs, icons, uploads)
 app.use("/assets/*", serveStatic({ root: "./dist/client" }));
 app.use("/uploads/*", serveStatic({ root: "./public" }));
-app.use("/favicon.ico", serveStatic({ root: "./public", path: "favicon.ico" }));
-app.use("/apple-touch-icon.png", serveStatic({ root: "./public", path: "apple-touch-icon.png" }));
-app.use("/manifest.webmanifest", serveStatic({ root: "./public", path: "manifest.webmanifest" }));
-app.use("/default-cover.jpg", serveStatic({ root: "./public", path: "default-cover.jpg" }));
-app.use("/default-og.png", serveStatic({ root: "./public", path: "default-og.png" }));
+app.get("/:file{.+\\.(ico|png|jpg|jpeg|gif|svg|webp|woff2)$}", serveStatic({ root: "./public" }));
 
 // Template and SSR render import
 let template = "";

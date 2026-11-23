@@ -5,11 +5,53 @@ import {
   useSearchParams as useRouterSearchParams,
 } from "react-router-dom";
 
+export function resolveCustomDomainTarget(url: string): { external: boolean; target: string } {
+  if (typeof window !== "undefined") {
+    const winData = (window as unknown as { __INITIAL_DATA__?: Record<string, unknown> }).__INITIAL_DATA__;
+    if (winData?.isCustomDomain) {
+      const slug = ((winData.customDomainSlug || winData.slug) as string) || "";
+      const mainHost = (winData.mainHost as string) || "";
+      const pathname = url.split("?")[0].split("#")[0];
+      const suffix = url.slice(pathname.length);
+
+      if (slug && pathname === `/u/${slug}`) {
+        return { external: false, target: `/${suffix}` };
+      }
+      if (
+        pathname === "/" ||
+        pathname === "/pinned" ||
+        (slug && pathname === `/u/${slug}/pinned`) ||
+        pathname.startsWith("/mo/")
+      ) {
+        return { external: false, target: url };
+      }
+      if (mainHost && url.startsWith("/")) {
+        return { external: true, target: `${window.location.protocol}//${mainHost}${url}` };
+      }
+    }
+  }
+  return { external: false, target: url };
+}
+
 export function useRouter() {
   const navigate = useNavigate();
   return {
-    push: (url: string) => navigate(url),
-    replace: (url: string) => navigate(url, { replace: true }),
+    push: (url: string) => {
+      const resolved = resolveCustomDomainTarget(url);
+      if (resolved.external) {
+        window.location.href = resolved.target;
+      } else {
+        navigate(resolved.target);
+      }
+    },
+    replace: (url: string) => {
+      const resolved = resolveCustomDomainTarget(url);
+      if (resolved.external) {
+        window.location.replace(resolved.target);
+      } else {
+        navigate(resolved.target, { replace: true });
+      }
+    },
     back: () => navigate(-1),
     forward: () => navigate(1),
     refresh: () => {
