@@ -156,6 +156,8 @@ export const comments = pgTable("comments", {
   index("comments_user_id_idx").on(table.userId),
   // Feed comment-count stubs: filter by post + visible status.
   index("comments_post_status_idx").on(table.postId, table.status),
+  // Comments listing: query by post ordered by created_at.
+  index("comments_post_created_at_idx").on(table.postId, table.createdAt),
 ]);
 
 export const reactions = pgTable("reactions", {
@@ -172,6 +174,8 @@ export const reactions = pgTable("reactions", {
   index("reactions_post_id_idx").on(table.postId),
   index("reactions_user_id_idx").on(table.userId),
   uniqueIndex("reactions_post_user_emoji_idx").on(table.postId, table.userId, table.emoji),
+  // Group-by and emoji distribution aggregation on feed load: (post_id, emoji).
+  index("reactions_post_emoji_idx").on(table.postId, table.emoji),
 ]);
 
 export const userPinned = pgTable("user_pinned", {

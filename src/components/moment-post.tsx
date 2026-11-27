@@ -97,6 +97,8 @@ export const MomentPost = memo(function MomentPost({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiClosing, setEmojiClosing] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [replyTarget, setReplyTarget] = useState<string | null>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
@@ -449,16 +451,18 @@ export const MomentPost = memo(function MomentPost({
       toast.error("请先登录账户");
       return;
     }
-    if (!commentText.trim()) return;
+    const fullText = replyTarget ? `回复 @${replyTarget} : ${commentText}` : commentText;
+    if (!fullText.trim()) return;
 
     setLoading(true);
-    const res = await addCommentAction(post.id, commentText);
+    const res = await addCommentAction(post.id, fullText);
     setLoading(false);
 
     if (res.error) {
       toast.error(res.error);
     } else {
       setCommentText("");
+      setReplyTarget(null);
       setShowCommentInput(false);
       setCommentsExpanded(true); // Automatically expand to show new comment
       loadComments(true); // Local refresh
@@ -1045,7 +1049,14 @@ export const MomentPost = memo(function MomentPost({
                 onRequireLogin?.();
                 return;
               }
-              setShowCommentInput((prev) => !prev);
+              setShowCommentInput((prev) => {
+                const next = !prev;
+                if (!next) setReplyTarget(null);
+                else {
+                  setTimeout(() => commentInputRef.current?.focus(), 50);
+                }
+                return next;
+              });
             }}
           >
             <MessageSquare size={15} strokeWidth={1.6} className="transition-colors text-muted-foreground/70 group-hover:text-emerald-500 fill-none" />
@@ -1179,14 +1190,35 @@ export const MomentPost = memo(function MomentPost({
         <div className="t-panel-slide" data-open={showCommentInput}>
           <form onSubmit={handleAddComment} className="flex gap-2 items-center mt-2 max-w-lg">
             <input
+              ref={commentInputRef}
               type="text"
-              placeholder="评论这一刻..."
+              placeholder={replyTarget ? `回复 @${replyTarget}... (ESC取消)` : "评论这一刻..."}
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  if (replyTarget) {
+                    setReplyTarget(null);
+                  } else {
+                    setShowCommentInput(false);
+                  }
+                }
+              }}
               className="flex-1 text-xs sm:text-sm px-3 py-1.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring"
               required
               autoFocus={showCommentInput}
             />
+            {replyTarget && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setReplyTarget(null)}
+              >
+                取消回复
+              </Button>
+            )}
             <Button type="submit" size="sm" className="h-8" disabled={loading}>
               发送
             </Button>
@@ -1264,7 +1296,20 @@ export const MomentPost = memo(function MomentPost({
                               className={`group flex items-start justify-between text-[13px] sm:text-sm leading-relaxed p-1 rounded transition-colors ${isCommentHidden ? "bg-amber-500/10 border-l-2 border-amber-500 pl-1.5" : "hover:bg-muted/30"}`}
                             >
                               <div className="flex-1 min-w-0 pr-2">
-                                <span className="font-medium text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline">
+                                <span
+                                  onClick={() => {
+                                    if (!currentUser) {
+                                      toast.error("请先登录账户");
+                                      onRequireLogin?.();
+                                      return;
+                                    }
+                                    setReplyTarget(comment.userId.name);
+                                    setShowCommentInput(true);
+                                    setTimeout(() => commentInputRef.current?.focus(), 50);
+                                  }}
+                                  className="font-medium text-[#576B95] dark:text-blue-400 cursor-pointer hover:underline"
+                                  title="点击回复TA"
+                                >
                                   {comment.userId.name}
                                 </span>
                                 {isCommentHidden && (

@@ -544,6 +544,7 @@ export function TimelineShell({
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const coverRef = useRef<HTMLDivElement>(null);
+  const headerSentinelRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
 
@@ -618,17 +619,18 @@ export function TimelineShell({
   }, [editorOpen]);
 
   useEffect(() => {
-    const el = coverRef.current;
-    if (!el) return;
+    // 监听头部区域离开视口时展示吸顶栏
+    const target = coverRef.current || headerSentinelRef.current;
+    if (!target) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         setShowStickyBar(!entry.isIntersecting);
       },
       { threshold: 0 }
     );
-    observer.observe(el);
+    observer.observe(target);
     return () => observer.disconnect();
-  }, []);
+  }, [themeReady, resolvedTheme.features.showCoverImage]);
 
   useEffect(() => {
     if (!hasMore || !sentinelRef.current) return;
@@ -1014,7 +1016,7 @@ export function TimelineShell({
 
       {/* Cover Photo Banner / Minimal Header */}
       {!themeReady ? (
-        <div className="w-full h-[260px] sm:h-[300px] bg-card" />
+        <div ref={headerSentinelRef} className="w-full h-[260px] sm:h-[300px] bg-card" />
       ) : resolvedTheme.features.showCoverImage ? (
         <div
           ref={coverRef}
@@ -1208,7 +1210,7 @@ export function TimelineShell({
         </div>
       ) : (
         /* Minimal layout if cover is hidden (like WeChat, where avatar & name is placed inside a clean header) */
-        <div className="w-full pt-16 px-4 pb-4 flex justify-between items-end border-b border-border bg-card">
+        <div ref={headerSentinelRef} className="w-full pt-16 px-4 pb-4 flex justify-between items-end border-b border-border bg-card">
           <div className="space-y-1.5 text-left flex-1 min-w-0 pr-4">
             <h2 className="font-bold text-xl text-foreground leading-tight truncate">
               {profileUser.name}

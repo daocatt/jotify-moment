@@ -1,0 +1,2 @@
+CREATE INDEX "comments_post_created_at_idx" ON "comments" USING btree ("post_id","created_at");--> statement-breakpoint
+CREATE INDEX "reactions_post_emoji_idx" ON "reactions" USING btree ("post_id","emoji");
