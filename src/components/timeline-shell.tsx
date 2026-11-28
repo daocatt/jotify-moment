@@ -567,7 +567,7 @@ export function TimelineShell({
       const clientId = encodeURIComponent(window.location.hostname);
       const redirectUri = encodeURIComponent(`${protocol}//${window.location.hostname}/api/auth/oauth2/callback`);
       const state = encodeURIComponent(window.location.href);
-      window.location.href = `${protocol}//${mainHost}/api/auth/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+      window.location.href = `${protocol}//${mainHost}/api/auth/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&prompt=register`;
     } else {
       setAuthModalMode("register");
       setAuthModalOpen(true);
@@ -882,16 +882,30 @@ export function TimelineShell({
           >
             <button
               type="button"
-              onClick={() => currentUser && (isOwnPage ? router.push("/settings") : goToOwnHome())}
-              className={`block size-full relative ${currentUser ? "cursor-pointer" : "cursor-default"}`}
-              title={currentUser ? (isOwnPage ? "个人设置" : "我的主页") : undefined}
+              onClick={() => {
+                if (currentUser) {
+                  if (isOwnPage) {
+                    router.push("/settings");
+                  } else {
+                    goToOwnHome();
+                  }
+                } else {
+                  handleLoginClick();
+                }
+              }}
+              className="block size-full relative cursor-pointer"
+              title={currentUser ? (isOwnPage ? "个人设置" : "我的主页") : "点击登录"}
             >
               {currentUser?.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
+              ) : currentUser ? (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
-                  {currentUser ? currentUser.name.charAt(0) : "G"}
+                  {currentUser.name.charAt(0)}
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <CircleUserRound size={15} />
                 </div>
               )}
               {currentUser && isOwnPage && (

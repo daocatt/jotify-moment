@@ -16,6 +16,7 @@ import { AdminConsoleClient } from "@/app/admin/admin-console-client";
 import InitPage from "@/app/init/page";
 import { ResetPasswordClient } from "@/app/reset-password/reset-password-client";
 import { GuestProfileClient } from "@/app/guest-profile/guest-profile-client";
+import { AuthPageClient } from "@/app/auth/auth-page-client";
 
 interface AppProps {
   initialData?: Record<string, unknown>;
@@ -126,6 +127,8 @@ export function App({ initialData }: AppProps) {
         <Route path="/init" element={<InitPage />} />
         <Route path="/reset-password" element={<ResetPasswordClient />} />
         <Route path="/guest-profile" element={<GuestProfileClient />} />
+        <Route path="/login" element={<AuthPageClient initialMode="login" />} />
+        <Route path="/register" element={<AuthPageClient initialMode="register" />} />
       </Routes>
       <Toaster position="top-center" richColors closeButton />
     </ThemeProvider>

@@ -119,6 +119,15 @@ export async function loadUserHomePage(slug: string, reqHeaders?: Headers): Prom
   const host = (reqHeaders?.get("x-forwarded-host") || reqHeaders?.get("host") || "").split(",")[0].trim();
   const proto = reqHeaders?.get("x-forwarded-proto") === "https" ? "https" : "http";
 
+  // 当在主域名访问已配置自定义域名的用户主页时，自动 302 重定向到其自定义域名
+  if (!isCustomDomain && user?.customDomain && user.allowCustomDomain && user.customDomainStatus === "approved") {
+    return {
+      initialData: {},
+      metadata: { title: user.name },
+      redirectUrl: `https://${user.customDomain}/`,
+    };
+  }
+
   let canonical: string;
   if (isCustomDomain) {
     canonical = `${proto}://${host}/`;

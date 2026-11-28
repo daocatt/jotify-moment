@@ -672,4 +672,40 @@ export async function guestSendResetPasswordAction(origin: string) {
   }
 }
 
-    
+/**
+ * 校验并获取自定义域名客户端信息（用于 OAuth 独立登录/注册落地页）
+ */
+export async function getOAuthClientInfoAction(clientId: string) {
+  if (!clientId) return { valid: false };
+  try {
+    const domainUser = await db.query.users.findFirst({
+      where: and(
+        eq(users.customDomain, clientId.toLowerCase().trim()),
+        eq(users.allowCustomDomain, true)
+      ),
+      columns: {
+        id: true,
+        name: true,
+        customDomain: true,
+        avatar: true,
+      },
+    });
+
+    if (!domainUser) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      client: {
+        domain: domainUser.customDomain,
+        ownerName: domainUser.name,
+        ownerAvatar: domainUser.avatar,
+      },
+    };
+  } catch (error) {
+    console.error("getOAuthClientInfoAction error:", error);
+    return { valid: false };
+  }
+}
+

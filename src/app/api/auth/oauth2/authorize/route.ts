@@ -59,7 +59,9 @@ export async function GET(request: NextRequest) {
     const mainHostEnv = process.env.MAIN_HOST || "";
     const primaryHost = mainHostEnv.split(",").map(h => h.trim()).filter(Boolean)[0] || request.headers.get("host") || "localhost:3000";
     const proto = request.headers.get("x-forwarded-proto") || "https";
-    const loginUrl = new URL(`/?oauth_action=authorize&oauth_return=${encodeURIComponent(returnTo)}`, `${proto}://${primaryHost}`);
+    const prompt = searchParams.get("prompt");
+    const loginPath = prompt === "register" ? "/register" : "/login";
+    const loginUrl = new URL(`${loginPath}?client_id=${encodeURIComponent(clientId)}&oauth_return=${encodeURIComponent(returnTo)}`, `${proto}://${primaryHost}`);
     return NextResponse.redirect(loginUrl);
   }
 

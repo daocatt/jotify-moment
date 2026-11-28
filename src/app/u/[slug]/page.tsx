@@ -70,6 +70,7 @@ export async function generateMetadata({
 }
 
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { getUserPostsAction, getUserPinnedPostsAction } from "@/app/actions/posts";
 import type { PostData } from "@/components/timeline-shell";
 
@@ -90,6 +91,11 @@ export default async function UserHomePage({
   const mainHost = process.env.MAIN_HOST?.split(",")[0] || "localhost:3000";
 
   const initialUser = "user" in userRes && userRes.user ? userRes.user : null;
+
+  // 当在主域名访问已启用自定义域名的用户主页时，302 重定向到其自定义域名
+  if (!isCustomDomain && initialUser?.customDomain && initialUser.allowCustomDomain && initialUser.customDomainStatus === "approved") {
+    redirect(`https://${initialUser.customDomain}/`);
+  }
   const initialPinnedPosts =
     "posts" in pinnedRes && pinnedRes.posts
       ? (pinnedRes.posts.map((p) => ({ ...p, user: (p as Record<string, unknown>).author })) as PostData[])

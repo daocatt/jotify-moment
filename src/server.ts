@@ -445,6 +445,20 @@ app.get("/guest-profile", (c) =>
     "/guest-profile"
   )
 );
+app.get("/login", (c) =>
+  handleSsr(
+    c,
+    async () => ({ initialData: {}, metadata: { title: "登录 - Jotify Moment" } }),
+    "/login"
+  )
+);
+app.get("/register", (c) =>
+  handleSsr(
+    c,
+    async () => ({ initialData: {}, metadata: { title: "注册 - Jotify Moment" } }),
+    "/register"
+  )
+);
 
 // Fallback SPA route handler
 app.get("*", (c) =>
